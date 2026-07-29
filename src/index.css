@@ -608,6 +608,63 @@ body {
   margin-bottom: 12px;
 }
 
+.worker-card-skeleton {
+  min-height: 118px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: white;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.worker-card-skeleton div,
+.worker-card-skeleton span {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #eef3f8 0%, #f7f9fc 50%, #eef3f8 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.worker-card-skeleton div {
+  width: 64px;
+  height: 64px;
+}
+
+.worker-card-skeleton section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+}
+
+.worker-card-skeleton span:nth-child(1) {
+  width: 70%;
+  height: 16px;
+}
+
+.worker-card-skeleton span:nth-child(2) {
+  width: 52%;
+  height: 12px;
+}
+
+.worker-card-skeleton span:nth-child(3) {
+  width: 86%;
+  height: 12px;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 @media (max-width: 360px) {
   .search-filter-grid {
     grid-template-columns: 1fr 1fr;

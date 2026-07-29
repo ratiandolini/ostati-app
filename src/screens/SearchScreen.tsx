@@ -14,6 +14,20 @@ interface SearchScreenProps {
   initialCategory?: string;
 }
 
+type SearchSort = "rating" | "exp" | "avail" | "new" | "popular" | "price";
+
+const searchSortOptions: Array<{ value: SearchSort; label: string }> = [
+  { value: "rating", label: "შეფასება" },
+  { value: "exp", label: "გამოცდილება" },
+  { value: "avail", label: "ხელმისაწვდომი" },
+  { value: "new", label: "ბოლოს დამატებული" },
+  { value: "popular", label: "პოპულარული" },
+  { value: "price", label: "ფასი დაბლიდან" },
+];
+
+const isSearchSort = (value: string): value is SearchSort =>
+  searchSortOptions.some((option) => option.value === value);
+
 export const SearchScreen: React.FC<SearchScreenProps> = ({
   onWorkerSelect,
   initialCategory = "all",
@@ -21,9 +35,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [city, setCity] = useState("all");
-  const [sortBy, setSortBy] = useState<
-    "rating" | "exp" | "avail" | "new" | "popular" | "price"
-  >("rating");
+  const [sortBy, setSortBy] = useState<SearchSort>("rating");
   const { workers: allWorkers, loading, error } = useWorkerCatalog();
   const cities = useMemo(
     () => ["all", ...georgiaCities],
@@ -257,7 +269,11 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
             დალაგება
             <select
               value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as any)}
+              onChange={(event) => {
+                if (isSearchSort(event.target.value)) {
+                  setSortBy(event.target.value);
+                }
+              }}
               style={{
                 width: "100%",
                 height: 42,
@@ -273,12 +289,11 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
                 textOverflow: "ellipsis",
               }}
             >
-              <option value="rating">შეფასება</option>
-              <option value="exp">გამოცდილება</option>
-              <option value="avail">ხელმისაწვდომი</option>
-              <option value="new">ბოლოს დამატებული</option>
-              <option value="popular">პოპულარული</option>
-              <option value="price">ფასი დაბლიდან</option>
+              {searchSortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -310,7 +325,20 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
             რეალური სია ვერ ჩაიტვირთა, ნაჩვენებია demo მონაცემები.
           </div>
         )}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="worker-card-skeleton">
+                <div />
+                <section>
+                  <span />
+                  <span />
+                  <span />
+                </section>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "50px 20px" }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
             <div

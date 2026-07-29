@@ -9,6 +9,7 @@ import {
 } from "../services/profileApiService";
 import { loadMyClientPoints } from "../services/reviewApiService";
 import { mergeClientPointsWithLocalAwards } from "../services/clientPointsCache";
+import { clientProfileSchema, getValidationMessage } from "../services/validation";
 
 interface ProfileUserScreenProps {
   user: User;
@@ -210,6 +211,19 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
   const handleSaveProfile = async () => {
     setUploadError("");
     setSaveMessage("");
+
+    const validation = clientProfileSchema.safeParse({
+      firstName,
+      lastName,
+      contactPhone,
+      city,
+      address,
+    });
+
+    if (!validation.success) {
+      setUploadError(getValidationMessage(validation.error, "პროფილის მონაცემები გადაამოწმეთ"));
+      return;
+    }
 
     if (isDemoDataMode) {
       dataService.saveClientProfile(user.phone, {

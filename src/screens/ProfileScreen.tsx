@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Worker } from "../types";
 import { dataService } from "../services/dataService";
 import { getBookingQuestionFields } from "../services/professionQuestions";
+import { bookingAddressSchema, getValidationMessage } from "../services/validation";
 
 interface ProfileScreenProps {
   worker: Worker;
@@ -310,8 +311,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const submitBooking = async () => {
     if (bookingSubmitting || !selectedTime) return;
     setBookingSubmitError("");
-    if (!bookingDetails.visitAddress.trim()) {
-      setBookingSubmitError("მიუთითე მისამართი, სადაც ხელოსანი უნდა მოვიდეს.");
+
+    const validation = bookingAddressSchema.safeParse({
+      visitAddress: bookingDetails.visitAddress,
+    });
+
+    if (!validation.success) {
+      setBookingSubmitError(
+        getValidationMessage(validation.error, "მიუთითე მისამართი, სადაც ხელოსანი უნდა მოვიდეს.")
+      );
       return;
     }
     setBookingSubmitting(true);

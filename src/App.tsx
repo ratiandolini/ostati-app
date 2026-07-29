@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate as useRouterNavigate } from "react-router-dom";
 import { BookingStatus, Screen, Worker, User, UserRole } from "./types";
 import { LoginScreen } from "./screens/LoginScreen";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -97,6 +98,20 @@ const archivedBookingStatuses = new Set<BookingStatus>([
 
 const isActiveBookingStatus = (status?: BookingStatus) =>
   !archivedBookingStatuses.has(status || "pending");
+
+const screenPathMap: Partial<Record<Screen, string>> = {
+  home: "/",
+  search: "/search",
+  bookings: "/bookings",
+  messages: "/messages",
+  "user-profile": "/profile",
+};
+
+const screenFromPath = (path: string): Screen | null => {
+  const normalized = path.replace(/\/+$/, "") || "/";
+  const match = Object.entries(screenPathMap).find(([, route]) => route === normalized);
+  return (match?.[0] as Screen | undefined) || null;
+};
 
 type AccountStatus = NonNullable<ClientProfile["accountStatus"]>;
 
@@ -243,6 +258,8 @@ const VerificationRequiredScreen: React.FC<{
 );
 
 const App: React.FC = () => {
+  const location = useLocation();
+  const routerNavigate = useRouterNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [screen, setScreen] = useState<Screen>("home");
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
@@ -380,6 +397,35 @@ const App: React.FC = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (restoringSession) return;
+    if (!user) {
+      if (location.pathname !== "/login") {
+        routerNavigate("/login", { replace: true });
+      }
+      return;
+    }
+    if (user.role === "admin") {
+      if (location.pathname !== "/admin") {
+        routerNavigate("/admin", { replace: true });
+      }
+      return;
+    }
+
+    const routeScreen = screenFromPath(location.pathname);
+    if (routeScreen && routeScreen !== screen) {
+      setScreen(routeScreen);
+    }
+  }, [location.pathname, restoringSession, routerNavigate, screen, user]);
+
+  useEffect(() => {
+    if (!user || user.role === "admin") return;
+    const nextPath = screenPathMap[screen];
+    if (nextPath && location.pathname !== nextPath) {
+      routerNavigate(nextPath);
+    }
+  }, [location.pathname, routerNavigate, screen, user]);
 
   useEffect(() => {
     if (isDemoDataMode || !user) return;

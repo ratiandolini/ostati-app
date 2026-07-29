@@ -6,6 +6,11 @@ import {
   usesEmailPasswordAuth,
   verifyPhoneOtp,
 } from "../services/supabaseAuthService";
+import {
+  emailLoginSchema,
+  getValidationMessage,
+  phoneLoginSchema,
+} from "../services/validation";
 
 interface LoginScreenProps {
   onLogin: (
@@ -52,17 +57,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   };
 
   const handleSendCode = async () => {
-    if (emailAuth) {
-      if (!/^\S+@\S+\.\S+$/.test(phone.trim())) {
-        setError("სწორი ელ.ფოსტა შეიყვანეთ");
-        return;
-      }
-      if (password.length < 6) {
-        setError("პაროლი მინიმუმ 6 სიმბოლო უნდა იყოს");
-        return;
-      }
-    } else if (phone.length < 9) {
-      setError("სწორი ნომერი შეიყვანეთ");
+    const validation = emailAuth
+      ? emailLoginSchema.safeParse({ email: phone, password })
+      : phoneLoginSchema.safeParse({ phone });
+
+    if (!validation.success) {
+      setError(getValidationMessage(validation.error, "მონაცემები გადაამოწმეთ"));
       return;
     }
 
