@@ -39,6 +39,13 @@ export const accountLabel: Record<
   blocked: "დაბლოკილი",
 };
 
+export const adminAccountLabel = (
+  status?: ClientProfile["accountStatus"] | "pending"
+) => {
+  if (status === "pending") return "მოლოდინში";
+  return accountLabel[status || "active"];
+};
+
 export const auditLabel: Record<AdminAuditLog["action"], string> = {
   verification_approved: "ვერიფიკაცია დადასტურდა",
   verification_rejected: "ვერიფიკაცია უარყოფილია",

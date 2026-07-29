@@ -3,6 +3,7 @@ import { BookingStatus, User } from "../types";
 import { actionButton, adminCard } from "../components/admin/adminUi";
 import {
   accountLabel,
+  adminAccountLabel,
   auditLabel,
   paymentStatusHelp,
   paymentStatusLabel,
@@ -123,13 +124,6 @@ const tabPermission: Record<AdminTab, AdminPermission | "overview"> = {
   users: "users",
   settings: "settings",
   audit: "audit",
-};
-
-const adminAccountLabel = (
-  status?: AdminUserSummary["status"] | ClientProfile["accountStatus"]
-) => {
-  if (status === "pending") return "მოლოდინში";
-  return accountLabel[status || "active"];
 };
 
 export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
