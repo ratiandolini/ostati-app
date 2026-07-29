@@ -30,6 +30,11 @@ import {
   PREFLIGHT_MAX_AGE_MS,
   saveCachedPreflightState,
 } from "../components/admin/adminPreflightCache";
+import {
+  appendDemoSystemMessage,
+  prependDemoBookingNotification,
+  prependDemoCraftsmanNotification,
+} from "../components/admin/adminDemoEffects";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   apiMigrationItems,
@@ -117,52 +122,6 @@ const adminAccountLabel = (
 ) => {
   if (status === "pending") return "მოლოდინში";
   return accountLabel[status || "active"];
-};
-
-const appendDemoSystemMessage = (bookingId: string, text: string) => {
-  const current = dataService.getBookingMessages();
-  dataService.saveBookingMessages([
-    ...current,
-    {
-      id: `${bookingId}-system-${Date.now()}`,
-      bookingId,
-      sender: "system",
-      text,
-      createdAt: new Date().toISOString(),
-    },
-  ]);
-};
-
-const prependDemoBookingNotification = (
-  bookingId: string,
-  title: string,
-  text: string
-) => {
-  dataService.prependClientNotification({
-    id: `${bookingId}-notice-${Date.now()}`,
-    bookingId,
-    type: "confirmed",
-    title,
-    text,
-    readAt: null,
-    createdAt: new Date().toISOString(),
-  });
-};
-
-const prependDemoCraftsmanNotification = (
-  bookingId: string,
-  title: string,
-  text: string
-) => {
-  dataService.prependCraftsmanNotification({
-    id: `${bookingId}-craftsman-notice-${Date.now()}`,
-    bookingId,
-    type: "confirmed",
-    title,
-    text,
-    readAt: null,
-    createdAt: new Date().toISOString(),
-  });
 };
 
 const bookingStatusPriority: Record<BookingStatus, number> = {
