@@ -52,6 +52,7 @@ import type {
   AdminPermission,
   AdminTab,
 } from "../components/admin/adminPermissions";
+import { getProductionGuardItems } from "../components/admin/adminProductionGuard";
 import {
   adminProviderFields,
   legalSettingFields,
@@ -609,56 +610,14 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     activeAdminMemberCount: adminMembers.filter((member) => member.active).length,
     apiMigrationSummary,
   });
-  const productionGuardItems = [
-    ...draftProductionReadiness
-      .filter((item) => item.id !== "production_mode" && !item.ready)
-      .map((item) => ({
-        id: item.id,
-        label: item.label,
-        detail: item.detail,
-        severity: item.severity,
-      })),
-    ...(mobileQaNotes.length > 0
-      ? [
-          {
-            id: "mobile_qa_notes",
-            label: "Mobile QA შენიშვნები",
-            detail: `${mobileQaNotes.length} შენიშვნა დარჩენილია. Ready report-მდე ან გაასწორე საკითხი, ან წაშალე შენიშვნა.`,
-            severity: "warning" as const,
-          },
-        ]
-      : []),
-    ...(!isDemoDataMode && preflightChecks.length === 0
-      ? [
-          {
-            id: "supabase_preflight_missing",
-            label: "Supabase preflight",
-            detail: "ჯერ Settings-ში დააჭირე Supabase შემოწმებას.",
-            severity: "blocked" as const,
-          },
-        ]
-      : []),
-    ...(!isDemoDataMode && preflightChecks.length > 0 && !preflightFresh
-      ? [
-          {
-            id: "supabase_preflight_stale",
-            label: "Supabase preflight",
-            detail: "შემოწმება 24 საათზე ძველია, თავიდან გაუშვი.",
-            severity: "blocked" as const,
-          },
-        ]
-      : []),
-    ...(!isDemoDataMode && preflightSummary.requiredErrors > 0
-      ? [
-          {
-            id: "supabase_preflight_errors",
-            label: "Supabase preflight",
-            detail: `${preflightSummary.requiredErrors} აუცილებელი შეცდომაა გასასწორებელი.`,
-            severity: "blocked" as const,
-          },
-        ]
-      : []),
-  ];
+  const productionGuardItems = getProductionGuardItems({
+    draftProductionReadiness,
+    mobileQaNotesCount: mobileQaNotes.length,
+    isDemoDataMode,
+    preflightChecksCount: preflightChecks.length,
+    preflightFresh,
+    preflightRequiredErrors: preflightSummary.requiredErrors,
+  });
   const checklistItem = (id: string) =>
     prePaymentChecklist.find((item) => item.id === id);
   const qaItem = (id: string) =>
