@@ -1,0 +1,23 @@
+@import
+url('https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+:root { --bg: #0F0F1A; --bg2: #16162A; --bg3: #1E1E35; --bg4: #252540; --accent:
+#6C63FF; --accent2: #FF6584; --accent3: #43E6B5; --text: #F0F0FF; --text2:
+#A0A0C0; --text3: #606080; --border: rgba(255,255,255,0.08); --border2:
+rgba(255,255,255,0.14); --radius: 16px; --radius-sm: 10px; --shadow: 0 8px 32px
+rgba(0,0,0,0.4); --nav-h: 68px; --safe-bottom: env(safe-area-inset-bottom, 0px);
+--safe-top: env(safe-area-inset-top, 0px); } * { box-sizing: border-box; margin:
+0; padding: 0; -webkit-tap-highlight-color: transparent; } html, body { height:
+100%; width: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+font-family: 'Noto Sans Georgian', 'Outfit', sans-serif; -webkit-font-smoothing:
+antialiased; } #root { height: 100%; width: 100%; max-width: 430px; margin: 0
+auto; position: relative; overflow: hidden; background: var(--bg); } button {
+font-family: inherit; cursor: pointer; border: none; outline: none; } input {
+font-family: inherit; outline: none; border: none; } ::-webkit-scrollbar {
+display: none; } * { scrollbar-width: none; } @keyframes fadeUp { from {
+opacity: 0; transform: translateY(20px); } to { opacity: 1; transform:
+translateY(0); } } @keyframes slideIn { from { transform: translateX(100%); } to
+{ transform: translateX(0); } } @keyframes slideUp { from { transform:
+translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.fade-up { animation: fadeUp 0.4s ease both; } .slide-in { animation: slideIn
+0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; } .slide-up { animation:
+slideUp 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }

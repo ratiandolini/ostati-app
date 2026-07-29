@@ -1,0 +1,7 @@
+.env
+.env.local
+node_modules/
+build/
+NETLIFY_UPLOAD_THIS/
+NETLIFY_UPLOAD_*/
+tmp-test-assets/
