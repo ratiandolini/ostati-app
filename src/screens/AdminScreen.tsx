@@ -23,6 +23,13 @@ import {
   parseFirstAmount,
   penaltyAmountForBooking,
 } from "../components/admin/adminUtils";
+import {
+  clearCachedPreflightState,
+  getPreflightCacheScope,
+  loadCachedPreflightState,
+  PREFLIGHT_MAX_AGE_MS,
+  saveCachedPreflightState,
+} from "../components/admin/adminPreflightCache";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   apiMigrationItems,
@@ -60,7 +67,6 @@ import {
   runSupabasePreflightChecks,
 } from "../services/supabasePreflightService";
 import type { SupabasePreflightCheck } from "../services/supabasePreflightService";
-import { getSupabaseConfig } from "../services/supabaseConfig";
 import { createSignedStorageUrl } from "../services/supabaseStorageService";
 import type {
   AdminAuditLog,
@@ -111,83 +117,6 @@ const adminAccountLabel = (
 ) => {
   if (status === "pending") return "მოლოდინში";
   return accountLabel[status || "active"];
-};
-
-const PREFLIGHT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const PREFLIGHT_CACHE_KEY = "adminSupabasePreflight:v1";
-
-interface CachedPreflightState {
-  checks: SupabasePreflightCheck[];
-  checkedAt: string | null;
-  scope: string;
-}
-
-const getPreflightCacheScope = () => {
-  if (isDemoDataMode) return "demo";
-
-  try {
-    return new URL(getSupabaseConfig().url).host;
-  } catch {
-    return "missing-supabase-config";
-  }
-};
-
-const emptyCachedPreflightState = (): CachedPreflightState => ({
-  checks: [],
-  checkedAt: null,
-  scope: getPreflightCacheScope(),
-});
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const loadCachedPreflightState = (): CachedPreflightState => {
-  if (typeof window === "undefined") {
-    return emptyCachedPreflightState();
-  }
-
-  try {
-    const raw = window.localStorage.getItem(PREFLIGHT_CACHE_KEY);
-    if (!raw) return emptyCachedPreflightState();
-    const parsed: unknown = JSON.parse(raw);
-    const scope = getPreflightCacheScope();
-    if (
-      !isRecord(parsed) ||
-      !Array.isArray(parsed.checks) ||
-      parsed.scope !== scope
-    ) {
-      window.localStorage.removeItem(PREFLIGHT_CACHE_KEY);
-      return emptyCachedPreflightState();
-    }
-    return {
-      checks: parsed.checks as SupabasePreflightCheck[],
-      checkedAt: typeof parsed.checkedAt === "string" ? parsed.checkedAt : null,
-      scope,
-    };
-  } catch {
-    window.localStorage.removeItem(PREFLIGHT_CACHE_KEY);
-    return emptyCachedPreflightState();
-  }
-};
-
-const saveCachedPreflightState = (state: CachedPreflightState) => {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage.setItem(PREFLIGHT_CACHE_KEY, JSON.stringify(state));
-  } catch {
-    // Cache is only a convenience; failing to save it must not block Admin work.
-  }
-};
-
-const clearCachedPreflightState = () => {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage.removeItem(PREFLIGHT_CACHE_KEY);
-  } catch {
-    // Clearing cache is a convenience action; UI state still resets below.
-  }
 };
 
 const appendDemoSystemMessage = (bookingId: string, text: string) => {
