@@ -205,6 +205,9 @@ const emptyCachedPreflightState = (): CachedPreflightState => ({
   scope: getPreflightCacheScope(),
 });
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 const loadCachedPreflightState = (): CachedPreflightState => {
   if (typeof window === "undefined") {
     return emptyCachedPreflightState();
@@ -213,17 +216,23 @@ const loadCachedPreflightState = (): CachedPreflightState => {
   try {
     const raw = window.localStorage.getItem(PREFLIGHT_CACHE_KEY);
     if (!raw) return emptyCachedPreflightState();
-    const parsed = JSON.parse(raw) as Partial<CachedPreflightState>;
+    const parsed: unknown = JSON.parse(raw);
     const scope = getPreflightCacheScope();
-    if (!Array.isArray(parsed.checks) || parsed.scope !== scope) {
+    if (
+      !isRecord(parsed) ||
+      !Array.isArray(parsed.checks) ||
+      parsed.scope !== scope
+    ) {
+      window.localStorage.removeItem(PREFLIGHT_CACHE_KEY);
       return emptyCachedPreflightState();
     }
     return {
-      checks: parsed.checks,
-      checkedAt: parsed.checkedAt || null,
+      checks: parsed.checks as SupabasePreflightCheck[],
+      checkedAt: typeof parsed.checkedAt === "string" ? parsed.checkedAt : null,
       scope,
     };
   } catch {
+    window.localStorage.removeItem(PREFLIGHT_CACHE_KEY);
     return emptyCachedPreflightState();
   }
 };

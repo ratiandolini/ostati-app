@@ -389,6 +389,18 @@ const money = (value?: number | string, currency = "GEL") => {
   return `${amount.toFixed(amount % 1 ? 2 : 0)} ${currency}`;
 };
 
+const parseSnapshotRecord = (snapshot: string): Record<string, unknown> => {
+  try {
+    const parsed: unknown = JSON.parse(snapshot);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return {};
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+};
+
 const getWorkerPaymentMeta = (booking: Booking) => {
   const status = booking.paymentStatus || "held";
   const amount = booking.bookingFee || dataService.getPlatformSettings().bookingFee;
@@ -1543,7 +1555,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         onProfileUpdated?.({ firstName, lastName, photoUrl: uploaded.publicUrl });
         setSavedProfileSnapshot(
           JSON.stringify({
-            ...JSON.parse(profileSnapshot),
+            ...parseSnapshotRecord(profileSnapshot),
             profilePhoto: uploaded.publicUrl,
           })
         );

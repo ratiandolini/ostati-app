@@ -251,16 +251,35 @@ export interface UnavailableRange {
   end: string;
 }
 
+const safeParseJson = (raw: string): unknown => {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+};
+
 const readJson = <T,>(key: string, fallback: T): T => {
+  if (typeof window === "undefined") return fallback;
+
   try {
     const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
+    if (!raw) return fallback;
+
+    const parsed = safeParseJson(raw);
+    if (parsed === undefined) {
+      window.localStorage.removeItem(key);
+      return fallback;
+    }
+
+    return parsed as T;
   } catch {
     return fallback;
   }
 };
 
 const writeJson = <T,>(key: string, value: T) => {
+  if (typeof window === "undefined") return;
   window.localStorage.setItem(key, JSON.stringify(value));
 };
 
