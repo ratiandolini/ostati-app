@@ -25,6 +25,7 @@ import {
   submitBookingReview,
 } from "../services/reviewApiService";
 import {
+  clientReviewSchema,
   craftsmanProfileSchema,
   getValidationMessage,
 } from "../services/validation";
@@ -1324,6 +1325,11 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
   const completeBooking = async () => {
     if (!completingBooking) return;
+    const validation = clientReviewSchema.safeParse(clientRating);
+    if (!validation.success) {
+      setReviewError(getValidationMessage(validation.error, "კლიენტის შეფასება სრულად შეავსეთ"));
+      return;
+    }
     const target = completingBooking;
     if (!isDemoDataMode) {
       setBookingActionId(target.id);

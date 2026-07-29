@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Worker } from "../types";
 import { dataService } from "../services/dataService";
 import { getBookingQuestionFields } from "../services/professionQuestions";
-import { bookingAddressSchema, getValidationMessage } from "../services/validation";
+import { bookingDetailsSchema, getValidationMessage } from "../services/validation";
 
 interface ProfileScreenProps {
   worker: Worker;
@@ -312,9 +312,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (bookingSubmitting || !selectedTime) return;
     setBookingSubmitError("");
 
-    const validation = bookingAddressSchema.safeParse({
-      visitAddress: bookingDetails.visitAddress,
-    });
+    const validation = bookingDetailsSchema.safeParse(bookingDetails);
 
     if (!validation.success) {
       setBookingSubmitError(

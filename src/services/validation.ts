@@ -1,6 +1,19 @@
 import { z } from "zod";
 
 const georgianPhoneRegex = /^\d{9}$/;
+const optionalNumericText = (label: string) =>
+  z
+    .string()
+    .trim()
+    .optional()
+    .refine((value) => !value || Number.isFinite(Number(value)), {
+      message: `${label} რიცხვით მიუთითეთ`,
+    });
+
+const starScore = z
+  .number()
+  .min(1, "ყველა კრიტერიუმზე მინიმუმ 1 ვარსკვლავი მონიშნეთ")
+  .max(5, "შეფასება მაქსიმუმ 5 ვარსკვლავია");
 
 export const emailLoginSchema = z.object({
   email: z.string().trim().email("სწორი ელ.ფოსტა შეიყვანეთ"),
@@ -68,6 +81,40 @@ export const craftsmanProfileSchema = z
 
 export const bookingAddressSchema = z.object({
   visitAddress: z.string().trim().min(4, "სამუშაო მისამართის მითითება აუცილებელია"),
+});
+
+export const bookingDetailsSchema = bookingAddressSchema.extend({
+  area: optionalNumericText("სამუშაო ფართი"),
+  height: optionalNumericText("სამუშაო სიმაღლე"),
+  length: optionalNumericText("სამუშაო სიგრძე"),
+  rooms: optionalNumericText("ოთახების რაოდენობა"),
+  floor: optionalNumericText("სართული"),
+  electricPoints: optionalNumericText("წერტილების რაოდენობა"),
+});
+
+export const cancellationSchema = z.object({
+  reason: z.string().trim().min(3, "გაუქმების მიზეზი აირჩიეთ"),
+});
+
+export const disputeSchema = z.object({
+  reason: z.string().trim().min(3, "პრობლემის მიზეზი აირჩიეთ"),
+  details: z
+    .string()
+    .trim()
+    .min(12, "აღწერაში მინიმუმ 12 სიმბოლო დაწერეთ, რომ Admin-მა საკითხი გაიგოს"),
+});
+
+export const craftsmanReviewSchema = z.object({
+  quality: starScore,
+  punctuality: starScore,
+  cleanliness: starScore,
+  deadline: starScore,
+});
+
+export const clientReviewSchema = z.object({
+  communication: starScore,
+  timeManagement: starScore,
+  clarity: starScore,
 });
 
 export const getValidationMessage = (error: unknown, fallback: string) => {

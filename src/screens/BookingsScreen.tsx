@@ -19,6 +19,12 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "../services/notificationApiService";
+import {
+  cancellationSchema,
+  craftsmanReviewSchema,
+  disputeSchema,
+  getValidationMessage,
+} from "../services/validation";
 
 export interface Booking {
   worker: Worker;
@@ -543,7 +549,12 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   ];
 
   const submitCancel = async () => {
-    if (!cancelBooking || !cancelReason) return;
+    if (!cancelBooking) return;
+    const validation = cancellationSchema.safeParse({ reason: cancelReason });
+    if (!validation.success) {
+      setCancelError(getValidationMessage(validation.error, "გაუქმების მიზეზი აირჩიეთ"));
+      return;
+    }
     try {
       setCancelError("");
       await onCancelBooking(cancelBooking.id, cancelReason);
@@ -587,7 +598,17 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   };
 
   const submitProblem = async () => {
-    if (!problemBooking || !problemReason) return;
+    if (!problemBooking) return;
+    const validation = disputeSchema.safeParse({
+      reason: problemReason,
+      details: problemDetails,
+    });
+    if (!validation.success) {
+      setProblemError(
+        getValidationMessage(validation.error, "პრობლემის დეტალები გადაამოწმეთ")
+      );
+      return;
+    }
     setProblemError("");
     let evidence = problemEvidence;
 
@@ -650,14 +671,12 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   };
 
   const submitReview = async () => {
-    if (
-      !reviewBooking ||
-      !reviewScores.quality ||
-      !reviewScores.punctuality ||
-      !reviewScores.cleanliness ||
-      !reviewScores.deadline
-    )
+    if (!reviewBooking) return;
+    const validation = craftsmanReviewSchema.safeParse(reviewScores);
+    if (!validation.success) {
+      setReviewError(getValidationMessage(validation.error, "შეფასება სრულად შეავსეთ"));
       return;
+    }
     if (reviewSubmitting) return;
     setReviewSubmitting(true);
     if (!isDemoDataMode) {
