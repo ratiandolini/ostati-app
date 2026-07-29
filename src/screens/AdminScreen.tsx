@@ -52,6 +52,10 @@ import type {
   AdminPermission,
   AdminTab,
 } from "../components/admin/adminPermissions";
+import {
+  getAdminSummaryCards,
+  getAdminWorkQueueItems,
+} from "../components/admin/adminOverviewConfig";
 import { getProductionGuardItems } from "../components/admin/adminProductionGuard";
 import {
   adminProviderFields,
@@ -1056,6 +1060,14 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     );
   };
   const interventionRequests = filteredRequests.filter(needsAdminIntervention);
+  const adminOverviewInput = {
+    verificationStatus,
+    openDisputesCount: openDisputes.length,
+    urgentDisputesCount: urgentDisputes.length,
+    interventionRequestsCount: interventionRequests.length,
+  };
+  const adminSummaryCards = getAdminSummaryCards(adminOverviewInput);
+  const adminWorkQueueItems = getAdminWorkQueueItems(adminOverviewInput);
   const visibleRegularRequests = filteredRequests.filter(
     (request) => !needsAdminIntervention(request)
   );
@@ -2339,32 +2351,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
 
       <div style={{ padding: "0 24px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-          {[
-            {
-              label: "შესამოწმებელი",
-              value: verificationStatus === "pending" ? 1 : 0,
-              hint: "ხელოსნის დოკუმენტები",
-              tabId: "verification" as const,
-              permission: "verification" as AdminPermission,
-              color: verificationStatus === "pending" ? "#c2410c" : "#64748b",
-            },
-            {
-              label: "ღია დავები",
-              value: openDisputes.length,
-              hint: urgentDisputes.length ? `${urgentDisputes.length} სასწრაფო` : "სასწრაფო არაა",
-              tabId: "disputes" as const,
-              permission: "disputes" as AdminPermission,
-              color: openDisputes.length ? "#b91c1c" : "#64748b",
-            },
-            {
-              label: "Admin ჩარევა",
-              value: interventionRequests.length,
-              hint: "პრობლემური ჯავშნები",
-              tabId: "bookings" as const,
-              permission: "bookings" as AdminPermission,
-              color: interventionRequests.length ? "#1d4ed8" : "#64748b",
-            },
-          ].filter((item) => can(item.permission)).map((item) => (
+          {adminSummaryCards.filter((item) => can(item.permission)).map((item) => (
             <button
               key={item.label}
               type="button"
@@ -2404,35 +2391,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             რა უნდა გააკეთოს Admin-მა ახლა
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginTop: 10 }}>
-            {[
-              {
-                label: verificationStatus === "pending"
-                  ? "ხელოსნის დოკუმენტები შესამოწმებელია"
-                  : "ვერიფიკაციის რიგი ცარიელია",
-                value: verificationStatus === "pending" ? 1 : 0,
-                color: verificationStatus === "pending" ? "#c2410c" : "#64748b",
-                tabId: "verification" as const,
-                permission: "verification" as AdminPermission,
-              },
-              {
-                label: openDisputes.length
-                  ? `${openDisputes.length} დავა საჭიროებს ყურადღებას`
-                  : "ღია დავა არ არის",
-                value: openDisputes.length,
-                color: openDisputes.length ? "#b91c1c" : "#64748b",
-                tabId: "disputes" as const,
-                permission: "disputes" as AdminPermission,
-              },
-              {
-                label: interventionRequests.length
-                  ? `${interventionRequests.length} პრობლემური ჯავშანია გადასამოწმებელი`
-                  : "პრობლემური ჯავშანი არ არის",
-                value: interventionRequests.length,
-                color: interventionRequests.length ? "#1d4ed8" : "#64748b",
-                tabId: "bookings" as const,
-                permission: "bookings" as AdminPermission,
-              },
-            ].filter((item) => can(item.permission)).map((item) => (
+            {adminWorkQueueItems.filter((item) => can(item.permission)).map((item) => (
               <button
                 key={item.label}
                 type="button"
