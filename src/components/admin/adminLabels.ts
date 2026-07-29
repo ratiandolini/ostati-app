@@ -1,4 +1,5 @@
 import type { BookingStatus } from "../../types";
+import type { Booking } from "../../screens/BookingsScreen";
 import type {
   AdminAuditLog,
   ClientProfile,
@@ -54,4 +55,34 @@ export const auditLabel: Record<AdminAuditLog["action"], string> = {
   launch_checklist_updated: "Launch checklist შეიცვალა",
   client_status_changed: "კლიენტის სტატუსი შეიცვალა",
   craftsman_status_changed: "ხელოსნის სტატუსი შეიცვალა",
+};
+
+export const paymentStatusLabel: Record<
+  NonNullable<Booking["paymentStatus"]>,
+  string
+> = {
+  held: "დაჯავშნის საფასური დაბლოკილია",
+  released: "საფასური დადასტურებულია",
+  refunded: "საფასური დაბრუნებულია",
+  disputed: "საფასური დავაშია",
+};
+
+export const paymentStatusShortLabel: Record<
+  NonNullable<Booking["paymentStatus"]>,
+  string
+> = {
+  held: "დაბლოკილია",
+  released: "დადასტურდა",
+  refunded: "დაბრუნდა",
+  disputed: "დავაშია",
+};
+
+export const paymentStatusHelp: Record<
+  NonNullable<Booking["paymentStatus"]>,
+  string
+> = {
+  held: "კლიენტმა ჯავშანი გააკეთა და თანხა დროებით დაჭერილია.",
+  released: "სამუშაო დასრულდა, კლიენტმა დაადასტურა და თანხა დაიხურა.",
+  refunded: "ჯავშანი გაუქმდა ან დავა გადაწყდა კლიენტისთვის თანხის დაბრუნებით.",
+  disputed: "ჯავშანზე პრობლემაა და Admin-მა უნდა გადაამოწმოს დეტალები.",
 };

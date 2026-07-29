@@ -4,9 +4,25 @@ import { actionButton, adminCard } from "../components/admin/adminUi";
 import {
   accountLabel,
   auditLabel,
+  paymentStatusHelp,
+  paymentStatusLabel,
+  paymentStatusShortLabel,
   statusLabel,
   verificationLabel,
 } from "../components/admin/adminLabels";
+import {
+  deriveVerificationStatus,
+  disputePriorityScore,
+  disputeStatusUi,
+  formatDate,
+  hoursSince,
+  isActiveStatus,
+  isClosedStatus,
+  matchesQuery,
+  money,
+  parseFirstAmount,
+  penaltyAmountForBooking,
+} from "../components/admin/adminUtils";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   apiMigrationItems,
@@ -97,25 +113,6 @@ const adminAccountLabel = (
   return accountLabel[status || "active"];
 };
 
-const deriveVerificationStatus = (profile: CraftsmanProfile) => {
-  if (profile.verificationStatus) return profile.verificationStatus;
-  const verification = profile.verification;
-  if (!verification) return "not_submitted" as const;
-  return Object.values(verification).every(Boolean)
-    ? ("pending" as const)
-    : ("not_submitted" as const);
-};
-
-const formatDate = (value?: string) => {
-  if (!value) return "";
-  return new Date(value).toLocaleDateString("ka-GE", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
 const PREFLIGHT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const PREFLIGHT_CACHE_KEY = "adminSupabasePreflight:v1";
 
@@ -191,92 +188,6 @@ const clearCachedPreflightState = () => {
   } catch {
     // Clearing cache is a convenience action; UI state still resets below.
   }
-};
-
-const money = (value: number) => `${value.toFixed(value % 1 ? 2 : 0)} ლარი`;
-
-const parseFirstAmount = (value?: string) => {
-  const match = value?.replace(",", ".").match(/\d+(\.\d+)?/);
-  return match ? Number(match[0]) : 0;
-};
-
-const penaltyAmountForBooking = (booking: Booking, settings: PlatformSettings) =>
-  booking.cancellationPenaltyAmount ||
-  Math.round(
-    ((booking.bookingFee || settings.bookingFee) *
-      settings.lateCancellationFeePercent) /
-      100
-  );
-
-const matchesQuery = (query: string, parts: Array<string | number | undefined>) => {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return true;
-  return parts.join(" ").toLowerCase().includes(normalized);
-};
-
-const isClosedStatus = (status?: BookingStatus) =>
-  ["closed", "completed", "client_confirmed", "cancelled", "declined"].includes(
-    status || ""
-  );
-
-const isActiveStatus = (status?: BookingStatus) =>
-  ["pending", "confirmed", "en_route", "started", "worker_completed"].includes(
-    status || "pending"
-  );
-
-const disputeStatusUi = (status: BookingDispute["status"]) => {
-  if (status === "resolved") {
-    return { label: "დახურული", color: "#047857", bg: "#dcfce7" };
-  }
-  if (status === "reviewing") {
-    return { label: "განხილვაში", color: "#c2410c", bg: "#fff7ed" };
-  }
-  return { label: "ღია", color: "#b91c1c", bg: "#fef2f2" };
-};
-
-const paymentStatusLabel: Record<
-  NonNullable<import("./BookingsScreen").Booking["paymentStatus"]>,
-  string
-> = {
-  held: "დაჯავშნის საფასური დაბლოკილია",
-  released: "საფასური დადასტურებულია",
-  refunded: "საფასური დაბრუნებულია",
-  disputed: "საფასური დავაშია",
-};
-
-const paymentStatusShortLabel: Record<
-  NonNullable<import("./BookingsScreen").Booking["paymentStatus"]>,
-  string
-> = {
-  held: "დაბლოკილია",
-  released: "დადასტურდა",
-  refunded: "დაბრუნდა",
-  disputed: "დავაშია",
-};
-
-const paymentStatusHelp: Record<
-  NonNullable<import("./BookingsScreen").Booking["paymentStatus"]>,
-  string
-> = {
-  held: "კლიენტმა ჯავშანი გააკეთა და თანხა დროებით დაჭერილია.",
-  released: "სამუშაო დასრულდა, კლიენტმა დაადასტურა და თანხა დაიხურა.",
-  refunded: "ჯავშანი გაუქმდა ან დავა გადაწყდა კლიენტისთვის თანხის დაბრუნებით.",
-  disputed: "ჯავშანზე პრობლემაა და Admin-მა უნდა გადაამოწმოს დეტალები.",
-};
-
-const hoursSince = (value?: string) => {
-  if (!value) return 0;
-  const created = new Date(value).getTime();
-  if (Number.isNaN(created)) return 0;
-  return Math.max(0, Math.floor((Date.now() - created) / 36e5));
-};
-
-const disputePriorityScore = (dispute: BookingDispute) => {
-  if (dispute.status === "resolved") return 0;
-  const age = hoursSince(dispute.createdAt);
-  if (age >= 24) return 3;
-  if (dispute.status === "reviewing") return 2;
-  return 1;
 };
 
 const appendDemoSystemMessage = (bookingId: string, text: string) => {
