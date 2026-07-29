@@ -52,6 +52,11 @@ import type {
   AdminPermission,
   AdminTab,
 } from "../components/admin/adminPermissions";
+import {
+  adminProviderFields,
+  legalSettingFields,
+  platformSettingNumberFields,
+} from "../components/admin/adminSettingsConfig";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   apiMigrationItems,
@@ -5357,37 +5362,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
                 Production providers
               </h2>
               <div style={{ display: "grid", gap: 10 }}>
-                {[
-                  {
-                    key: "authProvider" as const,
-                    label: "ავტორიზაცია",
-                    options: [
-                      ["demo", "Demo / 1234"],
-                      ["email_password", "Email + password"],
-                      ["sms_otp", "SMS OTP"],
-                    ],
-                  },
-                  {
-                    key: "paymentProvider" as const,
-                    label: "გადახდა",
-                    options: [
-                      ["demo", "Demo escrow"],
-                      ["manual_mvp_hold", "Manual MVP hold"],
-                      ["bog", "Bank of Georgia"],
-                      ["tbc", "TBC"],
-                      ["stripe", "Stripe"],
-                    ],
-                  },
-                  {
-                    key: "paymentCurrency" as const,
-                    label: "ვალუტა",
-                    options: [
-                      ["GEL", "GEL"],
-                      ["USD", "USD"],
-                      ["EUR", "EUR"],
-                    ],
-                  },
-                ].map((item) => (
+                {adminProviderFields.map((item) => (
                   <label
                     key={item.key}
                     style={{ display: "block", color: "var(--text)", fontSize: 13, fontWeight: 950 }}
@@ -5787,44 +5762,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
               )}
             </div>
 
-            {[
-              {
-                key: "bookingFee" as const,
-                label: "ჯავშნის საფასური",
-                suffix: "ლარი",
-                hint: "კლიენტს ჯავშნისას ეჭრება/იბლოკება.",
-              },
-              {
-                key: "commissionPercent" as const,
-                label: "პლატფორმის საკომისიო",
-                suffix: "%",
-                hint: "რეალურ გადახდებში გამოიყენება შემოსავლის დასათვლელად.",
-              },
-              {
-                key: "craftsmanMonthlyFee" as const,
-                label: "ხელოსნის თვიური გადასახადი",
-                suffix: "ლარი",
-                hint: "საცდელი პერიოდის შემდეგ აქტიურობის ფასი.",
-              },
-              {
-                key: "freeTrialDays" as const,
-                label: "უფასო საცდელი პერიოდი",
-                suffix: "დღე",
-                hint: "ახალი ხელოსნისთვის უფასო გამოყენების პერიოდი.",
-              },
-              {
-                key: "freeCancellationHours" as const,
-                label: "უფასო გაუქმება",
-                suffix: "საათი",
-                hint: "ამ დრომდე გაუქმება ჯარიმის გარეშეა.",
-              },
-              {
-                key: "lateCancellationFeePercent" as const,
-                label: "დაგვიანებული გაუქმების დაკავება",
-                suffix: "%",
-                hint: "უფასო პერიოდის შემდეგ Admin გადაამოწმებს ამ სავარაუდო დაკავებას.",
-              },
-            ].map((item) => (
+            {platformSettingNumberFields.map((item) => (
               <div key={item.key} style={{ ...adminCard, padding: 14 }}>
                 <label style={{ display: "block", color: "var(--text)", fontSize: 13, fontWeight: 950 }}>
                   {item.label}
@@ -5867,24 +5805,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
                 გადახდის ჩართვამდე აქ უნდა იყოს საბოლოო, გასაგები ფორმულირება.
               </div>
               <div style={{ display: "grid", gap: 10 }}>
-                {[
-                  {
-                    key: "bookingRules" as const,
-                    label: "ჯავშნის წესი",
-                  },
-                  {
-                    key: "cancellationRules" as const,
-                    label: "გაუქმების წესი",
-                  },
-                  {
-                    key: "privacyRules" as const,
-                    label: "კონტაქტი და privacy",
-                  },
-                  {
-                    key: "supportRules" as const,
-                    label: "დავები და support",
-                  },
-                ].map((item) => (
+                {legalSettingFields.map((item) => (
                   <label
                     key={item.key}
                     style={{ display: "block", color: "var(--text)", fontSize: 12, fontWeight: 950 }}
