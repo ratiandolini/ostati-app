@@ -66,11 +66,14 @@ const mapMessage = async (row: ApiMessageRow): Promise<BookingMessage> => ({
   attachmentName: row.attachment_name || undefined,
 });
 
-export const loadMessageThreads = async (): Promise<ApiMessageThread[]> => {
+export const loadMessageThreads = async (
+  signal?: AbortSignal
+): Promise<ApiMessageThread[]> => {
   const client = createSupabaseRestClient();
   const rows = await client.rpc<ApiMessageThreadRow[]>(
     "list_my_message_threads",
-    {}
+    {},
+    { signal }
   );
 
   return rows.map((row) => ({

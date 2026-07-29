@@ -102,10 +102,11 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
     if (isDemoDataMode) return;
 
     let cancelled = false;
+    const controller = new AbortController();
     setUploadError("");
     const loadProfile = () =>
       Promise.all([
-      loadCurrentUserProfile(),
+      loadCurrentUserProfile(controller.signal),
       loadMyClientPoints().catch(() => ({ total: 0, history: [] })),
     ])
       .then(([profile, points]) => {
@@ -133,6 +134,7 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
         setClientPoints(mergeClientPointsWithLocalAwards(user.phone, points));
       })
       .catch(() => {
+        if (controller.signal.aborted) return;
         setUploadError("პროფილის ჩატვირთვა ვერ მოხერხდა");
       });
 
@@ -141,6 +143,7 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
 
     return () => {
       cancelled = true;
+      controller.abort();
       window.removeEventListener("client-points-updated", loadProfile);
     };
   }, [user.phone]);

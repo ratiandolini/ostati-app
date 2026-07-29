@@ -12,9 +12,10 @@ export const useWorkerCatalog = () => {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     setLoading(true);
-    loadWorkerCatalog()
+    loadWorkerCatalog(controller.signal)
       .then((nextWorkers) => {
         if (cancelled) return;
         setWorkers(nextWorkers);
@@ -23,6 +24,9 @@ export const useWorkerCatalog = () => {
       })
       .catch((nextError) => {
         if (cancelled) return;
+        if (nextError instanceof DOMException && nextError.name === "AbortError") {
+          return;
+        }
         setWorkers(getDemoWorkerCatalog());
         setError(
           nextError instanceof Error
@@ -34,6 +38,7 @@ export const useWorkerCatalog = () => {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 

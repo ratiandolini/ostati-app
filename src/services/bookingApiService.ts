@@ -460,15 +460,27 @@ export const uploadBookingSitePhoto = async (
   return uploaded.path;
 };
 
-export const loadClientBookings = async (): Promise<Booking[]> => {
+export const loadClientBookings = async (
+  signal?: AbortSignal
+): Promise<Booking[]> => {
   const client = createSupabaseRestClient();
-  const rows = await client.rpc<ApiClientBooking[]>("list_my_client_bookings", {});
+  const rows = await client.rpc<ApiClientBooking[]>(
+    "list_my_client_bookings",
+    {},
+    { signal }
+  );
   return Promise.all(rows.map((row) => withSignedDisputeEvidence(mapClientBooking(row))));
 };
 
-export const loadWorkerBookings = async (): Promise<CraftsmanBookingRequest[]> => {
+export const loadWorkerBookings = async (
+  signal?: AbortSignal
+): Promise<CraftsmanBookingRequest[]> => {
   const client = createSupabaseRestClient();
-  const rows = await client.rpc<ApiWorkerBooking[]>("list_my_worker_bookings", {});
+  const rows = await client.rpc<ApiWorkerBooking[]>(
+    "list_my_worker_bookings",
+    {},
+    { signal }
+  );
   return Promise.all(
     rows.map((row) =>
       withSignedBookingPhoto(mapWorkerBooking(row)).then(withSignedDisputeEvidence)

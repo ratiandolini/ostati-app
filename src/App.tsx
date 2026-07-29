@@ -431,18 +431,23 @@ const App: React.FC = () => {
     if (isDemoDataMode || !user) return;
 
     let cancelled = false;
+    let activeController: AbortController | null = null;
     const refreshApiBookings = async () => {
+      activeController?.abort();
+      const controller = new AbortController();
+      activeController = controller;
       try {
         if (user.role === "client") {
-          const nextBookings = await loadClientBookings();
+          const nextBookings = await loadClientBookings(controller.signal);
           if (!cancelled) setBookings(nextBookings);
           return;
         }
         if (user.role === "craftsman") {
-          const nextBookings = await loadWorkerBookings();
+          const nextBookings = await loadWorkerBookings(controller.signal);
           if (!cancelled) setCraftsmanBookings(nextBookings);
         }
       } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         console.error(error);
       }
     };
@@ -459,6 +464,7 @@ const App: React.FC = () => {
 
     return () => {
       cancelled = true;
+      activeController?.abort();
       window.clearInterval(intervalId);
       window.removeEventListener("booking-status-updated", refreshApiBookings);
       window.removeEventListener("focus", refreshApiBookings);
@@ -577,16 +583,19 @@ const App: React.FC = () => {
     if (screen !== "bookings" && screen !== "messages") return;
 
     let cancelled = false;
-    loadClientBookings()
+    const controller = new AbortController();
+    loadClientBookings(controller.signal)
       .then((nextBookings) => {
         if (!cancelled) setBookings(nextBookings);
       })
       .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         console.error(error);
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [screen, user?.role]);
 
@@ -595,16 +604,19 @@ const App: React.FC = () => {
     if (screen !== "bookings" && screen !== "messages" && screen !== "home") return;
 
     let cancelled = false;
-    loadWorkerBookings()
+    const controller = new AbortController();
+    loadWorkerBookings(controller.signal)
       .then((nextBookings) => {
         if (!cancelled) setCraftsmanBookings(nextBookings);
       })
       .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         console.error(error);
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [screen, user?.role]);
 
@@ -612,7 +624,8 @@ const App: React.FC = () => {
     if (isDemoDataMode || !user) return;
 
     let cancelled = false;
-    loadCurrentUserProfile()
+    const controller = new AbortController();
+    loadCurrentUserProfile(controller.signal)
       .then((profile) => {
         if (cancelled) return;
         const status = profile?.status;
@@ -621,11 +634,13 @@ const App: React.FC = () => {
         }
       })
       .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         console.error(error);
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [screen, user]);
 
@@ -634,7 +649,8 @@ const App: React.FC = () => {
     if (screen === "messages") return;
 
     let cancelled = false;
-    loadMessageThreads()
+    const controller = new AbortController();
+    loadMessageThreads(controller.signal)
       .then((threads) => {
         if (!cancelled) {
           setApiUnreadMessages(
@@ -643,11 +659,13 @@ const App: React.FC = () => {
         }
       })
       .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         console.error(error);
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [screen, user]);
 
@@ -655,7 +673,8 @@ const App: React.FC = () => {
     if (isDemoDataMode || user?.role !== "craftsman") return;
 
     let cancelled = false;
-    loadCurrentWorkerProfile()
+    const controller = new AbortController();
+    loadCurrentWorkerProfile(controller.signal)
       .then((profile) => {
         if (!cancelled) {
           setApiWorkerVerificationStatus(
@@ -666,12 +685,14 @@ const App: React.FC = () => {
         }
       })
       .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         console.error(error);
         if (!cancelled) setApiWorkerVerificationStatus("not_submitted");
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [screen, user?.role]);
 

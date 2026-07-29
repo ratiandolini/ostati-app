@@ -416,9 +416,36 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
 
   React.useEffect(() => {
     let cancelled = false;
+    let activeController: AbortController | null = null;
     const refresh = () => {
       if (cancelled) return;
-      refreshNotifications();
+      if (isDemoDataMode) {
+        refreshNotifications();
+        return;
+      }
+
+      activeController?.abort();
+      const controller = new AbortController();
+      activeController = controller;
+      loadNotifications(undefined, controller.signal)
+        .then((nextNotifications) => {
+          if (cancelled) return;
+          setNotificationError("");
+          setNotifications(
+            nextNotifications.filter((notification) =>
+              notification.bookingId ? bookingIds.has(notification.bookingId) : true
+            )
+          );
+        })
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          if (cancelled) return;
+          setNotificationError(
+            error instanceof Error
+              ? error.message
+              : "ნოტიფიკაციების ჩატვირთვა ვერ მოხერხდა"
+          );
+        });
     };
     const refreshOnFocus = () => {
       if (document.visibilityState === "visible") refresh();
@@ -433,6 +460,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
 
     return () => {
       cancelled = true;
+      activeController?.abort();
       window.clearInterval(intervalId);
       window.removeEventListener("client-notifications-updated", refresh);
       window.removeEventListener("booking-status-updated", refresh);

@@ -816,7 +816,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     if (isDemoDataMode) return;
 
     let cancelled = false;
-    loadCurrentWorkerProfile()
+    const controller = new AbortController();
+    loadCurrentWorkerProfile(controller.signal)
       .then((profile) => {
         if (cancelled || !profile) return;
         const [displayFirst = "", ...displayLastParts] = (
@@ -909,11 +910,13 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         );
       })
       .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         console.error(error);
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 
@@ -989,8 +992,31 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
   useEffect(() => {
     let cancelled = false;
+    let activeController: AbortController | null = null;
     const refresh = () => {
-      if (!cancelled) refreshCraftsmanNotifications();
+      if (cancelled) return;
+      if (isDemoDataMode) {
+        refreshCraftsmanNotifications();
+        return;
+      }
+      activeController?.abort();
+      const controller = new AbortController();
+      activeController = controller;
+      loadNotifications(10, controller.signal)
+        .then((nextNotifications) => {
+          if (cancelled) return;
+          setNotifications(nextNotifications);
+          setNotificationError("");
+        })
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          if (cancelled) return;
+          setNotificationError(
+            error instanceof Error
+              ? error.message
+              : "ნოტიფიკაციების ჩატვირთვა ვერ მოხერხდა"
+          );
+        });
     };
     const refreshOnFocus = () => {
       if (document.visibilityState === "visible") refresh();
@@ -1005,6 +1031,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
     return () => {
       cancelled = true;
+      activeController?.abort();
       window.clearInterval(intervalId);
       window.removeEventListener("craftsman-notifications-updated", refresh);
       window.removeEventListener("booking-status-updated", refresh);
@@ -1087,12 +1114,17 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     if (isDemoDataMode) return;
 
     let cancelled = false;
+    let activeController: AbortController | null = null;
     const refreshApiWorkerBookings = () => {
-      loadWorkerBookings()
+      activeController?.abort();
+      const controller = new AbortController();
+      activeController = controller;
+      loadWorkerBookings(controller.signal)
         .then((nextBookings) => {
           if (!cancelled) setBookings(nextBookings as Booking[]);
         })
         .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
           console.error(error);
         });
     };
@@ -1108,6 +1140,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
     return () => {
       cancelled = true;
+      activeController?.abort();
       window.clearInterval(intervalId);
       window.removeEventListener("booking-status-updated", refreshApiWorkerBookings);
       window.removeEventListener("focus", refreshApiWorkerBookings);

@@ -35,11 +35,11 @@ const mapNotification = (row: ApiNotificationRow): AppNotification => ({
   createdAt: row.created_at,
 });
 
-export const loadNotifications = async (limit = 30) => {
+export const loadNotifications = async (limit = 30, signal?: AbortSignal) => {
   const client = createSupabaseRestClient();
   const rows = await client.rpc<ApiNotificationRow[]>("list_my_notifications", {
     p_limit: limit,
-  });
+  }, { signal });
 
   return rows.map(mapNotification);
 };

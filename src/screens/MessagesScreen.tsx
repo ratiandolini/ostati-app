@@ -297,14 +297,14 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
     });
   };
 
-  const refreshApiThreads = async () => {
+  const refreshApiThreads = async (signal?: AbortSignal) => {
     if (isDemoDataMode) return;
     setLoadingThreads(true);
     setMessageError("");
     try {
       let nextThreads: Thread[] = [];
       try {
-        nextThreads = (await loadMessageThreads()).map(
+        nextThreads = (await loadMessageThreads(signal)).map(
           (thread: ApiMessageThread): Thread => ({
             id: thread.id,
             title: thread.title,
@@ -321,13 +321,15 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
         console.error(error);
       }
       if (!nextThreads.length && role === "client") {
-        const clientBookings = bookings.length ? bookings : await loadClientBookings();
+        const clientBookings = bookings.length
+          ? bookings
+          : await loadClientBookings(signal);
         nextThreads = fallbackThreadsFromClientBookings(clientBookings);
       }
       if (!nextThreads.length && role === "craftsman") {
         const workerBookings = craftsmanBookings.length
           ? craftsmanBookings
-          : await loadWorkerBookings();
+          : await loadWorkerBookings(signal);
         nextThreads = fallbackThreadsFromCraftsmanBookings(workerBookings);
       }
       nextThreads = sortThreads(nextThreads);
@@ -339,6 +341,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
         setActiveThreadId(nextThreads[0].id);
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       setMessageError(
         error instanceof Error ? error.message : "მესიჯების ჩატვირთვა ვერ მოხერხდა"
       );
@@ -348,7 +351,11 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   };
 
   useEffect(() => {
-    refreshApiThreads();
+    const controller = new AbortController();
+    refreshApiThreads(controller.signal);
+    return () => {
+      controller.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -4,6 +4,9 @@ import type { SupabaseConfig } from "./supabaseConfig";
 
 type QueryValue = string | number | boolean;
 type QueryParams = Record<string, QueryValue | QueryValue[] | undefined>;
+type RequestOptions = {
+  signal?: AbortSignal;
+};
 
 const buildQueryString = (params?: QueryParams) => {
   if (!params) return "";
@@ -44,7 +47,8 @@ export const createSupabaseRestClient = (config = getSupabaseConfig()) => {
   const request = async <T>(
     path: string,
     init: RequestInit = {},
-    params?: QueryParams
+    params?: QueryParams,
+    options?: RequestOptions
   ): Promise<T> => {
     const headers = new Headers(init.headers);
     const accessToken = getSupabaseAccessToken();
@@ -57,6 +61,7 @@ export const createSupabaseRestClient = (config = getSupabaseConfig()) => {
       {
         ...init,
         headers,
+        signal: options?.signal || init.signal,
       }
     );
 
@@ -64,7 +69,7 @@ export const createSupabaseRestClient = (config = getSupabaseConfig()) => {
   };
 
   return {
-    select<T>(table: string, params?: QueryParams) {
+    select<T>(table: string, params?: QueryParams, options?: RequestOptions) {
       return request<T[]>(
         table,
         {
@@ -73,7 +78,8 @@ export const createSupabaseRestClient = (config = getSupabaseConfig()) => {
             Prefer: "return=representation",
           },
         },
-        params
+        params,
+        options
       );
     },
 
@@ -114,13 +120,15 @@ export const createSupabaseRestClient = (config = getSupabaseConfig()) => {
       );
     },
 
-    rpc<T>(functionName: string, value: unknown) {
+    rpc<T>(functionName: string, value: unknown, options?: RequestOptions) {
       return request<T>(
         `rpc/${functionName}`,
         {
           method: "POST",
           body: JSON.stringify(value),
-        }
+        },
+        undefined,
+        options
       );
     },
   };

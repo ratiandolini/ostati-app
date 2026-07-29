@@ -136,20 +136,22 @@ export const saveCurrentUserProfile = async (profile: {
 };
 
 export const loadCurrentUserProfile =
-  async (): Promise<CurrentUserProfileApiResult | null> => {
+  async (signal?: AbortSignal): Promise<CurrentUserProfileApiResult | null> => {
     const client = createSupabaseRestClient();
     return client.rpc<CurrentUserProfileApiResult | null>(
       "get_current_user_profile",
-      {}
+      {},
+      { signal }
     );
   };
 
 export const loadCurrentWorkerProfile =
-  async (): Promise<WorkerProfileApiResult | null> => {
+  async (signal?: AbortSignal): Promise<WorkerProfileApiResult | null> => {
     const client = createSupabaseRestClient();
     return client.rpc<WorkerProfileApiResult | null>(
       "get_current_worker_profile",
-      {}
+      {},
+      { signal }
     );
   };
 

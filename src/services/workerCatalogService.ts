@@ -124,14 +124,16 @@ const mapSupabaseWorker = (row: SupabaseWorkerCard, index: number): Worker => {
   };
 };
 
-export const loadWorkerCatalog = async (): Promise<Worker[]> => {
+export const loadWorkerCatalog = async (
+  signal?: AbortSignal
+): Promise<Worker[]> => {
   if (isDemoDataMode) return getDemoWorkerCatalog();
 
   const client = createSupabaseRestClient();
   const rows = await client.select<SupabaseWorkerCard>("worker_cards", {
     select: "*",
     order: "rating_avg.desc.nullslast,rating_count.desc",
-  });
+  }, { signal });
 
   return rows
     .filter((row) => !row.verification_status || row.verification_status === "verified")
