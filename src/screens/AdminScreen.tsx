@@ -44,6 +44,14 @@ import {
   qaAreaLabel,
   qaAreaOrder,
 } from "../components/admin/adminQaConfig";
+import {
+  allAdminTabs,
+  tabPermission,
+} from "../components/admin/adminPermissions";
+import type {
+  AdminPermission,
+  AdminTab,
+} from "../components/admin/adminPermissions";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   apiMigrationItems,
@@ -101,30 +109,9 @@ interface AdminScreenProps {
   onLogout: () => void;
 }
 
-type AdminTab =
-  | "overview"
-  | "verification"
-  | "disputes"
-  | "bookings"
-  | "finance"
-  | "users"
-  | "settings"
-  | "audit";
 type AdminStatusFilter = "all" | "active" | "closed" | "problem";
 type VerificationFilter = "all" | "pending" | "verified" | "rejected";
 type DisputeView = "active" | "urgent" | "reviewing" | "archive";
-type AdminPermission = AdminMember["permissions"][number];
-
-const tabPermission: Record<AdminTab, AdminPermission | "overview"> = {
-  overview: "overview",
-  verification: "verification",
-  disputes: "disputes",
-  bookings: "bookings",
-  finance: "finance",
-  users: "users",
-  settings: "settings",
-  audit: "audit",
-};
 
 export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   const cachedPreflightState = useMemo(loadCachedPreflightState, []);
@@ -355,13 +342,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     const permission = tabPermission[targetTab];
     return permission === "overview" || can(permission);
   };
-  const allAdminTabs: Array<[AdminTab, string]> = [
-    ["overview", "მთავარი"],
-    ["verification", "ვერიფიკაცია"],
-    ["bookings", "ჯავშნები"],
-    ["disputes", "დავები"],
-    ["settings", "პარამეტრები"],
-  ];
   const availableTabs = allAdminTabs.filter(([id]) => canOpenTab(id));
 
   useEffect(() => {
