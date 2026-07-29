@@ -1,22 +1,52 @@
 import type { ClientPoints } from "./appStorage";
 
 const storageKey = (userKey: string) => `clientPointsAwarded:${userKey}`;
+const emptyPoints = (): ClientPoints => ({ total: 0, history: [] });
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const normalizeClientPoints = (value: unknown): ClientPoints => {
+  if (!isRecord(value)) return emptyPoints();
+
+  const total = Number(value.total);
+  const history = Array.isArray(value.history)
+    ? value.history
+        .filter(isRecord)
+        .map((item) => {
+          const points = Number(item.points);
+          return {
+            id: typeof item.id === "string" ? item.id : "",
+            points: Number.isFinite(points) ? points : 0,
+            reason: typeof item.reason === "string" ? item.reason : "",
+            createdAt:
+              typeof item.createdAt === "string"
+                ? item.createdAt
+                : new Date(0).toISOString(),
+          };
+        })
+        .filter((item) => item.id)
+    : [];
+
+  return {
+    total: Number.isFinite(total) ? total : 0,
+    history,
+  };
+};
 
 const readAwarded = (userKey: string): ClientPoints => {
   if (!userKey || typeof window === "undefined") {
-    return { total: 0, history: [] };
+    return emptyPoints();
   }
 
   try {
     const raw = window.localStorage.getItem(storageKey(userKey));
-    if (!raw) return { total: 0, history: [] };
-    const parsed = JSON.parse(raw) as ClientPoints;
-    return {
-      total: Number(parsed.total || 0),
-      history: Array.isArray(parsed.history) ? parsed.history : [],
-    };
+    if (!raw) return emptyPoints();
+    const parsed: unknown = JSON.parse(raw);
+    return normalizeClientPoints(parsed);
   } catch {
-    return { total: 0, history: [] };
+    window.localStorage.removeItem(storageKey(userKey));
+    return emptyPoints();
   }
 };
 

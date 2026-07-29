@@ -19,6 +19,38 @@ const sessionKey = "supabaseAuthSession";
 const devAuthCode = "1234";
 const devAuthPassword = "CodexLocalDemo!2026";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isOptionalString = (value: unknown) =>
+  value === undefined || typeof value === "string";
+
+const isOptionalNumber = (value: unknown) =>
+  value === undefined || typeof value === "number";
+
+const isSupabaseAuthUser = (value: unknown): value is SupabaseAuthUser => {
+  if (!isRecord(value) || typeof value.id !== "string") return false;
+
+  return (
+    isOptionalString(value.phone) &&
+    isOptionalString(value.email) &&
+    (value.user_metadata === undefined || isRecord(value.user_metadata))
+  );
+};
+
+const isSupabaseAuthSession = (
+  value: unknown
+): value is SupabaseAuthSession => {
+  if (!isRecord(value) || typeof value.access_token !== "string") return false;
+
+  return (
+    isOptionalString(value.refresh_token) &&
+    isOptionalNumber(value.expires_at) &&
+    isOptionalString(value.token_type) &&
+    (value.user === undefined || isSupabaseAuthUser(value.user))
+  );
+};
+
 const isDevPasswordAuth = () =>
   process.env.REACT_APP_AUTH_MODE === "dev_password";
 
@@ -84,8 +116,15 @@ const authRequest = async <T>(path: string, init: RequestInit): Promise<T> => {
 export const getSupabaseSession = (): SupabaseAuthSession | null => {
   try {
     const raw = window.localStorage.getItem(sessionKey);
-    return raw ? (JSON.parse(raw) as SupabaseAuthSession) : null;
+    if (!raw) return null;
+
+    const parsed: unknown = JSON.parse(raw);
+    if (isSupabaseAuthSession(parsed)) return parsed;
+
+    window.localStorage.removeItem(sessionKey);
+    return null;
   } catch {
+    window.localStorage.removeItem(sessionKey);
     return null;
   }
 };
