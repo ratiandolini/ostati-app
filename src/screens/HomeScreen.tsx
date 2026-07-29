@@ -8,6 +8,8 @@ import {
 import { WorkerCard } from "../components/WorkerCard";
 import { Worker } from "../types";
 import { useWorkerCatalog } from "../hooks/useWorkerCatalog";
+import { EmptyState } from "../components/EmptyState";
+import { WorkerCardSkeletonList } from "../components/Skeletons";
 
 interface HomeScreenProps {
   onWorkerSelect: (w: Worker) => void;
@@ -78,7 +80,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
         </div>
         <div className="home-workers">
-          {topWorkers.length > 0 ? (
+          {loading ? (
+            <WorkerCardSkeletonList count={3} />
+          ) : topWorkers.length > 0 ? (
             topWorkers.map((worker, index) => (
               <WorkerCard
                 key={worker.id}
@@ -88,9 +92,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               />
             ))
           ) : (
-            <div className="home-empty-state">
-              {loading ? "ხელოსნების სია იტვირთება..." : "რეკომენდაციები ჯერ არ არის"}
-            </div>
+            <EmptyState
+              compact
+              title="რეკომენდაციები ჯერ არ არის"
+              description="როგორც კი შეფასებული ხელოსნები დაემატება, აქ საუკეთესოები გამოჩნდება."
+            />
           )}
         </div>
       </section>
@@ -103,7 +109,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
         </div>
         <div className="home-workers">
-          {allWorkers.length > 0 ? (
+          {loading ? (
+            <WorkerCardSkeletonList count={3} />
+          ) : allWorkers.length > 0 ? (
             allWorkers.map((worker, index) => (
               <WorkerCard
                 key={worker.id}
@@ -113,12 +121,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               />
             ))
           ) : (
-            <button
-              className="home-empty-action"
-              onClick={() => onCategorySelect("all")}
-            >
-              ყველა ხელოსნის ნახვა ძიებაში
-            </button>
+            <EmptyState
+              compact
+              title="ხელოსნები ჯერ არ ჩანს"
+              description="ძიებაში შეგიძლია კატეგორიის ან ქალაქის მიხედვით გადაამოწმო."
+              actionLabel="ძიებაში გადასვლა"
+              onAction={() => onCategorySelect("all")}
+            />
           )}
         </div>
       </section>

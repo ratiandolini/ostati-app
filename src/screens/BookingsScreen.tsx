@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { BookingStatus, Worker } from "../types";
+import { EmptyState } from "../components/EmptyState";
 import { Stars } from "../components/Stars";
 import { BookingDetails } from "./ProfileScreen";
 import { dataService, isDemoDataMode } from "../services/dataService";
@@ -1027,41 +1028,20 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
           </div>
         )}
         {bookings.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px 20px" }}>
-            <div className="empty-chat-icon">◌</div>
-            <div
-              style={{
-                fontSize: 17,
-                fontWeight: 700,
-                color: "var(--text)",
-                marginBottom: 8,
-              }}
-            >
-              ჯავშნები არ გაქვს
-            </div>
-            <div style={{ fontSize: 13, color: "var(--text3)" }}>
-              აირჩიე ხელოსანი და დაჯავშნე დრო
-            </div>
-          </div>
+          <EmptyState
+            title="ჯავშნები არ გაქვს"
+            description="აირჩიე ხელოსანი, მიუთითე მისამართი და დაჯავშნე დრო."
+          />
         ) : visibleBookings.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "54px 20px" }}>
-            <div className="empty-chat-icon">◌</div>
-            <div
-              style={{
-                fontSize: 16,
-                fontWeight: 800,
-                color: "var(--text)",
-                marginBottom: 8,
-              }}
-            >
-              {bookingView === "active" ? "აქტიური ჯავშნები არ გაქვს" : "არქივი ცარიელია"}
-            </div>
-            <div style={{ fontSize: 13, color: "var(--text3)", lineHeight: 1.5 }}>
-              {bookingView === "active"
+          <EmptyState
+            compact
+            title={bookingView === "active" ? "აქტიური ჯავშნები არ გაქვს" : "არქივი ცარიელია"}
+            description={
+              bookingView === "active"
                 ? "ახალი ჯავშანი აქ გამოჩნდება, სანამ პროცესი დასრულდება."
-                : "დასრულებული, გაუქმებული და უარყოფილი ჯავშნები აქ გადავა."}
-            </div>
-          </div>
+                : "დასრულებული, გაუქმებული და უარყოფილი ჯავშნები აქ გადავა."
+            }
+          />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {visibleBookings.map((b) => {

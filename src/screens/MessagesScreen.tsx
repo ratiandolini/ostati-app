@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { EmptyState } from "../components/EmptyState";
 import { User } from "../types";
 import { Booking } from "./BookingsScreen";
 import {
@@ -660,11 +661,15 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
 
       {threads.length === 0 ? (
         <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 30 }}>
-          <div style={{ textAlign: "center", color: "var(--text3)" }}>
-            <div className="empty-chat-icon">◌</div>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>
-              {loadingThreads ? "იტვირთება..." : "ჯერ მიმოწერა არ გაქვთ"}
-            </div>
+          <div style={{ width: "100%" }}>
+            <EmptyState
+              title={loadingThreads ? "მიმოწერა იტვირთება" : "ჯერ მიმოწერა არ გაქვთ"}
+              description={
+                loadingThreads
+                  ? "ჩატებს ვამოწმებთ აქტიურ ჯავშნებზე."
+                  : "ჩატი გამოჩნდება, როცა ჯავშანზე საუბარი დაიწყება."
+              }
+            />
             {messageError && (
               <div style={{ marginTop: 8, fontSize: 12, color: "#dc2626", fontWeight: 800 }}>
                 {messageError}

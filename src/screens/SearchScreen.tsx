@@ -6,6 +6,8 @@ import {
   georgiaCities,
 } from "../data/workers";
 import { WorkerCard } from "../components/WorkerCard";
+import { EmptyState } from "../components/EmptyState";
+import { WorkerCardSkeletonList } from "../components/Skeletons";
 import { Worker } from "../types";
 import { useWorkerCatalog } from "../hooks/useWorkerCatalog";
 
@@ -326,35 +328,13 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
           </div>
         )}
         {loading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[0, 1, 2].map((item) => (
-              <div key={item} className="worker-card-skeleton">
-                <div />
-                <section>
-                  <span />
-                  <span />
-                  <span />
-                </section>
-              </div>
-            ))}
-          </div>
+          <WorkerCardSkeletonList />
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "50px 20px" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 600,
-                color: "var(--text)",
-                marginBottom: 4,
-              }}
-            >
-              ვერ მოიძებნა
-            </div>
-            <div style={{ fontSize: 13, color: "var(--text3)" }}>
-              სხვა საძიებო სიტყვა სცადეთ
-            </div>
-          </div>
+          <EmptyState
+            icon="⌕"
+            title="ხელოსანი ვერ მოიძებნა"
+            description="სცადე სხვა საძიებო სიტყვა, ქალაქი ან კატეგორია."
+          />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {filtered.map((w, i) => (
