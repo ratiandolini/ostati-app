@@ -75,6 +75,28 @@ class SupabaseAuthError extends Error {
   }
 }
 
+const parseAuthErrorBody = (body: string) => {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (!isRecord(parsed)) return {};
+
+    return {
+      message:
+        typeof parsed.msg === "string"
+          ? parsed.msg
+          : typeof parsed.message === "string"
+            ? parsed.message
+            : undefined,
+      code:
+        typeof parsed.error_code === "string"
+          ? parsed.error_code
+          : undefined,
+    };
+  } catch {
+    return {};
+  }
+};
+
 const authRequest = async <T>(path: string, init: RequestInit): Promise<T> => {
   const config = getSupabaseConfig();
   const headers = new Headers(init.headers);
@@ -90,18 +112,9 @@ const authRequest = async <T>(path: string, init: RequestInit): Promise<T> => {
     const body = await response.text();
     let message = body || response.statusText;
     let code: string | undefined;
-
-    try {
-      const parsed = JSON.parse(body) as {
-        msg?: string;
-        message?: string;
-        error_code?: string;
-      };
-      message = parsed.msg || parsed.message || message;
-      code = parsed.error_code;
-    } catch {
-      // Some Supabase errors are plain text.
-    }
+    const parsedError = parseAuthErrorBody(body);
+    message = parsedError.message || message;
+    code = parsedError.code;
 
     throw new SupabaseAuthError(
       response.status,

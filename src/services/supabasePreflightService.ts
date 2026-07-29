@@ -26,6 +26,9 @@ export interface SupabasePreflightCheck {
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "უცნობი შეცდომა";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 const nextActionForError = (message: string, fallback?: string, sqlFile?: string) => {
   if (/PGRST203|function overloading|Could not choose the best candidate/i.test(message)) {
     return sqlFile
@@ -106,9 +109,7 @@ const runCheck = async (
 const runQaNoteSchemaCheck = async (): Promise<SupabasePreflightCheck> => {
   try {
     const state = await loadAdminLaunchState();
-    const firstScenario = state.mobileQaScenarios[0] as unknown as
-      | Record<string, unknown>
-      | undefined;
+    const firstScenario = state.mobileQaScenarios[0];
 
     if (!firstScenario) {
       return {
@@ -123,7 +124,10 @@ const runQaNoteSchemaCheck = async (): Promise<SupabasePreflightCheck> => {
       };
     }
 
-    if (!Object.prototype.hasOwnProperty.call(firstScenario, "note")) {
+    if (
+      !isRecord(firstScenario) ||
+      !Object.prototype.hasOwnProperty.call(firstScenario, "note")
+    ) {
       return {
         id: "mobile_qa_note_schema",
         label: "Mobile QA note schema",

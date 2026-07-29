@@ -36,6 +36,16 @@ const fileExtension = (file: File) => {
   return "bin";
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const getSignedUrlFromResponse = (value: unknown) => {
+  if (!isRecord(value)) return "";
+  if (typeof value.signedURL === "string") return value.signedURL;
+  if (typeof value.signedUrl === "string") return value.signedUrl;
+  return "";
+};
+
 export const createStoragePath = (
   folder: string,
   file: File,
@@ -109,8 +119,8 @@ export const createSignedStorageUrl = async (
     );
   }
 
-  const data = (await response.json()) as { signedURL?: string; signedUrl?: string };
-  const signedPath = data.signedURL || data.signedUrl || "";
+  const data: unknown = await response.json();
+  const signedPath = getSignedUrlFromResponse(data);
   if (!signedPath) throw new Error("Supabase signed URL response was empty.");
   return signedPath.startsWith("http")
     ? signedPath
