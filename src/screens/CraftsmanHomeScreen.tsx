@@ -24,6 +24,10 @@ import {
   loadReviewedBookingIds,
   submitBookingReview,
 } from "../services/reviewApiService";
+import {
+  craftsmanProfileSchema,
+  getValidationMessage,
+} from "../services/validation";
 
 interface Booking {
   id: string;
@@ -658,8 +662,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const fullName =
     `${firstName.trim()} ${lastName.trim()}`.trim() || "სახელი გვარი";
-  const profileContactLabel = profilePhone
-    ? `+995 ${profilePhone}`
+  const normalizedProfilePhone = profilePhone.replace(/\D/g, "");
+  const profileContactLabel = normalizedProfilePhone
+    ? `+995 ${normalizedProfilePhone}`
     : user.phone.includes("@")
       ? user.phone
       : "ნომერი დასამატებელია";
@@ -682,7 +687,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const profileSnapshot = JSON.stringify({
     firstName,
     lastName,
-    profilePhone,
+    profilePhone: normalizedProfilePhone,
     profilePhoto,
     profileCity,
     experienceYears: normalizedExperienceYears,
@@ -771,7 +776,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     dataService.saveCraftsmanProfile({
         ...storedProfile,
         name: fullName,
-        phone: `+995 ${profilePhone}`,
+        phone: `+995 ${normalizedProfilePhone}`,
         avatar: profilePhoto || "გკ",
         avatarColor: "#17243a",
         rating: rating.value,
@@ -788,13 +793,13 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           : "not_submitted",
         price: profilePrice,
       });
-    dataService.rememberPhone("craftsman", profilePhone);
+    dataService.rememberPhone("craftsman", normalizedProfilePhone);
   }, [
     extraWorkComment,
     fullName,
     mainProfession,
     normalizedExperienceYears,
-    profilePhone,
+    normalizedProfilePhone,
     profilePhoto,
     profilePrice,
     profileCity,
@@ -1372,8 +1377,27 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
   const handleSave = async () => {
     setProfileSaveError("");
-    if (priceValidationError) {
-      setProfileSaveError(priceValidationError);
+
+    const validation = craftsmanProfileSchema.safeParse({
+      firstName,
+      lastName,
+      contactPhone: normalizedProfilePhone,
+      city: profileCity,
+      professions,
+      experienceYears: normalizedExperienceYears,
+      priceType,
+      priceMin: normalizedPriceMin,
+      priceMax: priceType === "range" ? normalizedPriceMax : null,
+      workDays,
+      workStart,
+      workEnd,
+    });
+
+    if (!validation.success || priceValidationError) {
+      setProfileSaveError(
+        priceValidationError ||
+          getValidationMessage(validation.success ? null : validation.error, "პროფილის მონაცემები გადაამოწმეთ")
+      );
       return;
     }
 
@@ -1383,7 +1407,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         const savedProfile = await saveCurrentWorkerProfile({
           firstName,
           lastName,
-          contactPhone: profilePhone,
+          contactPhone: normalizedProfilePhone,
           photoUrl: profilePhoto,
           city: profileCity,
           about: extraWorkComment,
@@ -1461,7 +1485,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         await saveCurrentWorkerProfile({
           firstName,
           lastName,
-          contactPhone: profilePhone,
+          contactPhone: normalizedProfilePhone,
           photoUrl: uploaded.publicUrl,
           city: profileCity,
           about: extraWorkComment,
@@ -2561,7 +2585,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               <input
                 type="tel"
                 value={profilePhone}
-                onChange={(event) => setProfilePhone(event.target.value)}
+                onChange={(event) =>
+                  setProfilePhone(event.target.value.replace(/\D/g, "").slice(0, 9))
+                }
                 style={{
                   width: "100%",
                   height: 46,
