@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { BookingStatus, User } from "../types";
+import { actionButton, adminCard } from "../components/admin/adminUi";
+import {
+  accountLabel,
+  auditLabel,
+  statusLabel,
+  verificationLabel,
+} from "../components/admin/adminLabels";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   apiMigrationItems,
@@ -83,83 +90,12 @@ const tabPermission: Record<AdminTab, AdminPermission | "overview"> = {
   audit: "audit",
 };
 
-const statusLabel: Record<BookingStatus, string> = {
-  pending: "მოლოდინში",
-  confirmed: "დადასტურებული",
-  en_route: "გზაშია",
-  started: "დაიწყო",
-  worker_completed: "ხელოსანმა დაასრულა",
-  client_confirmed: "დადასტურდა კლიენტით",
-  closed: "დახურული",
-  completed: "შესრულებული",
-  declined: "უარყოფილი",
-  cancelled: "გაუქმებული",
-  disputed: "დავა გახსნილია",
-};
-
-const verificationLabel: Record<
-  NonNullable<CraftsmanProfile["verificationStatus"]>,
-  string
-> = {
-  not_submitted: "არ არის გამოგზავნილი",
-  pending: "შესამოწმებელია",
-  verified: "ვერიფიცირებული",
-  rejected: "უარყოფილი",
-};
-
-const accountLabel: Record<
-  NonNullable<ClientProfile["accountStatus"]>,
-  string
-> = {
-  active: "აქტიური",
-  limited: "შეზღუდული",
-  blocked: "დაბლოკილი",
-};
-
 const adminAccountLabel = (
   status?: AdminUserSummary["status"] | ClientProfile["accountStatus"]
 ) => {
   if (status === "pending") return "მოლოდინში";
   return accountLabel[status || "active"];
 };
-
-const auditLabel: Record<AdminAuditLog["action"], string> = {
-  verification_approved: "ვერიფიკაცია დადასტურდა",
-  verification_rejected: "ვერიფიკაცია უარყოფილია",
-  dispute_reviewing: "დავა გადავიდა განხილვაში",
-  dispute_refunded: "დავა დაიხურა თანხის დაბრუნებით",
-  dispute_released: "დავა დაიხურა ხელოსანზე თანხის გაშვებით",
-  dispute_warning: "დავა დაიხურა გაფრთხილებით",
-  booking_closed: "ჯავშანი დაიხურა",
-  booking_refunded: "ჯავშანი გაუქმდა და თანხა დაბრუნდა",
-  payment_captured: "თანხა დადასტურდა",
-  payment_status_changed: "თანხის სტატუსი შეიცვალა",
-  platform_settings_updated: "პლატფორმის პარამეტრები შეიცვალა",
-  admin_member_updated: "Admin წევრი შეიცვალა",
-  launch_checklist_updated: "Launch checklist შეიცვალა",
-  client_status_changed: "კლიენტის სტატუსი შეიცვალა",
-  craftsman_status_changed: "ხელოსნის სტატუსი შეიცვალა",
-};
-
-const adminCard: React.CSSProperties = {
-  border: "1px solid var(--border)",
-  borderRadius: 16,
-  background: "white",
-  boxShadow: "var(--shadow-sm)",
-};
-
-const actionButton = (
-  bg: string,
-  color = "white"
-): React.CSSProperties => ({
-  minHeight: 38,
-  padding: "0 12px",
-  borderRadius: 10,
-  background: bg,
-  color,
-  fontSize: 12,
-  fontWeight: 900,
-});
 
 const deriveVerificationStatus = (profile: CraftsmanProfile) => {
   if (profile.verificationStatus) return profile.verificationStatus;
