@@ -21,8 +21,6 @@ import {
   isClosedStatus,
   matchesQuery,
   money,
-  parseFirstAmount,
-  penaltyAmountForBooking,
 } from "../components/admin/adminUtils";
 import {
   clearCachedPreflightState,
@@ -72,6 +70,10 @@ import { AdminVerificationTab } from "../components/admin/AdminVerificationTab";
 import { getProductionGuardItems } from "../components/admin/adminProductionGuard";
 import { getAdminLaunchSmokeState } from "../components/admin/adminLaunchSmoke";
 import { downloadLaunchReadinessReport } from "../components/admin/adminReport";
+import {
+  getAdminFinanceQueueState,
+  getAdminFinancialSummary,
+} from "../components/admin/adminFinanceModel";
 import {
   getAdminUserDirectory,
   getClientUserStats,
@@ -594,18 +596,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       booking.status || "pending"
     )
   );
-  const financialSummary = clientBookings.reduce(
-    (summary, booking) => {
-      const amount = booking.bookingFee || platformSettings.bookingFee;
-      const status = booking.paymentStatus || "held";
-      if (status === "held") summary.held += amount;
-      if (status === "released") summary.released += amount;
-      if (status === "refunded") summary.refunded += amount;
-      if (status === "disputed") summary.disputed += amount;
-      return summary;
-    },
-    { held: 0, released: 0, refunded: 0, disputed: 0 }
-  );
+  const financialSummary = getAdminFinancialSummary(clientBookings, platformSettings);
   const platformIncome = financialSummary.released;
   const productionReadiness = getLaunchReadinessChecks({
     settings: platformSettings,
@@ -807,53 +798,21 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       ])
     );
   });
-  const filteredFinancialSummary = filteredClientBookings.reduce(
-    (summary, booking) => {
-      const amount = booking.bookingFee || platformSettings.bookingFee;
-      const status = booking.paymentStatus || "held";
-      if (status === "held") summary.held += amount;
-      if (status === "released") summary.released += amount;
-      if (status === "refunded") summary.refunded += amount;
-      if (status === "disputed") summary.disputed += amount;
-      return summary;
-    },
-    { held: 0, released: 0, refunded: 0, disputed: 0 }
-  );
-  const financeReviewBookings = filteredClientBookings.filter(
-    (booking) =>
-      booking.paymentStatus === "disputed" ||
-      booking.status === "disputed" ||
-      booking.cancellationPolicy === "late_review"
-  );
-  const financeRefundQueue = filteredClientBookings.filter(
-    (booking) =>
-      booking.status === "cancelled" &&
-      booking.cancellationPolicy !== "late_review" &&
-      (booking.paymentStatus || "held") !== "refunded"
-  );
-  const financeReleaseQueue = filteredClientBookings.filter(
-    (booking) =>
-      ["client_confirmed", "closed", "completed"].includes(booking.status || "") &&
-      (booking.paymentStatus || "held") === "held"
-  );
-  const lateCancellationPenaltyTotal = financeReviewBookings.reduce(
-    (sum, booking) =>
-      sum +
-      (booking.cancellationPolicy === "late_review"
-      ? penaltyAmountForBooking(booking, platformSettings)
-      : 0),
-    0
-  );
+  const {
+    filteredFinancialSummary,
+    financeReviewBookings,
+    financeRefundQueue,
+    financeReleaseQueue,
+    lateCancellationPenaltyTotal,
+    estimatedServiceTotal,
+    estimatedCommission,
+  } = getAdminFinanceQueueState({
+    filteredClientBookings,
+    platformSettings,
+  });
   const pendingVerificationCount = verificationQueue.filter(
     (item) => item.verificationStatus === "pending"
   ).length;
-  const estimatedServiceTotal = filteredClientBookings.reduce(
-    (sum, booking) => sum + parseFirstAmount(booking.worker.price),
-    0
-  );
-  const estimatedCommission = Math.round(
-    (estimatedServiceTotal * platformSettings.commissionPercent) / 100
-  );
   const getLinkedClientBooking = (bookingId: string) =>
     clientBookings.find((booking) => booking.id === bookingId);
   const needsAdminIntervention = (request: (typeof requests)[number]) => {
