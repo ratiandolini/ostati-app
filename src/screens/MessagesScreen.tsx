@@ -22,6 +22,7 @@ import {
   loadWorkerBookings,
 } from "../services/bookingApiService";
 import { openBookingDispute } from "../services/disputeApiService";
+import { formatGeorgianDate, formatGeorgianTime, normalizeGeorgianDateLabel } from "../utils/georgianDate";
 
 type Message = BookingMessage;
 type MessageRole = "client" | "craftsman";
@@ -79,11 +80,7 @@ const statusLabels: Record<string, string> = {
 };
 const isRealThreadName = (name: string) => !/^კლიენტი(\s|$)/.test(name || "");
 const formatMessageTime = (value: string) =>
-  new Date(value).toLocaleTimeString("ka-GE", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  formatGeorgianTime(value);
 const formatMessageDate = (value: string) => {
   const date = new Date(value);
   const today = new Date();
@@ -92,11 +89,7 @@ const formatMessageDate = (value: string) => {
   const key = date.toDateString();
   if (key === today.toDateString()) return "დღეს";
   if (key === yesterday.toDateString()) return "გუშინ";
-  return date.toLocaleDateString("ka-GE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return formatGeorgianDate(date);
 };
 const maxChatAttachmentBytes = 10 * 1024 * 1024;
 const problemReasons = [
@@ -156,7 +149,7 @@ const fallbackThreadsFromClientBookings = (clientBookings: Booking[]): Thread[] 
   clientBookings.map((booking) => ({
     id: booking.id,
     title: booking.worker.name,
-    subtitle: `${booking.worker.role} · ${booking.dateLabel} · ${booking.time}`,
+    subtitle: `${booking.worker.role} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
     status: booking.status || "pending",
     lastText: "ჯერ მიმოწერა არ არის",
     lastAt: "",
@@ -234,7 +227,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
           enhance({
             id: booking.id,
             title: booking.worker.name,
-            subtitle: `${booking.worker.role} · ${booking.dateLabel} · ${booking.time}`,
+            subtitle: `${booking.worker.role} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
             status: booking.status || "pending",
           })
         )
@@ -260,7 +253,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
             enhance({
               id: booking.id,
               title: booking.worker.name,
-              subtitle: `${booking.worker.role} · ${booking.dateLabel} · ${booking.time}`,
+              subtitle: `${booking.worker.role} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
               status: booking.status || "pending",
             })
           )
@@ -649,11 +642,13 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
     >
       <div
         style={{
-          padding: "34px 24px 14px",
+          padding: "32px 24px 12px",
           paddingTop: "calc(34px + var(--safe-top))",
         }}
       >
-        <h1 className="screen-title">მესიჯები</h1>
+        <h1 className="screen-title" style={{ lineHeight: 1.22, paddingBottom: 2 }}>
+          მესიჯები
+        </h1>
         <p className="screen-subtitle">
           კომუნიკაცია ჯავშანზე, ტელეფონის ნომრის გარეშე
         </p>
@@ -683,9 +678,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 8,
-              padding: "0 24px 12px",
-              maxHeight: 220,
+              gap: 10,
+              padding: "0 24px 14px",
+              maxHeight: 246,
               overflowY: "auto",
             }}
           >
@@ -701,7 +696,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                 onClick={() => selectThread(thread)}
                 style={{
                   width: "100%",
-                  padding: "11px 12px",
+                  minHeight: 76,
+                  padding: "12px 13px",
                   borderRadius: 14,
                   background:
                     activeThread?.id === thread.id ? "var(--primary)" : "white",
@@ -714,7 +710,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                   textAlign: "left",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                   {thread.unreadCount > 0 && (
                     <span style={{
                       minWidth: 18,
@@ -733,13 +730,13 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                       {thread.unreadCount > 9 ? "9+" : thread.unreadCount}
                     </span>
                   )}
-                  <div style={{ fontSize: 12, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ minWidth: 0, fontSize: 12, lineHeight: 1.35, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {thread.title}
+                  </div>
                   </div>
                   {thread.lastAt && (
                     <div
                       style={{
-                        marginLeft: "auto",
                         fontSize: 10,
                         fontWeight: 900,
                         opacity: 0.72,
@@ -750,14 +747,15 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                     </div>
                   )}
                 </div>
-                <div style={{ marginTop: 3, fontSize: 10, opacity: 0.75, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ marginTop: 4, fontSize: 10, lineHeight: 1.35, opacity: 0.75, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {thread.subtitle}
                 </div>
                 <div
                   style={{
                     marginTop: 6,
-                    display: "inline-flex",
+                    display: "flex",
                     alignItems: "center",
+                    width: "fit-content",
                     maxWidth: "100%",
                     padding: "3px 8px",
                     borderRadius: 999,
@@ -775,14 +773,14 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                           : "#047857",
                     fontSize: 10,
                     fontWeight: 900,
-                    whiteSpace: "nowrap",
+                    whiteSpace: "normal",
                     overflow: "hidden",
-                    textOverflow: "ellipsis",
+                    lineHeight: 1.25,
                   }}
                 >
                   {statusLabels[thread.status || ""] || "აქტიური"}
                 </div>
-                <div style={{ marginTop: 5, fontSize: 11, opacity: 0.9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ marginTop: 5, fontSize: 11, lineHeight: 1.35, opacity: 0.9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {thread.lastText}
                 </div>
               </button>
@@ -794,7 +792,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
             style={{
               flex: 1,
               overflowY: "auto",
-              padding: "10px 24px 96px",
+              padding: "10px 24px 116px",
             }}
           >
             {activeThread && role === "client" && !isThreadArchived && (
@@ -936,9 +934,11 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                           : mine
                             ? "none"
                             : "1px solid var(--border)",
+                        minWidth: 0,
                         fontSize: isSystem ? 12 : 13,
                         lineHeight: 1.5,
                         fontWeight: isSystem ? 850 : 700,
+                        overflowWrap: "anywhere",
                       }}
                     >
                       {message.attachmentUrl && message.attachmentType === "image" && (
@@ -993,10 +993,10 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
               position: "absolute",
               left: 0,
               right: 0,
-              bottom: "calc(72px + var(--safe-bottom))",
+              bottom: "calc(76px + var(--safe-bottom))",
               display: "flex",
               gap: 8,
-              padding: "10px 18px",
+              padding: "10px 14px 12px",
               background: "rgba(250,250,250,0.96)",
               borderTop: "1px solid var(--border)",
             }}
@@ -1057,7 +1057,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
               onClick={() => fileInputRef.current?.click()}
               disabled={isThreadArchived || messagingBlocked || attachmentUploading}
               style={{
-                width: 46,
+                flex: "0 0 44px",
+                width: 44,
                 height: 46,
                 borderRadius: "50%",
                 background: isThreadArchived || messagingBlocked || attachmentUploading ? "#dbe4ef" : "white",
@@ -1084,13 +1085,14 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
               }
               style={{
                 flex: 1,
+                minWidth: 0,
                 height: 46,
                 padding: "0 14px",
                 borderRadius: 999,
                 border: "1px solid var(--border)",
                 background: "white",
                 color: "var(--text)",
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: 700,
                 opacity: isThreadArchived || messagingBlocked ? 0.7 : 1,
               }}
@@ -1100,7 +1102,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
               onClick={sendMessage}
               disabled={!draft.trim() || messagingBlocked || attachmentUploading}
               style={{
-                width: 46,
+                flex: "0 0 44px",
+                width: 44,
                 height: 46,
                 borderRadius: "50%",
                 background:

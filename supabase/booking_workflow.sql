@@ -107,6 +107,7 @@ returns trigger
 language plpgsql
 as $$
 declare
+  actor_user_id uuid;
   worker_user_id uuid;
   notification_title text;
   notification_body text;
@@ -114,6 +115,8 @@ begin
   if old.status is not distinct from new.status then
     return new;
   end if;
+
+  actor_user_id := public.current_app_user_id();
 
   select workers.user_id
   into worker_user_id
@@ -123,24 +126,28 @@ begin
   notification_title := public.booking_status_title(new.status);
   notification_body := public.booking_status_body(old.status, new.status);
 
-  perform public.notify_user(
-    new.client_id,
-    new.id,
-    case
-      when new.status = 'worker_completed' then 'review'
-      else 'booking_status'
-    end,
-    notification_title,
-    notification_body
-  );
+  if new.client_id is not null and new.client_id is distinct from actor_user_id then
+    perform public.notify_user(
+      new.client_id,
+      new.id,
+      case
+        when new.status = 'worker_completed' then 'review'
+        else 'booking_status'
+      end,
+      notification_title,
+      notification_body
+    );
+  end if;
 
-  perform public.notify_user(
-    worker_user_id,
-    new.id,
-    'booking_status',
-    notification_title,
-    notification_body
-  );
+  if worker_user_id is not null and worker_user_id is distinct from actor_user_id then
+    perform public.notify_user(
+      worker_user_id,
+      new.id,
+      'booking_status',
+      notification_title,
+      notification_body
+    );
+  end if;
 
   return new;
 end;

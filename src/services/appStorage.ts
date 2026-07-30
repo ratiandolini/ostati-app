@@ -79,6 +79,7 @@ export interface CraftsmanBookingRequest {
   date: string;
   time: string;
   scheduledAt?: string;
+  statusUpdatedAt?: string;
   address: string;
   status: BookingStatus;
   service: string;

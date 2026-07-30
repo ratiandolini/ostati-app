@@ -26,7 +26,11 @@ import {
   disputeSchema,
   getValidationMessage,
 } from "../services/validation";
-import { normalizeGeorgianDateLabel } from "../utils/georgianDate";
+import {
+  formatGeorgianDate,
+  formatGeorgianTime,
+  normalizeGeorgianDateLabel,
+} from "../utils/georgianDate";
 
 export interface Booking {
   worker: Worker;
@@ -122,10 +126,7 @@ const paymentMessage = (
 
 const formatNotificationDate = (value?: string) => {
   if (!value) return "";
-  return new Date(value).toLocaleDateString("ka-GE", {
-    day: "numeric",
-    month: "short",
-  });
+  return formatGeorgianDate(value, { shortMonth: true, year: false });
 };
 
 const formatBookingDateTime = (booking: Booking) => {
@@ -135,16 +136,8 @@ const formatBookingDateTime = (booking: Booking) => {
   if (Number.isNaN(date.getTime())) {
     return `${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`;
   }
-  const dateLabel = date.toLocaleDateString("ka-GE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-  const timeLabel = date.toLocaleTimeString("ka-GE", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  const dateLabel = formatGeorgianDate(date);
+  const timeLabel = formatGeorgianTime(date);
   return `${dateLabel} · ${timeLabel}`;
 };
 
@@ -821,7 +814,11 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
             {notificationError}
           </div>
         )}
-        {visibleNotifications.length > 0 && (
+        {visibleNotifications.some((notification) => {
+          const appNotification =
+            "readAt" in notification ? (notification as AppNotification) : null;
+          return !appNotification?.readAt;
+        }) && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
               <strong style={{ color: "var(--text)", fontSize: 13 }}>
@@ -840,7 +837,14 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                 ყველას წაკითხვა
               </button>
             </div>
-            {visibleNotifications.slice(0, 5).map((notification) => {
+            {visibleNotifications
+              .filter((notification) => {
+                const appNotification =
+                  "readAt" in notification ? (notification as AppNotification) : null;
+                return !appNotification?.readAt;
+              })
+              .slice(0, 3)
+              .map((notification) => {
               const appNotification =
                 "readAt" in notification ? (notification as AppNotification) : null;
               const isRead = Boolean(appNotification?.readAt);
@@ -883,8 +887,8 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                   cursor: isRead ? "default" : "pointer",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                  <span>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "start" }}>
+                  <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                     {appNotification?.title || notificationText(notification)}
                   </span>
                   {appNotification?.createdAt && (
@@ -895,7 +899,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                 </div>
                 {appNotification?.title &&
                   notificationText(appNotification) !== appNotification.title && (
-                  <div style={{ marginTop: 4, fontWeight: 750 }}>
+                  <div style={{ marginTop: 4, fontWeight: 750, overflowWrap: "anywhere" }}>
                     {notificationText(appNotification)}
                   </div>
                 )}
@@ -1171,7 +1175,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                         b.worker.avatar
                       )}
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
                           fontSize: 15,
@@ -1197,9 +1201,11 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                     </div>
                     <div
                       style={{
+                        flex: "0 1 126px",
+                        minWidth: 86,
                         background: statusTone.bg,
                         borderRadius: 999,
-                        padding: "7px 12px",
+                        padding: "7px 9px",
                         textAlign: "center",
                         border: `1px solid ${statusTone.border}`,
                       }}
@@ -1208,7 +1214,9 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                         style={{
                           fontSize: 11,
                           fontWeight: 800,
+                          lineHeight: 1.25,
                           color: statusTone.color,
+                          overflowWrap: "anywhere",
                         }}
                       >
                         {statusLabel}

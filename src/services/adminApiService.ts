@@ -12,6 +12,7 @@ import type { Booking } from "../screens/BookingsScreen";
 import type { BookingDetails } from "../screens/ProfileScreen";
 import type { BookingStatus } from "../types";
 import { createSupabaseRestClient } from "./supabaseRest";
+import { formatGeorgianDate, formatGeorgianTime } from "../utils/georgianDate";
 
 interface ApiAuditLogRow {
   id: string;
@@ -110,6 +111,7 @@ interface AdminLaunchStateRow
 interface ApiAdminBookingRow {
   id: string;
   scheduled_at: string;
+  updated_at?: string | null;
   status: BookingStatus;
   city?: string | null;
   address_text?: string | null;
@@ -264,19 +266,9 @@ const initialsFromName = (name: string) =>
 const textValue = (value: unknown) =>
   value === null || value === undefined ? "" : String(value);
 
-const formatDateLabel = (value: string) =>
-  new Date(value).toLocaleDateString("ka-GE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+const formatDateLabel = (value: string) => formatGeorgianDate(value);
 
-const formatTime = (value: string) =>
-  new Date(value).toLocaleTimeString("ka-GE", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+const formatTime = (value: string) => formatGeorgianTime(value);
 
 const formatPrice = (
   type?: "fixed" | "from" | "range" | null,
@@ -392,6 +384,7 @@ const mapAdminBookingToRequest = (
   clientPhone: booking.client.phone || undefined,
   date: formatDateLabel(booking.scheduled_at),
   time: formatTime(booking.scheduled_at),
+  statusUpdatedAt: booking.updated_at || undefined,
   address: booking.address_text || booking.city || "მისამართი დასაზუსტებელია",
   status: booking.status,
   service: booking.worker.role || "ხელოსანი",
@@ -432,18 +425,10 @@ const mapAdminDispute = (dispute: ApiAdminDisputeRow): BookingDispute => ({
   workerName: dispute.worker?.name || dispute.worker?.phone || undefined,
   service: dispute.booking?.profession_name || undefined,
   dateLabel: dispute.booking?.scheduled_at
-    ? new Date(dispute.booking.scheduled_at).toLocaleDateString("ka-GE", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
+    ? formatGeorgianDate(dispute.booking.scheduled_at)
     : undefined,
   time: dispute.booking?.scheduled_at
-    ? new Date(dispute.booking.scheduled_at).toLocaleTimeString("ka-GE", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      })
+    ? formatGeorgianTime(dispute.booking.scheduled_at)
     : undefined,
   amount: Number(dispute.booking?.booking_fee_amount || 0) || undefined,
   paymentStatus: mapAdminPaymentStatus(

@@ -1231,6 +1231,7 @@ begin
     select jsonb_build_object(
       'id', b.id,
       'scheduled_at', b.scheduled_at,
+      'updated_at', b.updated_at,
       'status', b.status,
       'city', b.city,
       'address_text', b.address_text,

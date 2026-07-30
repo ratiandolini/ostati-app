@@ -29,6 +29,7 @@ import {
   craftsmanProfileSchema,
   getValidationMessage,
 } from "../services/validation";
+import { formatGeorgianDate, formatGeorgianTime } from "../utils/georgianDate";
 
 interface Booking {
   id: string;
@@ -189,10 +190,7 @@ const formatProfilePrice = (
 
 const formatNotificationDate = (value?: string) => {
   if (!value) return "";
-  return new Date(value).toLocaleDateString("ka-GE", {
-    day: "numeric",
-    month: "short",
-  });
+  return formatGeorgianDate(value, { shortMonth: true, year: false });
 };
 
 const formatBookingDateTime = (booking: Booking) => {
@@ -200,15 +198,7 @@ const formatBookingDateTime = (booking: Booking) => {
   if (!scheduledAt) return `${booking.date} · ${booking.time}`;
   const date = new Date(scheduledAt);
   if (Number.isNaN(date.getTime())) return `${booking.date} · ${booking.time}`;
-  return `${date.toLocaleDateString("ka-GE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  })} · ${date.toLocaleTimeString("ka-GE", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })}`;
+  return `${formatGeorgianDate(date)} · ${formatGeorgianTime(date)}`;
 };
 
 const monthNames = [
@@ -614,6 +604,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   );
   const [priceMin, setPriceMin] = useState(String(initialPrice.min));
   const [priceMax, setPriceMax] = useState(String(initialPrice.max || 120));
+  const platformMonthlyFee = dataService.getPlatformSettings().craftsmanMonthlyFee;
   const [verification, setVerification] = useState(() => {
     if (!isDemoDataMode) {
       return {
@@ -657,7 +648,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       status: "trial",
       trialStartedAt,
       trialEndsAt,
-      monthlyAmount: 39,
+      monthlyAmount: platformMonthlyFee,
     };
   });
   const [profileUploadError, setProfileUploadError] = useState("");
@@ -885,7 +876,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             "trial",
           trialStartedAt,
           trialEndsAt,
-          monthlyAmount: Number(profile.subscription?.amount || 39),
+          monthlyAmount: Number(profile.subscription?.amount || platformMonthlyFee),
         });
         if (profile.schedule?.length) {
           const firstSchedule = profile.schedule[0];
@@ -1184,6 +1175,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         (booking) => !archivedWorkStatuses.includes(booking.status)
       ),
     [displayedBookings]
+  );
+  const visibleHomeNotifications = useMemo(
+    () => notifications.filter((notification) => !notification.readAt).slice(0, 2),
+    [notifications]
   );
   const archivedWorks = useMemo(
     () =>
@@ -2118,13 +2113,13 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             ))}
           </div>
 
-          {(notifications.length > 0 || notificationError) && (
+          {(visibleHomeNotifications.length > 0 || notificationError) && (
             <section style={{ marginTop: 22 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                 <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: "var(--text)" }}>
                   შეტყობინებები
                 </h2>
-                {notifications.some((notification) => !notification.readAt) && (
+                {visibleHomeNotifications.length > 0 && (
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <button
                       type="button"
@@ -2179,7 +2174,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 </div>
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                {notifications.slice(0, 3).map((notification) => {
+                {visibleHomeNotifications.map((notification) => {
                   const isRead = Boolean(notification.readAt);
                   return (
                     <button
@@ -2198,15 +2193,15 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                         cursor: notification.bookingId ? "pointer" : "default",
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                        <strong style={{ fontSize: 12 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10 }}>
+                        <strong style={{ minWidth: 0, fontSize: 12, lineHeight: 1.35, overflowWrap: "anywhere" }}>
                           {notification.title}
                         </strong>
                         <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 850, opacity: 0.75 }}>
                           {formatNotificationDate(notification.createdAt)}
                         </span>
                       </div>
-                      <div style={{ marginTop: 4, fontSize: 11, fontWeight: 750, lineHeight: 1.45 }}>
+                      <div style={{ marginTop: 4, fontSize: 11, fontWeight: 750, lineHeight: 1.45, overflowWrap: "anywhere" }}>
                         {notification.text}
                       </div>
                       {notification.bookingId && (

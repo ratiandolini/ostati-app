@@ -5,8 +5,23 @@ import type { AdminPermission } from "./adminPermissions";
 import type { CraftsmanBookingRequest } from "../../services/dataService";
 import type { BookingStatus } from "../../types";
 import type { Booking } from "../../screens/BookingsScreen";
+import { formatGeorgianDate, formatGeorgianTime } from "../../utils/georgianDate";
 
 type AdminPaymentStatus = NonNullable<Booking["paymentStatus"]>;
+
+const statusTimingText = (request: CraftsmanBookingRequest) => {
+  if (!request.statusUpdatedAt) return "";
+  if (request.status === "started") {
+    return `სამუშაო დაიწყო: ${formatGeorgianDate(request.statusUpdatedAt)} · ${formatGeorgianTime(request.statusUpdatedAt)}`;
+  }
+  if (["worker_completed", "client_confirmed", "closed", "completed"].includes(request.status)) {
+    return `დასრულდა: ${formatGeorgianDate(request.statusUpdatedAt)} · ${formatGeorgianTime(request.statusUpdatedAt)}`;
+  }
+  if (request.status === "en_route") {
+    return `გზაში მონიშნა: ${formatGeorgianDate(request.statusUpdatedAt)} · ${formatGeorgianTime(request.statusUpdatedAt)}`;
+  }
+  return "";
+};
 
 interface AdminBookingsTabProps {
   interventionRequests: CraftsmanBookingRequest[];
@@ -73,6 +88,7 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
               interventionRequests.map((request) => {
                 const linkedBooking = getLinkedClientBooking(request.id);
                 const paymentStatus = linkedBooking?.paymentStatus || "held";
+                const timingText = statusTimingText(request);
                 return (
                 <div key={request.id} style={{ ...adminCard, padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
@@ -114,6 +130,11 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
                   <div style={{ marginTop: 6, color: "var(--text3)", fontSize: 11, fontWeight: 850 }}>
                     {paymentStatusShortLabel[paymentStatus]} · #{request.id.slice(-8)}
                   </div>
+                  {timingText && (
+                    <div style={{ marginTop: 6, color: "var(--text2)", fontSize: 11, fontWeight: 850 }}>
+                      {timingText}
+                    </div>
+                  )}
                   {(request.cancellationReason || request.disputeReason) && (
                     <div style={{ marginTop: 8, color: "#9a3412", fontSize: 12, fontWeight: 850 }}>
                       {request.cancellationReason || request.disputeReason}
@@ -169,7 +190,9 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
               ჩვეულებრივი ჯავშნები
             </div>
             {visibleRegularRequests.length ? (
-              visibleRegularRequests.map((request) => (
+              visibleRegularRequests.map((request) => {
+                const timingText = statusTimingText(request);
+                return (
                 <div key={request.id} style={{ ...adminCard, padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                     <div style={{ minWidth: 0 }}>
@@ -196,6 +219,11 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
                   <div style={{ marginTop: 8, color: "var(--text3)", fontSize: 12 }}>
                     {request.address || "მისამართი არ არის მითითებული"}
                   </div>
+                  {timingText && (
+                    <div style={{ marginTop: 6, color: "var(--text2)", fontSize: 11, fontWeight: 850 }}>
+                      {timingText}
+                    </div>
+                  )}
                   <div
                     style={{
                       marginTop: 10,
@@ -212,7 +240,8 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
                     Admin ღილაკები გამოჩნდება მხოლოდ დავაზე ან დაბრუნებაზე.
                   </div>
                 </div>
-              ))
+                );
+              })
             ) : (
               <div style={{ ...adminCard, padding: 24, textAlign: "center", color: "var(--text3)", fontWeight: 800 }}>
                 ჩვეულებრივი ჯავშანი ამ ფილტრით არ მოიძებნა

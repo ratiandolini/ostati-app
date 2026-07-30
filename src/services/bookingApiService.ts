@@ -10,6 +10,7 @@ import {
   extractStoragePath,
   uploadStorageFile,
 } from "./supabaseStorageService";
+import { formatGeorgianDate, formatGeorgianTime } from "../utils/georgianDate";
 
 interface CreateBookingPayload {
   worker: Worker;
@@ -142,19 +143,9 @@ const initialsFromName = (name: string) =>
     .join("")
     .toUpperCase();
 
-const formatDateLabel = (value: string) =>
-  new Date(value).toLocaleDateString("ka-GE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+const formatDateLabel = (value: string) => formatGeorgianDate(value);
 
-const formatTime = (value: string) =>
-  new Date(value).toLocaleTimeString("ka-GE", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+const formatTime = (value: string) => formatGeorgianTime(value);
 
 const formatPrice = (
   type?: "fixed" | "from" | "range" | null,

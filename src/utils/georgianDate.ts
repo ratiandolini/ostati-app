@@ -43,3 +43,51 @@ export const normalizeGeorgianDateLabel = (value: string) =>
     (current, [pattern, replacement]) => current.replace(pattern, replacement),
     value
   );
+
+export const georgianMonthNames = [
+  "იანვარი",
+  "თებერვალი",
+  "მარტი",
+  "აპრილი",
+  "მაისი",
+  "ივნისი",
+  "ივლისი",
+  "აგვისტო",
+  "სექტემბერი",
+  "ოქტომბერი",
+  "ნოემბერი",
+  "დეკემბერი",
+];
+
+export const georgianShortMonthNames = [
+  "იან",
+  "თებ",
+  "მარ",
+  "აპრ",
+  "მაის",
+  "ივნ",
+  "ივლ",
+  "აგვ",
+  "სექ",
+  "ოქტ",
+  "ნოე",
+  "დეკ",
+];
+
+export const formatGeorgianDate = (value: string | Date, options?: { shortMonth?: boolean; year?: boolean }) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return normalizeGeorgianDateLabel(String(value || ""));
+  const months = options?.shortMonth ? georgianShortMonthNames : georgianMonthNames;
+  const year = options?.year === false ? "" : ` ${date.getFullYear()}`;
+  return `${date.getDate()} ${months[date.getMonth()]}${year}`;
+};
+
+export const formatGeorgianTime = (value: string | Date) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("ka-GE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
