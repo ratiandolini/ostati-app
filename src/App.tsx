@@ -697,7 +697,7 @@ const App: React.FC = () => {
   }, [screen, user?.role]);
 
   const goToWorker = (w: Worker) => {
-    if (w.verificationStatus && w.verificationStatus !== "verified") {
+    if (w.verificationStatus !== "verified") {
       window.alert("ეს ხელოსანი ჯერ ვერიფიცირებული არ არის და დაჯავშნა დროებით შეუძლებელია.");
       return;
     }
@@ -722,7 +722,7 @@ const App: React.FC = () => {
     if (accountStatus !== "active") {
       throw new Error("ანგარიში შეზღუდულია. ახალი ჯავშნის გაკეთება დროებით შეუძლებელია.");
     }
-    if (worker.verificationStatus && worker.verificationStatus !== "verified") {
+    if (worker.verificationStatus !== "verified") {
       throw new Error("ეს ხელოსანი ჯერ ვერიფიცირებული არ არის და დაჯავშნა დროებით შეუძლებელია.");
     }
     const clientProfile = getClientProfile(user?.phone || "");

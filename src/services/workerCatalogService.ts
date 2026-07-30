@@ -83,14 +83,18 @@ export const getDemoWorkerCatalog = (): Worker[] => {
   const workers = savedCraftsman ? [savedCraftsman, ...demoWorkers] : demoWorkers;
   return workers.map((worker) => {
     const storedRating = dataService.getWorkerRating(worker.id);
+    const normalizedWorker: Worker = {
+      ...worker,
+      verificationStatus: worker.verificationStatus || "verified",
+    };
     return storedRating
       ? {
-          ...worker,
+          ...normalizedWorker,
           rating: storedRating.value,
           reviewCount: storedRating.count,
         }
-      : worker;
-  }).filter((worker) => worker.verificationStatus === undefined || worker.verificationStatus === "verified");
+      : normalizedWorker;
+  }).filter((worker) => worker.verificationStatus === "verified");
 };
 
 const mapSupabaseWorker = (row: SupabaseWorkerCard, index: number): Worker => {
@@ -105,7 +109,7 @@ const mapSupabaseWorker = (row: SupabaseWorkerCard, index: number): Worker => {
   return {
     id: stableNumberId(row.id),
     backendId: row.id,
-    verificationStatus: row.verification_status || "verified",
+    verificationStatus: row.verification_status || "not_started",
     name,
     role: row.role || skills[0] || "ხელოსანი",
     avatar: row.avatar_url || initialsFromName(name),
@@ -136,6 +140,6 @@ export const loadWorkerCatalog = async (
   }, { signal });
 
   return rows
-    .filter((row) => !row.verification_status || row.verification_status === "verified")
+    .filter((row) => row.verification_status === "verified")
     .map(mapSupabaseWorker);
 };
