@@ -74,6 +74,12 @@ import { getAdminDisputeModel } from "../components/admin/adminDisputesModel";
 import { getAdminBookingsModel } from "../components/admin/adminBookingsModel";
 import { getAdminAuditModel } from "../components/admin/adminAuditModel";
 import { getAdminVerificationModel } from "../components/admin/adminVerificationModel";
+import {
+  applyVerificationStatusToProfile,
+  getVerificationAuditAction,
+  getVerificationConfirmMessage,
+  requiresVerificationNote,
+} from "../components/admin/adminVerificationActions";
 import { getAdminQaModel } from "../components/admin/adminQaModel";
 import {
   getAdminPreflightSummary,
@@ -745,13 +751,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       setAdminApiError("ამ Admin როლს ვერიფიკაციის უფლება არ აქვს");
       return;
     }
-    const requiresNote = status === "rejected";
     if (
       !confirmAdminAction(
-        status === "verified"
-          ? "დარწმუნებული ხარ, რომ ხელოსნის ვერიფიკაცია უნდა დადასტურდეს?"
-          : "დარწმუნებული ხარ, რომ ვერიფიკაცია უნდა უარყო?",
-        { requireNote: requiresNote }
+        getVerificationConfirmMessage(status),
+        { requireNote: requiresVerificationNote(status) }
       )
     ) {
       return;
@@ -774,13 +777,9 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             finalNote || undefined
           )
         );
-        saveCraftsmanProfile({
-          ...profile,
-          verificationStatus: status,
-          verificationNote: finalNote,
-          adminNote: finalNote || profile.adminNote,
-          accountStatus: status === "verified" ? "active" : profile.accountStatus,
-        });
+        saveCraftsmanProfile(
+          applyVerificationStatusToProfile(profile, status, finalNote)
+        );
         setAdminNote("");
         refresh();
       } catch (error) {
@@ -795,15 +794,11 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       return;
     }
 
-    saveCraftsmanProfile({
-      ...profile,
-      verificationStatus: status,
-      verificationNote: finalNote,
-      adminNote: finalNote || profile.adminNote,
-      accountStatus: status === "verified" ? "active" : profile.accountStatus,
-    });
+    saveCraftsmanProfile(
+      applyVerificationStatusToProfile(profile, status, finalNote)
+    );
     recordAudit(
-      status === "verified" ? "verification_approved" : "verification_rejected",
+      getVerificationAuditAction(status),
       profile.phone || "craftsman",
       finalNote || verificationLabel[status]
     );
