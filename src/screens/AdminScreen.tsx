@@ -70,6 +70,7 @@ import { AdminSettingsTab } from "../components/admin/AdminSettingsTab";
 import { AdminUsersTab } from "../components/admin/AdminUsersTab";
 import { AdminVerificationTab } from "../components/admin/AdminVerificationTab";
 import { getProductionGuardItems } from "../components/admin/adminProductionGuard";
+import { downloadLaunchReadinessReport } from "../components/admin/adminReport";
 import {
   adminProviderFields,
   legalSettingFields,
@@ -1229,129 +1230,73 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   };
 
   const downloadAdminReport = () => {
-    const exportedAt = new Date().toISOString();
-    if (
-      launchReportStatus === "draft" &&
-      !window.confirm(
-        [
-          "ეს report ჯერ draft იქნება.",
-          ...launchReportDraftReasons,
-          "მაინც ჩამოვტვირთო report?",
-        ].join("\n")
-      )
-    ) {
-      return;
-    }
-
-    const report = {
-      exportedAt,
-      exportedBy: user.name || "ადმინისტრატორი",
-      exportedRole: currentAdminMember,
-      launchStatus: launchReportStatus,
-      draftReasons: launchReportDraftReasons,
+    const result = downloadLaunchReadinessReport({
+      exportedBy: user.name || "??????????????",
+      currentAdminMember,
+      launchReportStatus,
+      launchReportDraftReasons,
       filters: {
         tab,
         query: adminQuery,
         status: statusFilter,
       },
-      summary: {
-        verificationStatus,
-        openDisputes: openDisputes.length,
-        urgentDisputes: urgentDisputes.length,
-        pendingRequests: pendingRequests.length,
-        activeBookings: activeBookings.length,
-        finance: financialSummary,
-        platformSettings,
-        readiness: {
-          productionReady: readyCount === productionReadiness.length,
-          productionReadyCount: readyCount,
-          productionReadyTotal: productionReadiness.length,
-          prePaymentDoneCount,
-          prePaymentTotal: prePaymentChecklist.length,
-          mobileQaDoneCount,
-          mobileQaTotal: mobileQaScenarios.length,
-          mobileQaRemaining: remainingMobileQaScenarios.map((item) => ({
-            area: qaAreaLabel[item.area],
-            label: item.label,
-          })),
-          mobileQaNotesCount: mobileQaNotes.length,
-          mobileQaNotes,
-          mobileQaByArea: mobileQaProgressByArea,
-          blockingSystemChecks: blockingSystemChecks.length,
-          productionGuardCount: productionGuardItems.length,
-          productionGuardItems,
-          launchSmokeDoneCount,
-          launchSmokeTotal: launchSmokeSteps.length,
-          nextLaunchSmokeStep,
-          apiMigration: apiMigrationSummary,
-          supabasePreflight: {
-            hasRun: preflightChecks.length > 0,
-            checkedAt: preflightCheckedAt,
-            fresh: preflightFresh,
-            scope: preflightScope,
-            ok: preflightSummary.ok,
-            warning: preflightSummary.warning,
-            error: preflightSummary.error,
-            requiredErrors: preflightSummary.requiredErrors,
-            ready:
-              preflightChecks.length > 0 &&
-              preflightFresh &&
-              preflightSummary.requiredErrors === 0,
-          },
-        },
-      },
-      launchReadiness: {
-        productionReadiness,
-        draftProductionReadiness,
-        systemReadinessChecks,
-        apiMigrationItems,
-        prePaymentChecklist,
-        mobileQaScenarios,
-        launchSmokeSteps,
-        supabasePreflightChecks: preflightChecks,
-        legalSettings,
-      },
-      filtered: {
-        disputes: filteredDisputes,
-        bookings: filteredRequests,
-        finance: filteredClientBookings,
-        clients: adminUsersState
-          ? filteredAdminClients
-          : filteredClients.map((phone) => ({
-              phone,
-              profile: fallbackStorage.getClientProfile(phone),
-            })),
-        craftsmen: adminUsersState ? filteredAdminCraftsmen : undefined,
-        auditLogs: filteredAuditLogs,
-      },
-      all: {
-        craftsmanProfile: profile,
-        requests,
-        clientBookings,
-        disputes,
-        auditLogs,
-        adminMembers,
-        currentAdminMember,
-      },
-    };
-    const blob = new Blob([JSON.stringify(report, null, 2)], {
-      type: "application/json;charset=utf-8",
+      verificationStatus,
+      openDisputesCount: openDisputes.length,
+      urgentDisputesCount: urgentDisputes.length,
+      pendingRequestsCount: pendingRequests.length,
+      activeBookingsCount: activeBookings.length,
+      financialSummary,
+      platformSettings,
+      readyCount,
+      productionReadiness,
+      prePaymentDoneCount,
+      prePaymentChecklist,
+      mobileQaDoneCount,
+      mobileQaScenarios,
+      remainingMobileQaScenarios,
+      mobileQaNotesCount: mobileQaNotes.length,
+      mobileQaNotes,
+      mobileQaProgressByArea,
+      blockingSystemChecksCount: blockingSystemChecks.length,
+      productionGuardItems,
+      launchSmokeDoneCount,
+      launchSmokeSteps,
+      nextLaunchSmokeStep,
+      apiMigrationSummary,
+      preflightChecks,
+      preflightCheckedAt,
+      preflightFresh,
+      preflightScope,
+      preflightSummary,
+      productionReadinessChecks: productionReadiness,
+      draftProductionReadiness,
+      systemReadinessChecks,
+      apiMigrationItems,
+      legalSettings,
+      filteredDisputes,
+      filteredRequests,
+      filteredClientBookings,
+      filteredClientsReport: filteredClients.map((phone) => ({
+        phone,
+        profile: fallbackStorage.getClientProfile(phone),
+      })),
+      filteredAdminClients: adminUsersState ? filteredAdminClients : undefined,
+      filteredAdminCraftsmen: adminUsersState ? filteredAdminCraftsmen : undefined,
+      filteredAuditLogs,
+      profile,
+      requests,
+      clientBookings,
+      disputes,
+      auditLogs,
+      adminMembers,
     });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `launch-readiness-report-${launchReportStatus}-${exportedAt.slice(
-      0,
-      10
-    )}.json`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+
+    if (result !== "downloaded") return;
+
     setAdminApiSuccess(
       launchReportStatus === "launch_ready"
-        ? "Launch-ready report ჩამოიტვირთა."
-        : "Draft readiness report ჩამოიტვირთა; დარჩენილი საკითხები report-შიც წერია."
+        ? "Launch-ready report ???????????."
+        : "Draft readiness report ???????????; ????????? ????????? report-??? ?????."
     );
   };
 
