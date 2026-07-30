@@ -74,6 +74,7 @@ import {
   getAdminFinancialSummary,
 } from "../components/admin/adminFinanceModel";
 import { getAdminOperationalQueue } from "../components/admin/adminOperationalQueue";
+import { getAdminDisputeModel } from "../components/admin/adminDisputesModel";
 import {
   getAdminUserDirectory,
   getClientUserStats,
@@ -663,52 +664,19 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     statusFilter,
     getClientProfile: fallbackStorage.getClientProfile,
   });
-  const disputeMatchesQuery = (dispute: BookingDispute) =>
-    matchesQuery(adminQuery, [
-      dispute.reason,
-      dispute.details,
-      dispute.bookingId,
-      dispute.status,
-      dispute.resolution,
-      dispute.adminNote,
-      dispute.clientName,
-      dispute.workerName,
-      dispute.service,
-    ]);
-  const activeDisputes = disputes.filter((dispute) => dispute.status !== "resolved");
-  const reviewingDisputes = disputes.filter((dispute) => dispute.status === "reviewing");
-  const archiveDisputes = disputes.filter((dispute) => dispute.status === "resolved");
-  const disputeViewCounts: Record<DisputeView, number> = {
-    active: activeDisputes.length,
-    urgent: disputes.filter(
-      (dispute) =>
-        dispute.status !== "resolved" && disputePriorityScore(dispute) >= 3
-    ).length,
-    reviewing: reviewingDisputes.length,
-    archive: archiveDisputes.length,
-  };
-  const filteredDisputes = disputes
-    .filter((dispute) => {
-      const viewMatched =
-        (disputeView === "active" && dispute.status !== "resolved") ||
-        (disputeView === "urgent" &&
-          dispute.status !== "resolved" &&
-          disputePriorityScore(dispute) >= 3) ||
-        (disputeView === "reviewing" && dispute.status === "reviewing") ||
-        (disputeView === "archive" && dispute.status === "resolved");
-      return viewMatched && disputeMatchesQuery(dispute);
-    })
-    .sort((a, b) => {
-      const priority = disputePriorityScore(b) - disputePriorityScore(a);
-      if (priority) return priority;
-      return disputeView === "archive"
-        ? new Date(b.resolvedAt || b.createdAt).getTime() -
-            new Date(a.resolvedAt || a.createdAt).getTime()
-        : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    });
-  const selectedDispute =
-    filteredDisputes.find((dispute) => dispute.id === selectedDisputeId) ||
-    filteredDisputes[0];
+  const {
+    activeDisputes,
+    reviewingDisputes,
+    archiveDisputes,
+    disputeViewCounts,
+    filteredDisputes,
+    selectedDispute,
+  } = getAdminDisputeModel({
+    disputes,
+    disputeView,
+    adminQuery,
+    selectedDisputeId,
+  });
   useEffect(() => {
     if (!filteredDisputes.length) {
       setSelectedDisputeId("");
