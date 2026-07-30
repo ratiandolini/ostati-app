@@ -17,6 +17,10 @@ import {
   hoursSince,
 } from "../components/admin/adminUtils";
 import {
+  confirmAdminNoteAction,
+  recordDemoAdminAudit,
+} from "../components/admin/adminActionHelpers";
+import {
   clearCachedPreflightState,
   getPreflightCacheScope,
   loadCachedPreflightState,
@@ -700,8 +704,9 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     target: string,
     summary: string
   ) => {
-    if (!isDemoDataMode) return;
-    dataService.prependAdminAuditLog({
+    recordDemoAdminAudit({
+      isDemoDataMode,
+      dataService,
       action,
       target,
       summary,
@@ -713,11 +718,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     message: string,
     options?: { requireNote?: boolean }
   ) => {
-    if (options?.requireNote && !adminNote.trim()) {
-      window.alert("ამ მოქმედებისთვის ჯერ Admin ჩანაწერში მიუთითე მიზეზი.");
-      return false;
-    }
-    return window.confirm(message);
+    return confirmAdminNoteAction(message, adminNote, options);
   };
 
   const downloadAdminReport = () => {
