@@ -17,8 +17,6 @@ import {
   disputeStatusUi,
   formatDate,
   hoursSince,
-  isActiveStatus,
-  isClosedStatus,
   matchesQuery,
 } from "../components/admin/adminUtils";
 import {
@@ -35,7 +33,6 @@ import {
 } from "../components/admin/adminDemoEffects";
 import {
   apiMigrationStatusUi,
-  bookingStatusPriority,
   mobileQaTestGuide,
   preflightStatusUi,
   qaAreaLabel,
@@ -75,6 +72,7 @@ import {
 } from "../components/admin/adminFinanceModel";
 import { getAdminOperationalQueue } from "../components/admin/adminOperationalQueue";
 import { getAdminDisputeModel } from "../components/admin/adminDisputesModel";
+import { getAdminBookingsModel } from "../components/admin/adminBookingsModel";
 import {
   getAdminUserDirectory,
   getClientUserStats,
@@ -690,55 +688,17 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     }
     setSelectedDisputeId(filteredDisputes[0].id);
   }, [filteredDisputes, selectedDisputeId]);
-  const filteredRequests = requests
-    .filter((request) => {
-      const statusMatched =
-        statusFilter === "all" ||
-        (statusFilter === "active" && isActiveStatus(request.status)) ||
-        (statusFilter === "closed" && isClosedStatus(request.status)) ||
-        (statusFilter === "problem" && request.status === "disputed");
-      return (
-        statusMatched &&
-        matchesQuery(adminQuery, [
-          request.clientName,
-          request.clientPhone,
-          request.service,
-          request.address,
-          request.date,
-          request.time,
-          request.status,
-          request.cancellationReason,
-          request.disputeReason,
-          request.adminNote,
-        ])
-      );
-    })
-    .sort((a, b) => {
-      const priority =
-        bookingStatusPriority[b.status] - bookingStatusPriority[a.status];
-      if (priority) return priority;
-      return `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`);
-    });
-  const filteredClientBookings = clientBookings.filter((booking) => {
-    const statusMatched =
-      statusFilter === "all" ||
-      (statusFilter === "active" && isActiveStatus(booking.status)) ||
-      (statusFilter === "closed" && isClosedStatus(booking.status)) ||
-      (statusFilter === "problem" &&
-        (booking.status === "disputed" || booking.paymentStatus === "disputed"));
-    return (
-      statusMatched &&
-      matchesQuery(adminQuery, [
-        booking.worker.name,
-        booking.worker.role,
-        booking.dateLabel,
-        booking.time,
-        booking.status,
-        booking.paymentStatus,
-        booking.adminNote,
-        booking.id,
-      ])
-    );
+  const {
+    filteredRequests,
+    filteredClientBookings,
+    getLinkedClientBooking,
+    interventionRequests,
+    visibleRegularRequests,
+  } = getAdminBookingsModel({
+    requests,
+    clientBookings,
+    adminQuery,
+    statusFilter,
   });
   const filteredAuditLogs = auditLogs.filter((log) => {
     const statusMatched =
@@ -781,18 +741,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   const pendingVerificationCount = verificationQueue.filter(
     (item) => item.verificationStatus === "pending"
   ).length;
-  const getLinkedClientBooking = (bookingId: string) =>
-    clientBookings.find((booking) => booking.id === bookingId);
-  const needsAdminIntervention = (request: (typeof requests)[number]) => {
-    const linkedBooking = getLinkedClientBooking(request.id);
-    return (
-      request.status === "disputed" ||
-      linkedBooking?.status === "disputed" ||
-      linkedBooking?.paymentStatus === "disputed" ||
-      Boolean(request.disputeReason || request.cancellationReason)
-    );
-  };
-  const interventionRequests = filteredRequests.filter(needsAdminIntervention);
   const adminOverviewInput = {
     verificationStatus,
     openDisputesCount: openDisputes.length,
@@ -801,9 +749,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   };
   const adminSummaryCards = getAdminSummaryCards(adminOverviewInput);
   const adminWorkQueueItems = getAdminWorkQueueItems(adminOverviewInput);
-  const visibleRegularRequests = filteredRequests.filter(
-    (request) => !needsAdminIntervention(request)
-  );
   const { operationalQueue, nextAdminAction } = getAdminOperationalQueue({
     pendingVerificationCount,
     urgentDisputesCount: urgentDisputes.length,
