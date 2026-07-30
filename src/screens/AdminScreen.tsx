@@ -91,6 +91,13 @@ import type {
   AdminBookingPaymentStatus,
   AdminBookingResolutionPaymentStatus,
 } from "../components/admin/adminBookingActions";
+import {
+  getDisputeAuditAction,
+  getDisputeNotificationText,
+  getDisputeResolutionConfirmMessage,
+  getDisputeResolutionText,
+  needsFinanceForDisputeResolution,
+} from "../components/admin/adminDisputeActions";
 import { getAdminQaModel } from "../components/admin/adminQaModel";
 import {
   getAdminPreflightSummary,
@@ -915,26 +922,15 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       setAdminApiError("ამ Admin როლს დავების მართვის უფლება არ აქვს");
       return;
     }
-    if ((resolution === "refund_client" || resolution === "release_worker") && !can("finance")) {
+    if (needsFinanceForDisputeResolution(resolution) && !can("finance")) {
       setAdminApiError("თანხის დაბრუნება/გაშვებისთვის ფინანსების უფლებაა საჭირო");
       return;
     }
-    const actionText =
-      resolution === "refund_client"
-        ? "დავა დაიხუროს კლიენტისთვის თანხის დაბრუნებით?"
-        : resolution === "release_worker"
-          ? "დავა დაიხუროს ხელოსანზე თანხის გაშვებით?"
-          : "დავა დაიხუროს გაფრთხილებით?";
-    if (!confirmAdminAction(actionText, { requireNote: true })) {
+    if (!confirmAdminAction(getDisputeResolutionConfirmMessage(resolution), { requireNote: true })) {
       return;
     }
     const note = adminNote.trim();
-    const resolutionText =
-      resolution === "refund_client"
-        ? "თანხა კლიენტს უბრუნდება"
-        : resolution === "release_worker"
-          ? "თანხა ხელოსანზე გადადის"
-          : "დავა გაფრთხილებით დაიხურა";
+    const resolutionText = getDisputeResolutionText(resolution);
 
     if (!isDemoDataMode) {
       setAdminApiLoading(true);
@@ -1004,7 +1000,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     );
     if (resolution === "refund_client") {
       recordAudit(
-        "dispute_refunded",
+        getDisputeAuditAction(resolution),
         dispute.bookingId,
         note || dispute.reason
       );
@@ -1013,7 +1009,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       });
     } else if (resolution === "release_worker") {
       recordAudit(
-        "dispute_released",
+        getDisputeAuditAction(resolution),
         dispute.bookingId,
         note || dispute.reason
       );
@@ -1022,7 +1018,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       });
     } else {
       recordAudit(
-        "dispute_warning",
+        getDisputeAuditAction(resolution),
         dispute.bookingId,
         note || dispute.reason
       );
@@ -1032,12 +1028,12 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     prependDemoBookingNotification(
       dispute.bookingId,
       "დავა დაიხურა",
-      `დავის გადაწყვეტილება: ${resolutionText}${note ? `. Admin ჩანაწერი: ${note}` : ""}`
+      getDisputeNotificationText(resolutionText, note)
     );
     prependDemoCraftsmanNotification(
       dispute.bookingId,
       "დავა დაიხურა",
-      `დავის გადაწყვეტილება: ${resolutionText}${note ? `. Admin ჩანაწერი: ${note}` : ""}`
+      getDisputeNotificationText(resolutionText, note)
     );
   };
 
