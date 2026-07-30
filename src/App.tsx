@@ -415,10 +415,10 @@ const App: React.FC = () => {
     }
 
     const routeScreen = screenFromPath(location.pathname);
-    if (routeScreen && routeScreen !== screen) {
-      setScreen(routeScreen);
+    if (routeScreen) {
+      setScreen((currentScreen) => (currentScreen === routeScreen ? currentScreen : routeScreen));
     }
-  }, [location.pathname, restoringSession, routerNavigate, screen, user]);
+  }, [location.pathname, restoringSession, routerNavigate, user]);
 
   useEffect(() => {
     if (!user || user.role === "admin") return;
@@ -1088,8 +1088,12 @@ const App: React.FC = () => {
   };
 
   const navigate = (s: Screen) => {
-    setScreen(s);
+    setBookingActionError("");
+    if (s !== "booking-confirm") {
+      setSuccessData(null);
+    }
     setSelectedWorker(null);
+    setScreen(s);
   };
 
   const handleUnreadChange = (count: number) => {
@@ -1180,7 +1184,7 @@ const App: React.FC = () => {
       return (
         <div style={{ height: "100%", position: "relative", overflow: "hidden" }}>
           <VerificationRequiredScreen
-            onOpenProfile={() => setScreen("user-profile")}
+            onOpenProfile={() => navigate("user-profile")}
             onLogout={handleLogout}
           />
           <BottomNav
