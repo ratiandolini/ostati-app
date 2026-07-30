@@ -16,6 +16,7 @@ import {
   formatDate,
   hoursSince,
 } from "../components/admin/adminUtils";
+import { getAdminErrorMessage } from "../components/admin/adminError";
 import {
   confirmAdminNoteAction,
   recordDemoAdminAudit,
@@ -267,9 +268,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       } catch (error) {
         if (cancelled) return;
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "Admin მონაცემები ვერ ჩაიტვირთა"
+          getAdminErrorMessage(error, "Admin მონაცემები ვერ ჩაიტვირთა")
         );
       } finally {
         if (!cancelled) setAdminApiLoading(false);
@@ -334,7 +333,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       }
     } catch (error) {
       setAdminApiError(
-        error instanceof Error ? error.message : "Supabase preflight ვერ დასრულდა"
+        getAdminErrorMessage(error, "Supabase preflight ვერ დასრულდა")
       );
     } finally {
       setPreflightLoading(false);
@@ -812,9 +811,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         refresh();
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "ხელოსნის ვერიფიკაციის განახლება ვერ მოხერხდა"
+          getAdminErrorMessage(
+            error,
+            "ხელოსნის ვერიფიკაციის განახლება ვერ მოხერხდა"
+          )
         );
       } finally {
         setAdminApiLoading(false);
@@ -901,9 +901,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         refresh();
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "ჯავშნის Admin action ვერ შესრულდა"
+          getAdminErrorMessage(error, "ჯავშნის Admin action ვერ შესრულდა")
         );
       } finally {
         setAdminApiLoading(false);
@@ -986,9 +984,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         refresh();
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "დავის დახურვა ვერ მოხერხდა"
+          getAdminErrorMessage(error, "დავის დახურვა ვერ მოხერხდა")
         );
       } finally {
         setAdminApiLoading(false);
@@ -1095,9 +1091,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         refresh();
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "დავის განხილვაში გადაყვანა ვერ მოხერხდა"
+          getAdminErrorMessage(
+            error,
+            "დავის განხილვაში გადაყვანა ვერ მოხერხდა"
+          )
         );
       } finally {
         setAdminApiLoading(false);
@@ -1184,9 +1181,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         refresh();
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "თანხის სტატუსის შეცვლა ვერ მოხერხდა"
+          getAdminErrorMessage(error, "თანხის სტატუსის შეცვლა ვერ მოხერხდა")
         );
       } finally {
         setAdminApiLoading(false);
@@ -1289,9 +1284,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         );
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "პლატფორმის პარამეტრების შენახვა ვერ მოხერხდა"
+          getAdminErrorMessage(
+            error,
+            "პლატფორმის პარამეტრების შენახვა ვერ მოხერხდა"
+          )
         );
       } finally {
         setAdminApiLoading(false);
@@ -1323,9 +1319,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         );
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "წესების შენახვა ვერ მოხერხდა"
+          getAdminErrorMessage(error, "წესების შენახვა ვერ მოხერხდა")
         );
       } finally {
         setAdminApiLoading(false);
@@ -1353,9 +1347,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         );
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "Checklist პუნქტის განახლება ვერ მოხერხდა"
+          getAdminErrorMessage(
+            error,
+            "Checklist პუნქტის განახლება ვერ მოხერხდა"
+          )
         );
       } finally {
         setAdminApiLoading(false);
@@ -1382,9 +1377,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         );
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "QA სცენარის განახლება ვერ მოხერხდა"
+          getAdminErrorMessage(error, "QA სცენარის განახლება ვერ მოხერხდა")
         );
       } finally {
         setAdminApiLoading(false);
@@ -1418,9 +1411,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         );
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "QA შენიშვნის შენახვა ვერ მოხერხდა"
+          getAdminErrorMessage(error, "QA შენიშვნის შენახვა ვერ მოხერხდა")
         );
       } finally {
         setAdminApiLoading(false);
@@ -1451,9 +1442,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         );
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "Admin წევრის სტატუსის განახლება ვერ მოხერხდა"
+          getAdminErrorMessage(
+            error,
+            "Admin წევრის სტატუსის განახლება ვერ მოხერხდა"
+          )
         );
       } finally {
         setAdminApiLoading(false);
@@ -1506,9 +1498,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         setAdminNote("");
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "კლიენტის სტატუსის განახლება ვერ მოხერხდა"
+          getAdminErrorMessage(
+            error,
+            "კლიენტის სტატუსის განახლება ვერ მოხერხდა"
+          )
         );
       } finally {
         setAdminApiLoading(false);
@@ -1569,9 +1562,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         setAdminNote("");
       } catch (error) {
         setAdminApiError(
-          error instanceof Error
-            ? error.message
-            : "ხელოსნის სტატუსის განახლება ვერ მოხერხდა"
+          getAdminErrorMessage(
+            error,
+            "ხელოსნის სტატუსის განახლება ვერ მოხერხდა"
+          )
         );
       } finally {
         setAdminApiLoading(false);
