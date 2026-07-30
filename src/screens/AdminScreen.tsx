@@ -89,6 +89,7 @@ import {
   legalSettingFields,
   platformSettingNumberFields,
 } from "../components/admin/adminSettingsConfig";
+import { loadAdminScreenApiState } from "../components/admin/adminScreenStateLoader";
 import {
   getBlockedProductionModeMessage,
   getProductionGuardMessages as getProductionGuardMessageList,
@@ -101,11 +102,6 @@ import {
   getApiMigrationSummary,
 } from "../services/apiMigrationService";
 import {
-  loadAdminBookings,
-  loadAdminDisputes,
-  loadAdminLaunchState,
-  loadAdminUsers,
-  loadCurrentAdminContext,
   markAdminDisputeReviewing,
   reviewAdminWorkerVerification,
   resolveAdminDisputeAction,
@@ -220,20 +216,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
 
     const loadState = async () => {
       try {
-        const context = await loadCurrentAdminContext();
-        const contextCan = (permission: AdminPermission) =>
-          context.member.role === "owner" ||
-          context.member.permissions.includes(permission);
-        const [state, adminBookings, adminDisputes, adminUsers] = await Promise.all([
-          loadAdminLaunchState(),
-          contextCan("bookings") || contextCan("finance") || contextCan("disputes")
-            ? loadAdminBookings()
-            : Promise.resolve(null),
-          contextCan("disputes") || contextCan("finance")
-            ? loadAdminDisputes()
-            : Promise.resolve([]),
-          contextCan("users") ? loadAdminUsers() : Promise.resolve([]),
-        ]);
+        const { context, state, adminBookings, adminDisputes, adminUsers } =
+          await loadAdminScreenApiState();
         if (cancelled) return;
         setCurrentAdminContext(context);
         setActiveAdminMemberId(context.member.id);
