@@ -47,7 +47,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
           <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
               {[
-                { label: "დაბლოკილია", value: filteredFinancialSummary.held, color: "#1d4ed8", bg: "#eff6ff" },
+                { label: "გაყინულია", value: filteredFinancialSummary.held, color: "#1d4ed8", bg: "#eff6ff" },
                 { label: "დადასტურდა", value: filteredFinancialSummary.released, color: "#047857", bg: "#ecfdf5" },
                 { label: "დაბრუნებულია", value: filteredFinancialSummary.refunded, color: "#b91c1c", bg: "#fef2f2" },
                 { label: "დავაშია", value: filteredFinancialSummary.disputed, color: "#c2410c", bg: "#fff7ed" },
@@ -85,7 +85,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                   {
                     label: "ჯავშნის საფასური",
                     value: money(platformSettings.bookingFee),
-                    hint: "იბლოკება დაჯავშნისას",
+                    hint: "იყინება დაჯავშნისას",
                   },
                   {
                     label: "საკომისიო",
@@ -161,7 +161,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                   {
                     label: "გასაშვები თანხა",
                     value: financeReleaseQueue.length,
-                    hint: "კლიენტმა დაადასტურა, თანხა ჯერ დაბლოკილია",
+                    hint: "კლიენტმა დაადასტურა, თანხა ჯერ გაყინულია",
                     bg: "#ecfdf5",
                     color: "#047857",
                   },
@@ -247,7 +247,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                       ? "დაბრუნდა"
                       : paymentStatus === "disputed"
                         ? "დავაშია"
-                        : "დაბლოკილია";
+                        : "გაყინულია";
                 const isLateCancellationReview =
                   booking.cancellationPolicy === "late_review" &&
                   paymentStatus !== "refunded" &&
@@ -277,7 +277,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                       ]
                     : []),
                   ...(paymentStatus !== "held" && paymentStatus !== "released" && paymentStatus !== "refunded"
-                    ? [{ status: "held" as const, label: "hold-ზე დაბრუნება", bg: "#1d4ed8" }]
+                    ? [{ status: "held" as const, label: "გაყინულზე დაბრუნება", bg: "#1d4ed8" }]
                     : []),
                 ];
                 const financeActions = [

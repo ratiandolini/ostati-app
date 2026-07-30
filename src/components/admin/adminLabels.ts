@@ -68,7 +68,7 @@ export const paymentStatusLabel: Record<
   NonNullable<Booking["paymentStatus"]>,
   string
 > = {
-  held: "დაჯავშნის საფასური დაბლოკილია",
+  held: "დაჯავშნის საფასური გაყინულია",
   released: "საფასური დადასტურებულია",
   refunded: "საფასური დაბრუნებულია",
   disputed: "საფასური დავაშია",
@@ -78,7 +78,7 @@ export const paymentStatusShortLabel: Record<
   NonNullable<Booking["paymentStatus"]>,
   string
 > = {
-  held: "დაბლოკილია",
+  held: "გაყინულია",
   released: "დადასტურდა",
   refunded: "დაბრუნდა",
   disputed: "დავაშია",
@@ -88,7 +88,7 @@ export const paymentStatusHelp: Record<
   NonNullable<Booking["paymentStatus"]>,
   string
 > = {
-  held: "კლიენტმა ჯავშანი გააკეთა და თანხა დროებით დაჭერილია.",
+  held: "კლიენტმა ჯავშანი გააკეთა და თანხა დროებით გაყინულია.",
   released: "სამუშაო დასრულდა, კლიენტმა დაადასტურა და თანხა დაიხურა.",
   refunded: "ჯავშანი გაუქმდა ან დავა გადაწყდა კლიენტისთვის თანხის დაბრუნებით.",
   disputed: "ჯავშანზე პრობლემაა და Admin-მა უნდა გადაამოწმოს დეტალები.",

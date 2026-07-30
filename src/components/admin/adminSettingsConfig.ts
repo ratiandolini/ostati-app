@@ -57,7 +57,7 @@ export const platformSettingNumberFields: Array<{
     key: "bookingFee",
     label: "ჯავშნის საფასური",
     suffix: "ლარი",
-    hint: "კლიენტს ჯავშნისას ეჭრება/იბლოკება.",
+    hint: "კლიენტს ჯავშნისას დროებით ეყინება.",
   },
   {
     key: "commissionPercent",
