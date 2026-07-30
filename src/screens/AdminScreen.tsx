@@ -80,6 +80,17 @@ import {
   getVerificationConfirmMessage,
   requiresVerificationNote,
 } from "../components/admin/adminVerificationActions";
+import {
+  bookingActionFromPaymentStatus,
+  bookingActionFromState,
+  bookingStatusFromPaymentStatus,
+  getBookingAdminConfirmMessage,
+  isRefundBookingAction,
+} from "../components/admin/adminBookingActions";
+import type {
+  AdminBookingPaymentStatus,
+  AdminBookingResolutionPaymentStatus,
+} from "../components/admin/adminBookingActions";
 import { getAdminQaModel } from "../components/admin/adminQaModel";
 import {
   getAdminPreflightSummary,
@@ -808,7 +819,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   const mirrorBookingUpdate = (
     bookingId: string,
     status: BookingStatus,
-    paymentStatus?: "released" | "refunded" | "disputed",
+    paymentStatus?: AdminBookingResolutionPaymentStatus,
     note = adminNote.trim()
   ) => {
     dataService.updateClientBooking(bookingId, (booking) => ({
@@ -824,32 +835,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     }));
   };
 
-  const bookingActionFromState = (
-    status: BookingStatus,
-    paymentStatus?: "released" | "refunded" | "disputed"
-  ): AdminBookingAction => {
-    if (paymentStatus === "refunded" || status === "cancelled") {
-      return "cancel_refund";
-    }
-    if (paymentStatus === "disputed" || status === "disputed") {
-      return "mark_disputed";
-    }
-    return "close_release";
-  };
-
-  const bookingActionFromPaymentStatus = (
-    paymentStatus: NonNullable<import("./BookingsScreen").Booking["paymentStatus"]>
-  ): AdminBookingAction => {
-    if (paymentStatus === "held") return "hold_authorized";
-    if (paymentStatus === "refunded") return "cancel_refund";
-    if (paymentStatus === "disputed") return "mark_disputed";
-    return "close_release";
-  };
-
   const updateBookingEverywhere = async (
     bookingId: string,
     status: BookingStatus,
-    paymentStatus?: "released" | "refunded" | "disputed",
+    paymentStatus?: AdminBookingResolutionPaymentStatus,
     options?: { skipConfirm?: boolean }
   ) => {
     if (!can("bookings")) {
@@ -860,13 +849,11 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       setAdminApiError("თანხის გაშვება/დაბრუნებისთვის ფინანსების უფლებაა საჭირო");
       return;
     }
-    const isRefund = paymentStatus === "refunded" || status === "cancelled";
+    const isRefund = isRefundBookingAction(status, paymentStatus);
     if (
       !options?.skipConfirm &&
       !confirmAdminAction(
-        isRefund
-          ? "დარწმუნებული ხარ, რომ ჯავშანი უნდა გაუქმდეს და თანხა დაბრუნდეს?"
-          : "დარწმუნებული ხარ, რომ ჯავშანი უნდა დაიხუროს?",
+        getBookingAdminConfirmMessage(isRefund),
         { requireNote: isRefund }
       )
     ) {
@@ -1147,7 +1134,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
 
   const setBookingPaymentStatus = async (
     bookingId: string,
-    paymentStatus: NonNullable<import("./BookingsScreen").Booking["paymentStatus"]>
+    paymentStatus: AdminBookingPaymentStatus
   ) => {
     if (!can("finance")) {
       setAdminApiError("ამ Admin როლს ფინანსების მართვის უფლება არ აქვს");
@@ -1162,14 +1149,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       return;
     }
     const note = adminNote.trim();
-    const nextStatus =
-      paymentStatus === "refunded"
-        ? "cancelled"
-        : paymentStatus === "released"
-          ? "closed"
-          : paymentStatus === "disputed"
-            ? "disputed"
-            : undefined;
+    const nextStatus = bookingStatusFromPaymentStatus(paymentStatus);
 
     if (!isDemoDataMode) {
       setAdminApiLoading(true);
