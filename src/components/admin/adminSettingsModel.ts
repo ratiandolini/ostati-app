@@ -35,3 +35,17 @@ export const getBlockedProductionModeMessage = (blockers: string[]) =>
     "",
     "ეს დაცვა გვიცავს იმ სიტუაციისგან, სადაც აპი რეალურ რეჟიმად ჩანს, მაგრამ launch checklist ბოლომდე მზად არ არის.",
   ].join("\n");
+
+export const getBlockedProductionSaveMessage = (blockers: string[]) =>
+  [
+    "Production პარამეტრები ვერ შეინახა, რადგან აუცილებელი შემოწმებები დარჩა:",
+    ...blockers.map((item) => `- ${item}`),
+  ].join("\n");
+
+export const validatePlatformSettingsSave = (
+  settingsDraft: PlatformSettings,
+  blockers: string[]
+) => {
+  if (!settingsDraft.productionMode || blockers.length === 0) return "";
+  return getBlockedProductionSaveMessage(blockers);
+};

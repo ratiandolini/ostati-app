@@ -119,6 +119,7 @@ import {
   getProductionGuardMessages as getProductionGuardMessageList,
   updatePlatformChoiceSetting,
   updatePlatformNumberSetting,
+  validatePlatformSettingsSave,
 } from "../components/admin/adminSettingsModel";
 import {
   loadDisputeEvidenceSignedUrls,
@@ -1262,17 +1263,13 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       setAdminApiError("ამ Admin როლს პარამეტრების შეცვლის უფლება არ აქვს");
       return;
     }
-    if (settingsDraft.productionMode) {
-      const blockers = getProductionGuardMessages();
-      if (blockers.length) {
-        setAdminApiError(
-          [
-            "Production პარამეტრები ვერ შეინახა, რადგან აუცილებელი შემოწმებები დარჩა:",
-            ...blockers.map((item) => `- ${item}`),
-          ].join("\n")
-        );
-        return;
-      }
+    const validationMessage = validatePlatformSettingsSave(
+      settingsDraft,
+      getProductionGuardMessages()
+    );
+    if (validationMessage) {
+      setAdminApiError(validationMessage);
+      return;
     }
     if (!isDemoDataMode) {
       setAdminApiLoading(true);
