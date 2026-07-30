@@ -11,12 +11,10 @@ import {
   verificationLabel,
 } from "../components/admin/adminLabels";
 import {
-  deriveVerificationStatus,
   disputePriorityScore,
   disputeStatusUi,
   formatDate,
   hoursSince,
-  matchesQuery,
 } from "../components/admin/adminUtils";
 import {
   clearCachedPreflightState,
@@ -73,6 +71,7 @@ import { getAdminOperationalQueue } from "../components/admin/adminOperationalQu
 import { getAdminDisputeModel } from "../components/admin/adminDisputesModel";
 import { getAdminBookingsModel } from "../components/admin/adminBookingsModel";
 import { getAdminAuditModel } from "../components/admin/adminAuditModel";
+import { getAdminVerificationModel } from "../components/admin/adminVerificationModel";
 import {
   getAdminUserDirectory,
   getClientUserStats,
@@ -398,22 +397,19 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     [adminLaunchState, version]
   );
   const verificationQueue = adminLaunchState?.verificationQueue ?? [];
-  const verificationTarget =
-    verificationQueue.find((item) => item.workerId === selectedVerificationWorkerId) ??
-    verificationQueue.find((item) => item.verificationStatus === "pending") ??
-    verificationQueue[0];
-  const filteredVerificationQueue = verificationQueue.filter((item) => {
-    const statusMatched =
-      verificationFilter === "all" || item.verificationStatus === verificationFilter;
-    return (
-      statusMatched &&
-      matchesQuery(adminQuery, [
-        item.name,
-        item.phone,
-        item.city || "",
-        item.verificationStatus,
-      ])
-    );
+  const {
+    verificationTarget,
+    filteredVerificationQueue,
+    verificationStatus,
+    verificationDocuments,
+    verification,
+    uploadedDocumentCount,
+  } = getAdminVerificationModel({
+    verificationQueue,
+    selectedVerificationWorkerId,
+    verificationFilter,
+    adminQuery,
+    profile,
   });
   const mobileQaDoneCount = mobileQaScenarios.filter((item) => item.done).length;
   const mobileQaNotes = mobileQaScenarios
@@ -447,31 +443,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   const blockingSystemChecks = systemReadinessChecks.filter(
     (item) => item.severity === "blocked"
   );
-  const verificationStatus = verificationTarget
-    ? verificationTarget.verificationStatus === "not_started"
-      ? "not_submitted"
-      : verificationTarget.verificationStatus
-    : deriveVerificationStatus(profile);
-  const verificationDocuments = verificationTarget
-    ? {
-        idFront: verificationTarget.documents.idFront || undefined,
-        idBack: verificationTarget.documents.idBack || undefined,
-        bankAccount: verificationTarget.documents.bankAccount || undefined,
-      }
-    : profile.verificationDocuments || {};
-  const verification = verificationTarget
-    ? {
-        idFront: Boolean(verificationDocuments.idFront),
-        idBack: Boolean(verificationDocuments.idBack),
-        bankAccount: Boolean(verificationDocuments.bankAccount),
-      }
-    : profile.verification || {
-        idFront: false,
-        idBack: false,
-        bankAccount: false,
-      };
-  const uploadedDocumentCount = Object.values(verification).filter(Boolean).length;
-
   useEffect(() => {
     if (!verificationQueue.length) {
       setSelectedVerificationWorkerId("");
