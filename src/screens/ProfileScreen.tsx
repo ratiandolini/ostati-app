@@ -340,7 +340,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       );
     } catch (error) {
       setBookingSubmitError(
-        error instanceof Error ? error.message : "ჯავშნის შექმნა ვერ მოხერხდა"
+        getValidationMessage(error, "ჯავშნის შექმნა ვერ მოხერხდა")
       );
       setBookingSubmitting(false);
     }

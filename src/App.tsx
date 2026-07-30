@@ -37,6 +37,7 @@ import {
   refreshSupabaseSession,
   signOutSupabase,
 } from "./services/supabaseAuthService";
+import { getValidationMessage } from "./services/validation";
 
 const getClientProfile = (phone: string) => {
   if (!isDemoDataMode) return {};
@@ -774,8 +775,7 @@ const App: React.FC = () => {
         setScreen("booking-confirm");
       } catch (error) {
         console.error(error);
-        const message =
-          error instanceof Error ? error.message : "ჯავშნის შექმნა ვერ მოხერხდა";
+        const message = getValidationMessage(error, "ჯავშნის შექმნა ვერ მოხერხდა");
         setBookingActionError(message);
         throw new Error(message);
       }
@@ -883,16 +883,16 @@ const App: React.FC = () => {
             );
           }
         } catch (followUpError) {
+          const followUpMessage = getValidationMessage(followUpError, "");
           setBookingActionError(
-            followUpError instanceof Error
-              ? `ჯავშანი გაუქმდა, მაგრამ თანხის/დავის ჩანაწერის განახლება ვერ მოხერხდა: ${followUpError.message}`
+            followUpMessage
+              ? `ჯავშანი გაუქმდა, მაგრამ თანხის/დავის ჩანაწერის განახლება ვერ მოხერხდა: ${followUpMessage}`
               : "ჯავშანი გაუქმდა, მაგრამ თანხის/დავის ჩანაწერის განახლება ვერ მოხერხდა"
           );
         }
         setBookings(await loadClientBookings());
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "ჯავშნის გაუქმება ვერ მოხერხდა";
+        const message = getValidationMessage(error, "ჯავშნის გაუქმება ვერ მოხერხდა");
         setBookingActionError(message);
         throw new Error(message);
       }
@@ -963,9 +963,10 @@ const App: React.FC = () => {
       try {
         await captureBookingPayment(id);
       } catch (error) {
+        const captureMessage = getValidationMessage(error, "");
         setBookingActionError(
-          error instanceof Error
-            ? `სამუშაო დადასტურდა, მაგრამ თანხის დადასტურება ვერ მოხერხდა: ${error.message}`
+          captureMessage
+            ? `სამუშაო დადასტურდა, მაგრამ თანხის დადასტურება ვერ მოხერხდა: ${captureMessage}`
             : "სამუშაო დადასტურდა, მაგრამ თანხის დადასტურება ვერ მოხერხდა"
         );
       }
@@ -1022,10 +1023,7 @@ const App: React.FC = () => {
       try {
         setBookings(await loadClientBookings());
       } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "ჯავშნების განახლება ვერ მოხერხდა";
+        const message = getValidationMessage(error, "ჯავშნების განახლება ვერ მოხერხდა");
         setBookingActionError(message);
         throw new Error(message);
       }

@@ -26,6 +26,7 @@ import {
   disputeSchema,
   getValidationMessage,
 } from "../services/validation";
+import { normalizeGeorgianDateLabel } from "../utils/georgianDate";
 
 export interface Booking {
   worker: Worker;
@@ -127,38 +128,12 @@ const formatNotificationDate = (value?: string) => {
   });
 };
 
-const normalizeDateLabel = (value: string) =>
-  value
-    .replace(/\bJanuary\b/gi, "იანვარი")
-    .replace(/\bFebruary\b/gi, "თებერვალი")
-    .replace(/\bMarch\b/gi, "მარტი")
-    .replace(/\bApril\b/gi, "აპრილი")
-    .replace(/\bMay\b/gi, "მაისი")
-    .replace(/\bJune\b/gi, "ივნისი")
-    .replace(/\bJuly\b/gi, "ივლისი")
-    .replace(/\bAugust\b/gi, "აგვისტო")
-    .replace(/\bSeptember\b/gi, "სექტემბერი")
-    .replace(/\bOctober\b/gi, "ოქტომბერი")
-    .replace(/\bNovember\b/gi, "ნოემბერი")
-    .replace(/\bDecember\b/gi, "დეკემბერი")
-    .replace(/\bJan\b/gi, "იან")
-    .replace(/\bFeb\b/gi, "თებ")
-    .replace(/\bMar\b/gi, "მარ")
-    .replace(/\bApr\b/gi, "აპრ")
-    .replace(/\bJun\b/gi, "ივნ")
-    .replace(/\bJul\b/gi, "ივლ")
-    .replace(/\bAug\b/gi, "აგვ")
-    .replace(/\bSep\b/gi, "სექ")
-    .replace(/\bOct\b/gi, "ოქტ")
-    .replace(/\bNov\b/gi, "ნოე")
-    .replace(/\bDec\b/gi, "დეკ");
-
 const formatBookingDateTime = (booking: Booking) => {
   const scheduledAt = booking.details?.scheduledAt;
-  if (!scheduledAt) return `${normalizeDateLabel(booking.dateLabel)} · ${booking.time}`;
+  if (!scheduledAt) return `${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`;
   const date = new Date(scheduledAt);
   if (Number.isNaN(date.getTime())) {
-    return `${normalizeDateLabel(booking.dateLabel)} · ${booking.time}`;
+    return `${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`;
   }
   const dateLabel = date.toLocaleDateString("ka-GE", {
     day: "numeric",

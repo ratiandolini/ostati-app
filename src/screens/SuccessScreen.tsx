@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Worker } from "../types";
+import { normalizeGeorgianDateLabel } from "../utils/georgianDate";
 
 interface SuccessScreenProps {
   worker: Worker;
@@ -8,32 +9,6 @@ interface SuccessScreenProps {
   dateLabel: string;
   onDone: () => void;
 }
-
-const normalizeDateLabel = (value: string) =>
-  value
-    .replace(/\bJanuary\b/gi, "იანვარი")
-    .replace(/\bFebruary\b/gi, "თებერვალი")
-    .replace(/\bMarch\b/gi, "მარტი")
-    .replace(/\bApril\b/gi, "აპრილი")
-    .replace(/\bMay\b/gi, "მაისი")
-    .replace(/\bJune\b/gi, "ივნისი")
-    .replace(/\bJuly\b/gi, "ივლისი")
-    .replace(/\bAugust\b/gi, "აგვისტო")
-    .replace(/\bSeptember\b/gi, "სექტემბერი")
-    .replace(/\bOctober\b/gi, "ოქტომბერი")
-    .replace(/\bNovember\b/gi, "ნოემბერი")
-    .replace(/\bDecember\b/gi, "დეკემბერი")
-    .replace(/\bJan\b/gi, "იან")
-    .replace(/\bFeb\b/gi, "თებ")
-    .replace(/\bMar\b/gi, "მარ")
-    .replace(/\bApr\b/gi, "აპრ")
-    .replace(/\bJun\b/gi, "ივნ")
-    .replace(/\bJul\b/gi, "ივლ")
-    .replace(/\bAug\b/gi, "აგვ")
-    .replace(/\bSep\b/gi, "სექ")
-    .replace(/\bOct\b/gi, "ოქტ")
-    .replace(/\bNov\b/gi, "ნოე")
-    .replace(/\bDec\b/gi, "დეკ");
 
 export const SuccessScreen: React.FC<SuccessScreenProps> = ({
   worker,
@@ -140,7 +115,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
           {worker.name} · {worker.role}
           <div style={{ marginTop: 4 }}>
           <span style={{ color: "var(--accent)", fontWeight: 700 }}>
-            {normalizeDateLabel(dateLabel)} · {time}
+          {normalizeGeorgianDateLabel(dateLabel)} · {time}
           </span>
           </div>
         </div>
