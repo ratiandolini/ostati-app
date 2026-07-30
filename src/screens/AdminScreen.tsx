@@ -20,7 +20,6 @@ import {
   clearCachedPreflightState,
   getPreflightCacheScope,
   loadCachedPreflightState,
-  PREFLIGHT_MAX_AGE_MS,
   saveCachedPreflightState,
 } from "../components/admin/adminPreflightCache";
 import {
@@ -72,6 +71,10 @@ import { getAdminBookingsModel } from "../components/admin/adminBookingsModel";
 import { getAdminAuditModel } from "../components/admin/adminAuditModel";
 import { getAdminVerificationModel } from "../components/admin/adminVerificationModel";
 import { getAdminQaModel } from "../components/admin/adminQaModel";
+import {
+  getAdminPreflightSummary,
+  isAdminPreflightFresh,
+} from "../components/admin/adminPreflightModel";
 import {
   getAdminUserDirectory,
   getClientUserStats,
@@ -192,24 +195,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   const [version, setVersion] = useState(0);
   const refresh = () => setVersion((current) => current + 1);
   const preflightSummary = useMemo(
-    () =>
-      preflightChecks.reduce(
-        (summary, check) => ({
-          ok: summary.ok + Number(check.status === "ok"),
-          warning: summary.warning + Number(check.status === "warning"),
-          error: summary.error + Number(check.status === "error"),
-          requiredErrors:
-            summary.requiredErrors +
-            Number(check.required !== false && check.status === "error"),
-        }),
-        { ok: 0, warning: 0, error: 0, requiredErrors: 0 }
-      ),
+    () => getAdminPreflightSummary(preflightChecks),
     [preflightChecks]
   );
-  const preflightFresh = Boolean(
-    preflightCheckedAt &&
-      Date.now() - new Date(preflightCheckedAt).getTime() <= PREFLIGHT_MAX_AGE_MS
-  );
+  const preflightFresh = isAdminPreflightFresh(preflightCheckedAt);
 
   useEffect(() => {
     if (isDemoDataMode) return;
