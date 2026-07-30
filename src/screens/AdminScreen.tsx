@@ -98,6 +98,15 @@ import {
   getDisputeResolutionText,
   needsFinanceForDisputeResolution,
 } from "../components/admin/adminDisputeActions";
+import {
+  getAccountStatusAuditSummary,
+  getAccountStatusConfirmMessage,
+  requiresAccountStatusNote,
+} from "../components/admin/adminUserActions";
+import type {
+  AdminClientAccountStatus,
+  AdminCraftsmanAccountStatus,
+} from "../components/admin/adminUserActions";
 import { getAdminQaModel } from "../components/admin/adminQaModel";
 import {
   getAdminPreflightSummary,
@@ -1466,7 +1475,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
 
   const setClientAccountStatus = async (
     phone: string,
-    status: NonNullable<ClientProfile["accountStatus"]>
+    status: AdminClientAccountStatus
   ) => {
     if (!can("users")) {
       setAdminApiError("ამ Admin როლს მომხმარებლების მართვის უფლება არ აქვს");
@@ -1474,8 +1483,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     }
     if (
       !confirmAdminAction(
-        `კლიენტის სტატუსი შეიცვალოს: ${accountLabel[status]}?`,
-        { requireNote: status !== "active" }
+        getAccountStatusConfirmMessage("client", accountLabel[status]),
+        { requireNote: requiresAccountStatusNote(status) }
       )
     ) {
       return;
@@ -1516,16 +1525,14 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     recordAudit(
       "client_status_changed",
       phone,
-      `კლიენტის სტატუსი: ${accountLabel[status]}${
-        note ? ` · ${note}` : ""
-      }`
+      getAccountStatusAuditSummary("client", accountLabel[status], note)
     );
     setAdminNote("");
     refresh();
   };
 
   const setCraftsmanAccountStatus = async (
-    status: NonNullable<CraftsmanProfile["accountStatus"]>,
+    status: AdminCraftsmanAccountStatus,
     targetPhone = profile.phone
   ) => {
     if (!can("users")) {
@@ -1534,8 +1541,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     }
     if (
       !confirmAdminAction(
-        `ხელოსნის სტატუსი შეიცვალოს: ${accountLabel[status]}?`,
-        { requireNote: status !== "active" }
+        getAccountStatusConfirmMessage("craftsman", accountLabel[status]),
+        { requireNote: requiresAccountStatusNote(status) }
       )
     ) {
       return;
@@ -1580,9 +1587,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     recordAudit(
       "craftsman_status_changed",
       targetPhone || "craftsman",
-      `ხელოსნის სტატუსი: ${accountLabel[status]}${
-        note ? ` · ${note}` : ""
-      }`
+      getAccountStatusAuditSummary("craftsman", accountLabel[status], note)
     );
     setAdminNote("");
   };
