@@ -349,14 +349,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
               მომსახურების პირობები
             </h2>
             <p style={{ margin: "0 0 14px", color: "var(--text2)", fontSize: 12, lineHeight: 1.5, fontWeight: 750 }}>
-              ეს არის demo ტექსტი. საბოლოო იურიდიული ვერსია Admin panel-იდან
-              განახლდება და შემდეგ production-ში იგივე ტექსტი გამოჩნდება.
+              ეს არის სატესტო ტექსტი. საბოლოო იურიდიული ვერსია ადმინ პანელიდან
+              განახლდება და შემდეგ საბოლოო ვერსიაში იგივე ტექსტი გამოჩნდება.
             </p>
             {[
               ["ჯავშანი", legalSettings.bookingRules],
               ["გაუქმება", legalSettings.cancellationRules],
-              ["კონტაქტი და privacy", legalSettings.privacyRules],
-              ["დავები და support", legalSettings.supportRules],
+              ["კონტაქტი და კონფიდენციალურობა", legalSettings.privacyRules],
+              ["დავები და დახმარება", legalSettings.supportRules],
             ].map(([title, text]) => (
               <section
                 key={title}

@@ -781,7 +781,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     if (nextRating) {
       setRating(nextRating);
     }
-  }, [activeScreen]);
+  }, []);
 
   useEffect(() => {
     if (!isDemoDataMode) return;
@@ -954,7 +954,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       window.removeEventListener("craftsman-notifications-updated", refreshDemoBookings);
       window.removeEventListener("booking-status-updated", refreshDemoBookings);
     };
-  }, [activeScreen]);
+  }, []);
 
   useEffect(() => {
     if (isDemoDataMode) return;
@@ -980,7 +980,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [activeScreen]);
+  }, []);
 
   const refreshCraftsmanNotifications = () => {
     if (isDemoDataMode) {
@@ -1051,7 +1051,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refreshOnFocus);
     };
-  }, [activeScreen]);
+  }, []);
 
   const markCraftsmanNotificationRead = (notificationId: string) => {
     if (isDemoDataMode) {
@@ -1159,7 +1159,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       window.removeEventListener("focus", refreshApiWorkerBookings);
       document.removeEventListener("visibilitychange", refreshOnFocus);
     };
-  }, [activeScreen]);
+  }, []);
 
   const reloadWorkerBookings = async () => {
     if (isDemoDataMode) return;

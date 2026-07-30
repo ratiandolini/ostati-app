@@ -105,10 +105,10 @@ export const legalSettingFields: Array<{
   },
   {
     key: "privacyRules",
-    label: "კონტაქტი და privacy",
+    label: "კონტაქტი და კონფიდენციალურობა",
   },
   {
     key: "supportRules",
-    label: "დავები და support",
+    label: "დავები და დახმარება",
   },
 ];

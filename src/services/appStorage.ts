@@ -458,7 +458,7 @@ const defaultAdminMembers: AdminMember[] = [
   },
   {
     id: "support",
-    name: "Support",
+    name: "დახმარების ოპერატორი",
     role: "support",
     permissions: ["disputes", "bookings", "users", "audit"],
     active: true,

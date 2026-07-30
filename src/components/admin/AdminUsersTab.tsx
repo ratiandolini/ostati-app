@@ -68,8 +68,8 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                 Admin წევრები და უფლებები
               </h2>
               <div style={{ color: "var(--text2)", fontSize: 12, lineHeight: 1.5 }}>
-                Production-ში აქ რეალური admin მომხმარებლები მიებმება. თითოეულს
-                ექნება მხოლოდ თავისი უფლება: ვერიფიკაცია, support, ფინანსები ან სრული კონტროლი.
+                საბოლოო ვერსიაში აქ რეალური admin მომხმარებლები მიებმება. თითოეულს
+                ექნება მხოლოდ თავისი უფლება: ვერიფიკაცია, დახმარება, ფინანსები ან სრული კონტროლი.
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
                 {adminMembers.map((member) => (

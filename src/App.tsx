@@ -643,7 +643,7 @@ const App: React.FC = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [screen, user]);
+  }, [user?.phone, user?.role]);
 
   useEffect(() => {
     if (isDemoDataMode || !user) return;
@@ -695,7 +695,7 @@ const App: React.FC = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [screen, user?.role]);
+  }, [user?.phone, user?.role]);
 
   const goToWorker = (w: Worker) => {
     if (w.verificationStatus !== "verified") {

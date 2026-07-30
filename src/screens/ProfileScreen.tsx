@@ -633,8 +633,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 {[
                   ["ჯავშანი", legalSettings.bookingRules],
                   ["გაუქმება", legalSettings.cancellationRules],
-                  ["კონტაქტი და privacy", legalSettings.privacyRules],
-                  ["დავები და support", legalSettings.supportRules],
+                  ["კონტაქტი და კონფიდენციალურობა", legalSettings.privacyRules],
+                  ["დავები და დახმარება", legalSettings.supportRules],
                 ].map(([title, text]) => (
                   <div
                     key={title}

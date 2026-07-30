@@ -522,7 +522,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                 წესები და ტექსტები
               </h2>
               <div style={{ color: "var(--text2)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
-                ეს ტექსტები ჩანს დაჯავშნისას და გამოიყენება support/Admin პროცესში.
+                ეს ტექსტები ჩანს დაჯავშნისას და გამოიყენება დახმარებისა და ადმინისტრირების პროცესში.
                 გადახდის ჩართვამდე აქ უნდა იყოს საბოლოო, გასაგები ფორმულირება.
               </div>
               <div style={{ display: "grid", gap: 10 }}>

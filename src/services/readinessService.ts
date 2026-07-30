@@ -205,7 +205,7 @@ export const getLaunchReadinessChecks = ({
         Boolean(legalSettings.cancellationRules.trim()) &&
         Boolean(legalSettings.privacyRules.trim()) &&
         Boolean(legalSettings.supportRules.trim()),
-      detail: "ჯავშანი, გაუქმება, privacy და support ტექსტები შევსებულია",
+      detail: "ჯავშნის, გაუქმების, კონფიდენციალურობისა და დახმარების ტექსტები შევსებულია",
       severity:
         Boolean(legalSettings.bookingRules.trim()) &&
         Boolean(legalSettings.cancellationRules.trim()) &&
