@@ -89,6 +89,12 @@ import {
   legalSettingFields,
   platformSettingNumberFields,
 } from "../components/admin/adminSettingsConfig";
+import {
+  getBlockedProductionModeMessage,
+  getProductionGuardMessages as getProductionGuardMessageList,
+  updatePlatformChoiceSetting,
+  updatePlatformNumberSetting,
+} from "../components/admin/adminSettingsModel";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   apiMigrationItems,
@@ -1292,25 +1298,22 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   };
 
   const updateSettingsDraft = (key: keyof PlatformSettings, value: string) => {
-    const numeric = Number(value);
-    setSettingsDraft((current) => ({
-      ...current,
-      [key]: Number.isFinite(numeric) ? Math.max(0, numeric) : current[key],
-    }));
+    setSettingsDraft((current) =>
+      updatePlatformNumberSetting(current, key, value)
+    );
   };
 
   const updateSettingsChoice = <Key extends keyof PlatformSettings>(
     key: Key,
     value: PlatformSettings[Key]
   ) => {
-    setSettingsDraft((current) => ({
-      ...current,
-      [key]: value,
-    }));
+    setSettingsDraft((current) =>
+      updatePlatformChoiceSetting(current, key, value)
+    );
   };
 
   const getProductionGuardMessages = () => {
-    return productionGuardItems.map((item) => `${item.label}: ${item.detail}`);
+    return getProductionGuardMessageList(productionGuardItems);
   };
 
   const toggleProductionModeDraft = () => {
@@ -1321,15 +1324,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
 
     const blockers = getProductionGuardMessages();
     if (blockers.length) {
-      window.alert(
-        [
-          "Production mode ჯერ ვერ ჩაირთვება.",
-          "",
-          ...blockers.map((item) => `- ${item}`),
-          "",
-          "ეს დაცვა გვიცავს იმ სიტუაციისგან, სადაც აპი რეალურ რეჟიმად ჩანს, მაგრამ launch checklist ბოლომდე მზად არ არის.",
-        ].join("\n")
-      );
+      window.alert(getBlockedProductionModeMessage(blockers));
       return;
     }
 
