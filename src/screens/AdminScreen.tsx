@@ -96,6 +96,10 @@ import {
   updatePlatformChoiceSetting,
   updatePlatformNumberSetting,
 } from "../components/admin/adminSettingsModel";
+import {
+  loadDisputeEvidenceSignedUrls,
+  loadVerificationSignedUrls,
+} from "../components/admin/adminSignedUrls";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   apiMigrationItems,
@@ -128,7 +132,6 @@ import {
   runSupabasePreflightChecks,
 } from "../services/supabasePreflightService";
 import type { SupabasePreflightCheck } from "../services/supabasePreflightService";
-import { createSignedStorageUrl } from "../services/supabaseStorageService";
 import type {
   AdminAuditLog,
   AdminMember,
@@ -438,29 +441,9 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
 
     let cancelled = false;
     const loadSignedUrls = async () => {
-      const entries = await Promise.all(
-        (["idFront", "idBack"] as const).map(async (key) => {
-          const value = verificationDocuments[key];
-          if (!value) return [key, ""] as const;
-          if (value.startsWith("data:")) return [key, value] as const;
-          try {
-            return [
-              key,
-              await createSignedStorageUrl("verification-documents", value),
-            ] as const;
-          } catch (error) {
-            console.error(error);
-            return [key, ""] as const;
-          }
-        })
-      );
+      const urls = await loadVerificationSignedUrls(verificationDocuments);
       if (!cancelled) {
-        setSignedVerificationUrls(
-          entries.reduce<Record<string, string>>((next, [key, value]) => {
-            next[key] = value;
-            return next;
-          }, {})
-        );
+        setSignedVerificationUrls(urls);
       }
     };
 
@@ -476,46 +459,18 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   ]);
 
   useEffect(() => {
-    const evidenceItems: Array<{ key: string; url: string }> = [];
-    disputes.forEach((dispute) => {
-      (dispute.evidence || []).forEach((item, index) => {
-        evidenceItems.push({
-        key: `${dispute.id}:${index}`,
-        url: item.url,
-        });
-      });
-    });
+    const hasEvidence = disputes.some((dispute) => dispute.evidence?.length);
 
-    if (isDemoDataMode || evidenceItems.length === 0) {
+    if (isDemoDataMode || !hasEvidence) {
       setSignedDisputeEvidenceUrls({});
       return;
     }
 
     let cancelled = false;
     const loadSignedUrls = async () => {
-      const entries = await Promise.all(
-        evidenceItems.map(async (item) => {
-          if (!item.url || item.url.startsWith("data:") || item.url.startsWith("http")) {
-            return [item.key, item.url] as const;
-          }
-          try {
-            return [
-              item.key,
-              await createSignedStorageUrl("booking-photos", item.url),
-            ] as const;
-          } catch (error) {
-            console.error(error);
-            return [item.key, ""] as const;
-          }
-        })
-      );
+      const urls = await loadDisputeEvidenceSignedUrls(disputes);
       if (!cancelled) {
-        setSignedDisputeEvidenceUrls(
-          entries.reduce<Record<string, string>>((next, [key, value]) => {
-            next[key] = value;
-            return next;
-          }, {})
-        );
+        setSignedDisputeEvidenceUrls(urls);
       }
     };
 
