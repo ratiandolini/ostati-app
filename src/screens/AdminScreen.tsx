@@ -86,7 +86,10 @@ import {
   bookingActionFromState,
   bookingStatusFromPaymentStatus,
   getBookingAdminConfirmMessage,
+  getPaymentStatusAuditSummary,
+  getPaymentStatusConfirmMessage,
   isRefundBookingAction,
+  requiresPaymentStatusNote,
 } from "../components/admin/adminBookingActions";
 import type {
   AdminBookingPaymentStatus,
@@ -1145,8 +1148,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     }
     if (
       !confirmAdminAction(
-        `Admin ჩარევა დადასტურდეს: ${paymentStatusShortLabel[paymentStatus]}?`,
-        { requireNote: paymentStatus !== "held" }
+        getPaymentStatusConfirmMessage(paymentStatusShortLabel[paymentStatus]),
+        { requireNote: requiresPaymentStatusNote(paymentStatus) }
       )
     ) {
       return;
@@ -1204,9 +1207,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     recordAudit(
       "payment_status_changed",
       bookingId,
-      `${paymentStatusShortLabel[paymentStatus]}${
-        note ? ` · ${note}` : ""
-      }`
+      getPaymentStatusAuditSummary(paymentStatusShortLabel[paymentStatus], note)
     );
     setAdminNote("");
     refresh();

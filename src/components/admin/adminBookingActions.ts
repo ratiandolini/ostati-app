@@ -48,3 +48,15 @@ export const bookingStatusFromPaymentStatus = (
   if (paymentStatus === "disputed") return "disputed";
   return undefined;
 };
+
+export const requiresPaymentStatusNote = (
+  paymentStatus: AdminBookingPaymentStatus
+) => paymentStatus !== "held";
+
+export const getPaymentStatusConfirmMessage = (paymentStatusLabel: string) =>
+  `Admin ჩარევა დადასტურდეს: ${paymentStatusLabel}?`;
+
+export const getPaymentStatusAuditSummary = (
+  paymentStatusLabel: string,
+  note: string
+) => `${paymentStatusLabel}${note ? ` · ${note}` : ""}`;
