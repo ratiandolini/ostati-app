@@ -4,7 +4,6 @@ import { actionButton, adminCard } from "../components/admin/adminUi";
 import {
   accountLabel,
   adminAccountLabel,
-  auditLabel,
   paymentStatusHelp,
   paymentStatusLabel,
   paymentStatusShortLabel,
@@ -73,6 +72,7 @@ import {
 import { getAdminOperationalQueue } from "../components/admin/adminOperationalQueue";
 import { getAdminDisputeModel } from "../components/admin/adminDisputesModel";
 import { getAdminBookingsModel } from "../components/admin/adminBookingsModel";
+import { getAdminAuditModel } from "../components/admin/adminAuditModel";
 import {
   getAdminUserDirectory,
   getClientUserStats,
@@ -700,31 +700,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     adminQuery,
     statusFilter,
   });
-  const filteredAuditLogs = auditLogs.filter((log) => {
-    const statusMatched =
-      statusFilter === "all" ||
-      (statusFilter === "active" &&
-        !["booking_refunded", "dispute_refunded", "verification_rejected"].includes(
-          log.action
-        )) ||
-      (statusFilter === "closed" &&
-        ["booking_closed", "dispute_released"].includes(log.action)) ||
-      (statusFilter === "problem" &&
-        [
-          "booking_refunded",
-          "dispute_refunded",
-          "dispute_reviewing",
-          "verification_rejected",
-        ].includes(log.action));
-    return (
-      statusMatched &&
-      matchesQuery(adminQuery, [
-        auditLabel[log.action],
-        log.summary,
-        log.target,
-        log.adminName,
-      ])
-    );
+  const { filteredAuditLogs } = getAdminAuditModel({
+    auditLogs,
+    adminQuery,
+    statusFilter,
   });
   const {
     filteredFinancialSummary,
