@@ -20,7 +20,6 @@ import {
   isActiveStatus,
   isClosedStatus,
   matchesQuery,
-  money,
 } from "../components/admin/adminUtils";
 import {
   clearCachedPreflightState,
@@ -74,6 +73,7 @@ import {
   getAdminFinanceQueueState,
   getAdminFinancialSummary,
 } from "../components/admin/adminFinanceModel";
+import { getAdminOperationalQueue } from "../components/admin/adminOperationalQueue";
 import {
   getAdminUserDirectory,
   getClientUserStats,
@@ -836,82 +836,16 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   const visibleRegularRequests = filteredRequests.filter(
     (request) => !needsAdminIntervention(request)
   );
-  const operationalQueue = [
-    {
-      id: "verification",
-      label: "ვერიფიკაცია",
-      count: pendingVerificationCount,
-      detail: pendingVerificationCount
-        ? "ხელოსნის დოკუმენტები ელოდება დადასტურებას"
-        : "შესამოწმებელი ვერიფიკაცია არ არის",
-      tabId: "verification" as const,
-      priority: pendingVerificationCount ? 3 : 0,
-      tone: "#1d4ed8",
-      bg: "#eff6ff",
-    },
-    {
-      id: "urgent-disputes",
-      label: "სასწრაფო დავები",
-      count: urgentDisputes.length,
-      detail: urgentDisputes.length
-        ? "დავა 24 საათზე მეტია ღიაა ან განხილვას ითხოვს"
-        : "ვადაგასული დავა არ არის",
-      tabId: "disputes" as const,
-      priority: urgentDisputes.length ? 4 : 0,
-      tone: "#b91c1c",
-      bg: "#fef2f2",
-    },
-    {
-      id: "open-disputes",
-      label: "ღია დავები",
-      count: openDisputes.length,
-      detail: openDisputes.length
-        ? "კლიენტის/ხელოსნის პრობლემა Admin-ის პასუხს ელოდება"
-        : "ღია დავა არ არის",
-      tabId: "disputes" as const,
-      priority: openDisputes.length ? 2 : 0,
-      tone: "#c2410c",
-      bg: "#fff7ed",
-    },
-    {
-      id: "finance-review",
-      label: "ფინანსური განხილვა",
-      count:
-        financeReviewBookings.length +
-        financeRefundQueue.length +
-        financeReleaseQueue.length,
-      detail: financeReviewBookings.length
-        ? `დაგვიანებული გაუქმება/დავა. სავარაუდო დაკავება ${money(
-            lateCancellationPenaltyTotal
-          )}`
-        : financeRefundQueue.length
-          ? "თანხის დაბრუნების რიგია გადასახედი"
-          : financeReleaseQueue.length
-            ? "დასრულებულ ჯავშანზე თანხა გასაშვებია"
-            : "ფინანსური ჩარევა არ სჭირდება",
-      tabId: "finance" as const,
-      priority:
-        financeReviewBookings.length || financeRefundQueue.length || financeReleaseQueue.length
-          ? 3
-          : 0,
-      tone: "#047857",
-      bg: "#ecfdf5",
-    },
-    {
-      id: "problem-bookings",
-      label: "პრობლემური ჯავშნები",
-      count: interventionRequests.length,
-      detail: interventionRequests.length
-        ? "გაუქმება, დავა ან Admin ჩანაწერი გადასაწყვეტია"
-        : "ჯავშნების რიგი სუფთაა",
-      tabId: "bookings" as const,
-      priority: interventionRequests.length ? 2 : 0,
-      tone: "#7c3aed",
-      bg: "#f5f3ff",
-    },
-  ].sort((a, b) => b.priority - a.priority || b.count - a.count);
-  const nextAdminAction =
-    operationalQueue.find((item) => item.count > 0) || operationalQueue[0];
+  const { operationalQueue, nextAdminAction } = getAdminOperationalQueue({
+    pendingVerificationCount,
+    urgentDisputesCount: urgentDisputes.length,
+    openDisputesCount: openDisputes.length,
+    financeReviewCount: financeReviewBookings.length,
+    financeRefundCount: financeRefundQueue.length,
+    financeReleaseCount: financeReleaseQueue.length,
+    lateCancellationPenaltyTotal,
+    interventionRequestsCount: interventionRequests.length,
+  });
   const userStatsInput = { requests, clientBookings, platformSettings };
   const craftsmanUserStats = getCraftsmanUserStats(userStatsInput);
   const getClientUserStatsForPhone = (phone: string) =>
@@ -949,7 +883,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
 
   const downloadAdminReport = () => {
     const result = downloadLaunchReadinessReport({
-      exportedBy: user.name || "??????????????",
+      exportedBy: user.name || "ადმინისტრატორი",
       currentAdminMember,
       launchReportStatus,
       launchReportDraftReasons,
@@ -1013,8 +947,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
 
     setAdminApiSuccess(
       launchReportStatus === "launch_ready"
-        ? "Launch-ready report ???????????."
-        : "Draft readiness report ???????????; ????????? ????????? report-??? ?????."
+        ? "Launch-ready report ჩამოიტვირთა."
+        : "Draft readiness report ჩამოიტვირთა; დარჩენილი საკითხები report-შიც წერია."
     );
   };
 
