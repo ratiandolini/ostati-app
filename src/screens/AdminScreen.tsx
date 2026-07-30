@@ -33,7 +33,6 @@ import {
   mobileQaTestGuide,
   preflightStatusUi,
   qaAreaLabel,
-  qaAreaOrder,
 } from "../components/admin/adminQaConfig";
 import {
   allAdminTabs,
@@ -72,6 +71,7 @@ import { getAdminDisputeModel } from "../components/admin/adminDisputesModel";
 import { getAdminBookingsModel } from "../components/admin/adminBookingsModel";
 import { getAdminAuditModel } from "../components/admin/adminAuditModel";
 import { getAdminVerificationModel } from "../components/admin/adminVerificationModel";
+import { getAdminQaModel } from "../components/admin/adminQaModel";
 import {
   getAdminUserDirectory,
   getClientUserStats,
@@ -411,30 +411,17 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     adminQuery,
     profile,
   });
-  const mobileQaDoneCount = mobileQaScenarios.filter((item) => item.done).length;
-  const mobileQaNotes = mobileQaScenarios
-    .filter((item) => Boolean(item.note?.trim()))
-    .map((item) => ({
-      id: item.id,
-      area: qaAreaLabel[item.area],
-      label: item.label,
-      done: item.done,
-      note: item.note?.trim() || "",
-    }));
-  const prePaymentDoneCount = prePaymentChecklist.filter((item) => item.done).length;
-  const mobileQaProgressByArea = qaAreaOrder.map((area) => {
-    const items = mobileQaScenarios.filter((item) => item.area === area);
-    const done = items.filter((item) => item.done).length;
-    return {
-      area,
-      label: qaAreaLabel[area],
-      done,
-      total: items.length,
-      complete: items.length > 0 && done === items.length,
-    };
+  const {
+    mobileQaDoneCount,
+    mobileQaNotes,
+    prePaymentDoneCount,
+    mobileQaProgressByArea,
+    remainingMobileQaScenarios,
+    nextMobileQaScenario,
+  } = getAdminQaModel({
+    prePaymentChecklist,
+    mobileQaScenarios,
   });
-  const remainingMobileQaScenarios = mobileQaScenarios.filter((item) => !item.done);
-  const nextMobileQaScenario = remainingMobileQaScenarios[0];
   const systemReadinessChecks = useMemo(
     () => getSystemReadinessChecks(platformSettings),
     [platformSettings]
