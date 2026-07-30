@@ -73,6 +73,11 @@ import { getProductionGuardItems } from "../components/admin/adminProductionGuar
 import { getAdminLaunchSmokeState } from "../components/admin/adminLaunchSmoke";
 import { downloadLaunchReadinessReport } from "../components/admin/adminReport";
 import {
+  getAdminUserDirectory,
+  getClientUserStats,
+  getCraftsmanUserStats,
+} from "../components/admin/adminUsersModel";
+import {
   adminProviderFields,
   legalSettingFields,
   platformSettingNumberFields,
@@ -653,15 +658,20 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     preflightCheckedAt,
     preflightScope,
   });
-  const adminClients = (adminUsersState || []).filter(
-    (item) => item.role === "client"
-  );
-  const adminCraftsmen = (adminUsersState || []).filter(
-    (item) => item.role === "craftsman"
-  );
-  const clients = Array.from(
-    new Set(requests.map((request) => request.clientPhone).filter(Boolean))
-  ) as string[];
+  const {
+    adminClients,
+    adminCraftsmen,
+    clients,
+    filteredClients,
+    filteredAdminClients,
+    filteredAdminCraftsmen,
+  } = getAdminUserDirectory({
+    adminUsersState,
+    requests,
+    adminQuery,
+    statusFilter,
+    getClientProfile: fallbackStorage.getClientProfile,
+  });
   const disputeMatchesQuery = (dispute: BookingDispute) =>
     matchesQuery(adminQuery, [
       dispute.reason,
@@ -768,65 +778,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         booking.paymentStatus,
         booking.adminNote,
         booking.id,
-      ])
-    );
-  });
-  const filteredClients = clients.filter((phone) => {
-    const client = fallbackStorage.getClientProfile(phone);
-    const status = client.accountStatus || "active";
-    const statusMatched =
-      statusFilter === "all" ||
-      (statusFilter === "active" && status === "active") ||
-      (statusFilter === "closed" && status === "blocked") ||
-      (statusFilter === "problem" && status !== "active");
-    return (
-      statusMatched &&
-      matchesQuery(adminQuery, [
-        phone,
-        client.firstName,
-        client.lastName,
-        client.city,
-        client.address,
-        status,
-        client.adminNote,
-      ])
-    );
-  });
-  const filteredAdminClients = adminClients.filter((client) => {
-    const statusMatched =
-      statusFilter === "all" ||
-      (statusFilter === "active" && client.status === "active") ||
-      (statusFilter === "closed" && client.status === "blocked") ||
-      (statusFilter === "problem" && client.status !== "active");
-    return (
-      statusMatched &&
-      matchesQuery(adminQuery, [
-        client.phone,
-        client.firstName || "",
-        client.lastName || "",
-        client.city || "",
-        client.status,
-      ])
-    );
-  });
-  const filteredAdminCraftsmen = adminCraftsmen.filter((craftsman) => {
-    const statusMatched =
-      statusFilter === "all" ||
-      (statusFilter === "active" && craftsman.status === "active") ||
-      (statusFilter === "closed" && craftsman.status === "blocked") ||
-      (statusFilter === "problem" &&
-        (craftsman.status !== "active" ||
-          craftsman.verificationStatus !== "verified"));
-    return (
-      statusMatched &&
-      matchesQuery(adminQuery, [
-        craftsman.phone,
-        craftsman.firstName || "",
-        craftsman.lastName || "",
-        craftsman.city || "",
-        craftsman.workerRole || "",
-        craftsman.status,
-        craftsman.verificationStatus || "",
       ])
     );
   });
@@ -1002,47 +953,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   ].sort((a, b) => b.priority - a.priority || b.count - a.count);
   const nextAdminAction =
     operationalQueue.find((item) => item.count > 0) || operationalQueue[0];
-  const craftsmanUserStats = {
-    total: requests.length,
-    active: requests.filter((request) => isActiveStatus(request.status)).length,
-    disputed: requests.filter((request) => request.status === "disputed").length,
-    cancelled: requests.filter((request) => request.status === "cancelled").length,
-    completed: requests.filter((request) => isClosedStatus(request.status)).length,
-    amount: clientBookings.reduce(
-      (sum, booking) => sum + (booking.bookingFee || platformSettings.bookingFee),
-      0
-    ),
-  };
-  const getClientUserStats = (phone: string) => {
-    const clientRequests = requests.filter(
-      (request) => request.clientPhone === phone
-    );
-    const requestIds = new Set(clientRequests.map((request) => request.id));
-    const relatedBookings = clientBookings.filter((booking) =>
-      requestIds.has(booking.id)
-    );
-    const lastRequest = [...clientRequests].sort((a, b) =>
-      `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)
-    )[0];
-    return {
-      total: clientRequests.length,
-      active: clientRequests.filter((request) => isActiveStatus(request.status))
-        .length,
-      disputed: clientRequests.filter((request) => request.status === "disputed")
-        .length,
-      cancelled: clientRequests.filter((request) => request.status === "cancelled")
-        .length,
-      completed: clientRequests.filter((request) => isClosedStatus(request.status))
-        .length,
-      amount: relatedBookings.reduce(
-        (sum, booking) => sum + (booking.bookingFee || platformSettings.bookingFee),
-        0
-      ),
-      lastActivity: lastRequest
-        ? `${lastRequest.date} · ${lastRequest.time}`
-        : "აქტივობა არ არის",
-    };
-  };
+  const userStatsInput = { requests, clientBookings, platformSettings };
+  const craftsmanUserStats = getCraftsmanUserStats(userStatsInput);
+  const getClientUserStatsForPhone = (phone: string) =>
+    getClientUserStats(phone, userStatsInput);
 
   const saveCraftsmanProfile = (next: CraftsmanProfile) => {
     dataService.saveCraftsmanProfile(next);
@@ -2504,7 +2418,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             craftsmanUserStats={craftsmanUserStats}
             filteredClients={filteredClients}
             fallbackStorage={fallbackStorage}
-            getClientUserStats={getClientUserStats}
+            getClientUserStats={getClientUserStatsForPhone}
             setCraftsmanAccountStatus={setCraftsmanAccountStatus}
             setClientAccountStatus={setClientAccountStatus}
           />
