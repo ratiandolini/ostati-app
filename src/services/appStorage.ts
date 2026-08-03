@@ -144,7 +144,8 @@ export interface AdminAuditLog {
     | "admin_member_updated"
     | "launch_checklist_updated"
     | "client_status_changed"
-    | "craftsman_status_changed";
+    | "craftsman_status_changed"
+    | "admin_message_sent";
   target: string;
   summary: string;
   createdAt: string;

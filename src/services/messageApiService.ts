@@ -113,6 +113,17 @@ export const sendBookingMessage = (bookingId: string, text: string) => {
   );
 };
 
+export const sendAdminBookingMessage = (bookingId: string, text: string) => {
+  const client = createSupabaseRestClient();
+  return client.rpc<{ message_id: string; booking_id: string }>(
+    "admin_send_booking_message",
+    {
+      p_booking_id: bookingId,
+      p_text: text,
+    }
+  );
+};
+
 export const sendBookingAttachment = async (bookingId: string, file: File) => {
   const uploaded = await uploadStorageFile({
     bucket: "chat-attachments",

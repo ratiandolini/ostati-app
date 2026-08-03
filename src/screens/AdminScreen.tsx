@@ -153,6 +153,7 @@ import {
   updateAdminMemberState,
   updateLaunchChecklistItem,
 } from "../services/adminApiService";
+import { sendAdminBookingMessage } from "../services/messageApiService";
 import type {
   AdminBookingAction,
   AdminDisputeResolution,
@@ -223,6 +224,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     useState<CurrentAdminContext | null>(null);
   const [adminApiLoading, setAdminApiLoading] = useState(false);
   const [adminActionId, setAdminActionId] = useState<string | null>(null);
+  const [adminMessageSendingId, setAdminMessageSendingId] = useState<string | null>(null);
   const [adminApiError, setAdminApiError] = useState("");
   const [adminApiSuccess, setAdminApiSuccess] = useState("");
   const [signedVerificationUrls, setSignedVerificationUrls] = useState<
@@ -700,6 +702,48 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     options?: { requireNote?: boolean }
   ) => {
     return confirmAdminNoteAction(message, adminNote, options);
+  };
+
+  const sendMessageToWorker = async (bookingId: string) => {
+    if (!can("bookings")) {
+      setAdminApiError("ამ Admin როლს ჯავშნებზე წერილის გაგზავნის უფლება არ აქვს");
+      return;
+    }
+
+    const text = adminNote.trim();
+    if (!text) {
+      setAdminApiError("ჯერ ჩაწერე Admin შეტყობინება ტექსტის ველში");
+      return;
+    }
+
+    setAdminApiError("");
+    setAdminApiSuccess("");
+    setAdminMessageSendingId(bookingId);
+    if (!isDemoDataMode) setAdminApiLoading(true);
+
+    try {
+      if (isDemoDataMode) {
+        appendDemoSystemMessage(bookingId, `Admin: ${text}`);
+        prependDemoCraftsmanNotification(
+          bookingId,
+          "Admin შეტყობინება",
+          text
+        );
+        recordAudit("admin_message_sent", bookingId, text);
+        refresh();
+      } else {
+        await sendAdminBookingMessage(bookingId, text);
+        setAdminApiSuccess("შეტყობინება ხელოსანს გაეგზავნა.");
+      }
+      setAdminNote("");
+    } catch (error) {
+      setAdminApiError(
+        getAdminErrorMessage(error, "ხელოსანთან შეტყობინების გაგზავნა ვერ მოხერხდა")
+      );
+    } finally {
+      if (!isDemoDataMode) setAdminApiLoading(false);
+      setAdminMessageSendingId(null);
+    }
   };
 
   const downloadAdminReport = () => {
@@ -1887,7 +1931,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
           <textarea
             value={adminNote}
             onChange={(event) => setAdminNote(event.target.value)}
-            placeholder="Admin ჩანაწერი ან გადაწყვეტილების მიზეზი..."
+            placeholder="Admin ჩანაწერი, გადაწყვეტილების მიზეზი ან შეტყობინება ხელოსნისთვის..."
             rows={3}
             style={{
               width: "100%",
@@ -1905,7 +1949,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
           />
           <div style={{ marginTop: 7, color: "var(--text3)", fontSize: 11, lineHeight: 1.4, fontWeight: 750 }}>
             მიზეზი აუცილებელია უარყოფაზე, თანხის დაბრუნებაზე, დავის გადაწყვეტაზე,
-            შეზღუდვასა და ბლოკზე.
+            შეზღუდვასა და ბლოკზე. ჯავშნებში „ხელოსანთან მიწერა“ ამავე ტექსტს გაუგზავნის ხელოსანს.
           </div>
         </div>
 
@@ -2018,8 +2062,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             getLinkedClientBooking={getLinkedClientBooking}
             can={can}
             adminApiLoading={adminApiLoading}
+            adminMessageSendingId={adminMessageSendingId}
             updateBookingEverywhere={updateBookingEverywhere}
             setBookingPaymentStatus={setBookingPaymentStatus}
+            sendMessageToWorker={sendMessageToWorker}
           />
         )}
 

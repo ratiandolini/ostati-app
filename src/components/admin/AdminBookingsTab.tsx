@@ -31,12 +31,14 @@ interface AdminBookingsTabProps {
   getLinkedClientBooking: (bookingId: string) => Booking | undefined;
   can: (permission: AdminPermission) => boolean;
   adminApiLoading: boolean;
+  adminMessageSendingId: string | null;
   updateBookingEverywhere: (
     bookingId: string,
     status: BookingStatus,
     paymentStatus?: "released" | "refunded" | "disputed"
   ) => void;
   setBookingPaymentStatus: (bookingId: string, paymentStatus: AdminPaymentStatus) => void;
+  sendMessageToWorker: (bookingId: string) => void;
 }
 
 export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
@@ -47,8 +49,10 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
   getLinkedClientBooking,
   can,
   adminApiLoading,
+  adminMessageSendingId,
   updateBookingEverywhere,
   setBookingPaymentStatus,
+  sendMessageToWorker,
 }) => {
   return (
           <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -146,6 +150,18 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                    {can("bookings") && (
+                      <button
+                        type="button"
+                        disabled={adminApiLoading || adminMessageSendingId === request.id}
+                        onClick={() => sendMessageToWorker(request.id)}
+                        style={actionButton("#2563eb")}
+                      >
+                        {adminMessageSendingId === request.id
+                          ? "იგზავნება..."
+                          : "ხელოსანთან მიწერა"}
+                      </button>
+                    )}
                     {can("finance") && (
                       <button
                         type="button"
@@ -239,6 +255,18 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
                     ჩვეულებრივი პროცესი: სტატუსებს კლიენტი და ხელოსანი ცვლიან.
                     Admin ღილაკები გამოჩნდება მხოლოდ დავაზე ან დაბრუნებაზე.
                   </div>
+                  {can("bookings") && (
+                    <button
+                      type="button"
+                      disabled={adminApiLoading || adminMessageSendingId === request.id}
+                      onClick={() => sendMessageToWorker(request.id)}
+                      style={{ ...actionButton("#2563eb"), marginTop: 10 }}
+                    >
+                      {adminMessageSendingId === request.id
+                        ? "იგზავნება..."
+                        : "ხელოსანთან მიწერა"}
+                    </button>
+                  )}
                 </div>
                 );
               })

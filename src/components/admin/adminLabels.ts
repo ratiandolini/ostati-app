@@ -62,6 +62,7 @@ export const auditLabel: Record<AdminAuditLog["action"], string> = {
   launch_checklist_updated: "Launch checklist შეიცვალა",
   client_status_changed: "კლიენტის სტატუსი შეიცვალა",
   craftsman_status_changed: "ხელოსნის სტატუსი შეიცვალა",
+  admin_message_sent: "ხელოსანს Admin შეტყობინება გაეგზავნა",
 };
 
 export const paymentStatusLabel: Record<

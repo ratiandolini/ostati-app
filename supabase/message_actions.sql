@@ -69,6 +69,79 @@ $$;
 grant execute on function public.send_booking_message(uuid, text, text, text, text)
 to authenticated;
 
+create or replace function public.admin_send_booking_message(
+  p_booking_id uuid,
+  p_text text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor uuid := public.current_app_user_id();
+  target_booking public.bookings%rowtype;
+  worker_user_id uuid;
+  created_message_id uuid;
+  message_text text := nullif(trim(coalesce(p_text, '')), '');
+begin
+  if not public.current_admin_has_permission('bookings') then
+    raise exception 'Bookings permission is required to send an admin message';
+  end if;
+
+  if actor is null then
+    raise exception 'Authentication is required to send a message';
+  end if;
+
+  if message_text is null then
+    raise exception 'Message text is required';
+  end if;
+
+  select *
+  into target_booking
+  from public.bookings
+  where id = p_booking_id;
+
+  if target_booking.id is null then
+    raise exception 'Booking not found';
+  end if;
+
+  select user_id
+  into worker_user_id
+  from public.workers
+  where id = target_booking.worker_id;
+
+  insert into public.messages (booking_id, sender_id, text)
+  values (p_booking_id, actor, message_text)
+  returning id into created_message_id;
+
+  perform public.notify_user(
+    worker_user_id,
+    p_booking_id,
+    'admin_message',
+    'Admin შეტყობინება',
+    message_text
+  );
+
+  insert into public.audit_logs (actor_id, action, entity_type, entity_id, metadata_json)
+  values (
+    actor,
+    'admin_message_sent',
+    'booking',
+    p_booking_id,
+    jsonb_build_object('summary', message_text)
+  );
+
+  return jsonb_build_object(
+    'message_id', created_message_id,
+    'booking_id', p_booking_id
+  );
+end;
+$$;
+
+grant execute on function public.admin_send_booking_message(uuid, text)
+to authenticated;
+
 create or replace function public.mark_booking_messages_read(
   p_booking_id uuid
 )
