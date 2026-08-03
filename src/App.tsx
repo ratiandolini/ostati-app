@@ -263,6 +263,7 @@ const App: React.FC = () => {
   const routerNavigate = useRouterNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [screen, setScreen] = useState<Screen>("home");
+  const [messageTargetBookingId, setMessageTargetBookingId] = useState<string | null>(null);
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [bookings, setBookings] = useState<Booking[]>(() => {
     return isDemoDataMode ? dataService.getClientBookings() : [];
@@ -1093,6 +1094,7 @@ const App: React.FC = () => {
       setSuccessData(null);
     }
     setSelectedWorker(null);
+    if (s !== "messages") setMessageTargetBookingId(null);
     setScreen(s);
   };
 
@@ -1206,6 +1208,7 @@ const App: React.FC = () => {
             craftsmanBookings={craftsmanBookings}
             onUnreadChange={handleUnreadChange}
             accountStatus={accountStatus}
+            focusedBookingId={messageTargetBookingId}
           />
         ) : (
           <CraftsmanHomeScreen
@@ -1215,6 +1218,10 @@ const App: React.FC = () => {
             accountStatus={accountStatus}
             workerVerified={craftsmanVerified}
             onProfileUpdated={handleProfileUpdated}
+            onOpenMessagesForBooking={(bookingId) => {
+              setMessageTargetBookingId(bookingId);
+              setScreen("messages");
+            }}
           />
         )}
         <AccountStatusBanner status={accountStatus} />
@@ -1290,6 +1297,7 @@ const App: React.FC = () => {
           bookings={bookings}
           onUnreadChange={handleUnreadChange}
           accountStatus={accountStatus}
+          focusedBookingId={messageTargetBookingId}
           onProblemOpened={handleProblemOpened}
         />
       )}

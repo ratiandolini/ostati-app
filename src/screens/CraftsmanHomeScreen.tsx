@@ -94,6 +94,7 @@ interface CraftsmanHomeScreenProps {
     lastName?: string;
     photoUrl?: string | null;
   }) => void;
+  onOpenMessagesForBooking?: (bookingId: string) => void;
 }
 
 const DAYS = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვ"];
@@ -492,6 +493,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   accountStatus = "active",
   workerVerified = false,
   onProfileUpdated,
+  onOpenMessagesForBooking,
 }) => {
   const [demoMode, setDemoMode] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>(() => {
@@ -1108,6 +1110,13 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const openCraftsmanNotification = (notification: AppNotification) => {
     if (!notification.readAt) markCraftsmanNotificationRead(notification.id);
     if (!notification.bookingId) return;
+    if (
+      notification.sourceType === "admin_message" ||
+      notification.title === "Admin შეტყობინება"
+    ) {
+      onOpenMessagesForBooking?.(notification.bookingId);
+      return;
+    }
     const linkedBooking = bookings.find(
       (booking) => booking.id === notification.bookingId
     );
@@ -2213,7 +2222,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                             fontWeight: 950,
                           }}
                         >
-                          მოთხოვნის გახსნა
+                          {notification.sourceType === "admin_message" ||
+                          notification.title === "Admin შეტყობინება"
+                            ? "ჩათის გახსნა"
+                            : "მოთხოვნის გახსნა"}
                         </div>
                       )}
                     </button>

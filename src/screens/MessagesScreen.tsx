@@ -44,6 +44,7 @@ interface MessagesScreenProps {
   craftsmanBookings?: CraftsmanBookingRequest[];
   onUnreadChange?: (count: number) => void;
   accountStatus?: "active" | "limited" | "blocked";
+  focusedBookingId?: string | null;
   onProblemOpened?: (
     id: string,
     reason: string,
@@ -179,6 +180,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   craftsmanBookings = [],
   onUnreadChange,
   accountStatus = "active",
+  focusedBookingId,
   onProblemOpened,
 }) => {
   const role: MessageRole = user.role === "craftsman" ? "craftsman" : "client";
@@ -370,6 +372,13 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
       setActiveThreadId(threads[0].id);
     }
   }, [activeThreadId, threads]);
+
+  useEffect(() => {
+    if (!focusedBookingId || !threads.some((thread) => thread.id === focusedBookingId)) {
+      return;
+    }
+    setActiveThreadId(focusedBookingId);
+  }, [focusedBookingId, threads]);
 
   useEffect(() => {
     if (isDemoDataMode || !activeThread) return;

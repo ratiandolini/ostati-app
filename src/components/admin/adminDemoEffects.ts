@@ -33,12 +33,14 @@ export const prependDemoBookingNotification = (
 export const prependDemoCraftsmanNotification = (
   bookingId: string,
   title: string,
-  text: string
+  text: string,
+  sourceType?: string
 ) => {
   dataService.prependCraftsmanNotification({
     id: `${bookingId}-craftsman-notice-${Date.now()}`,
     bookingId,
     type: "confirmed",
+    sourceType,
     title,
     text,
     readAt: null,

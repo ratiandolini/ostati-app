@@ -29,6 +29,7 @@ const mapNotification = (row: ApiNotificationRow): AppNotification => ({
   id: row.id,
   bookingId: row.booking_id || undefined,
   type: mapNotificationType(row.type),
+  sourceType: row.type,
   title: row.title,
   text: row.body || row.title,
   readAt: row.read_at,

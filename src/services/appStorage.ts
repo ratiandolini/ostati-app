@@ -209,6 +209,7 @@ export interface ClientNotification {
   title?: string;
   text: string;
   type: "confirmed" | "review";
+  sourceType?: string;
   bookingId?: string;
   readAt?: string | null;
   createdAt?: string;

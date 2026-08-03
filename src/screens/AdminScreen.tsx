@@ -727,7 +727,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         prependDemoCraftsmanNotification(
           bookingId,
           "Admin შეტყობინება",
-          text
+          text,
+          "admin_message"
         );
         recordAudit("admin_message_sent", bookingId, text);
         refresh();
