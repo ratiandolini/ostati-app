@@ -43,6 +43,8 @@ interface AdminUsersTabProps {
     phone: string,
     status: NonNullable<ClientProfile["accountStatus"]>
   ) => void;
+  sendAdminNoticeToUser: (role: "client" | "craftsman", phone: string) => void;
+  warnUserFromAdmin: (role: "client" | "craftsman", phone: string) => void;
 }
 
 export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
@@ -60,6 +62,8 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
   getClientUserStats,
   setCraftsmanAccountStatus,
   setClientAccountStatus,
+  sendAdminNoticeToUser,
+  warnUserFromAdmin,
 }) => (
           <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {can("settings") && (
@@ -146,6 +150,10 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                               : craftsman.verificationStatus
                           ]}
                         </div>
+                        <div style={{ marginTop: 6, color: "var(--text2)", fontSize: 12, fontWeight: 850 }}>
+                          ★ {craftsman.ratingAvg.toFixed(1)} ({craftsman.ratingCount}) · გაფრთხილება{" "}
+                          {craftsman.warningCount || 0}
+                        </div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7, marginTop: 12 }}>
                           {[
                             ["ჯავშნები", craftsman.stats.total],
@@ -171,15 +179,18 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                             ? `${new Date(craftsman.stats.lastActivity).toLocaleDateString("ka-GE")} · ${new Date(craftsman.stats.lastActivity).toLocaleTimeString("ka-GE", { hour: "2-digit", minute: "2-digit" })}`
                             : "აქტივობა არ არის"}
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7, marginTop: 12 }}>
-                          <button type="button" onClick={() => setCraftsmanAccountStatus("active", craftsman.phone)} disabled={adminApiLoading} style={actionButton("#10b981")}>
-                            აქტიური
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 12 }}>
+                          <button type="button" onClick={() => sendAdminNoticeToUser("craftsman", craftsman.phone)} disabled={adminApiLoading} style={actionButton("#0f172a")}>
+                            მიწერა
                           </button>
-                          <button type="button" onClick={() => setCraftsmanAccountStatus("limited", craftsman.phone)} disabled={adminApiLoading} style={actionButton("#f97316")}>
-                            შეზღუდვა
+                          <button type="button" onClick={() => warnUserFromAdmin("craftsman", craftsman.phone)} disabled={adminApiLoading} style={actionButton("#f97316")}>
+                            გაფრთხილება
                           </button>
-                          <button type="button" onClick={() => setCraftsmanAccountStatus("blocked", craftsman.phone)} disabled={adminApiLoading} style={actionButton("#ef4444")}>
-                            ბლოკი
+                          <button type="button" onClick={() => setCraftsmanAccountStatus("blocked", craftsman.phone)} disabled={adminApiLoading || craftsman.status === "blocked"} style={actionButton("#ef4444")}>
+                            დაბლოკვა
+                          </button>
+                          <button type="button" onClick={() => setCraftsmanAccountStatus("active", craftsman.phone)} disabled={adminApiLoading || craftsman.status !== "blocked"} style={actionButton("#10b981")}>
+                            ბლოკის მოხსნა
                           </button>
                         </div>
                       </div>
@@ -237,15 +248,18 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                             ? `${new Date(client.stats.lastActivity).toLocaleDateString("ka-GE")} · ${new Date(client.stats.lastActivity).toLocaleTimeString("ka-GE", { hour: "2-digit", minute: "2-digit" })}`
                             : "აქტივობა არ არის"}
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7, marginTop: 12 }}>
-                          <button type="button" onClick={() => setClientAccountStatus(client.phone, "active")} disabled={adminApiLoading} style={actionButton("#10b981")}>
-                            აქტიური
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 12 }}>
+                          <button type="button" onClick={() => sendAdminNoticeToUser("client", client.phone)} disabled={adminApiLoading} style={actionButton("#0f172a")}>
+                            მიწერა
                           </button>
-                          <button type="button" onClick={() => setClientAccountStatus(client.phone, "limited")} disabled={adminApiLoading} style={actionButton("#f97316")}>
-                            შეზღუდვა
+                          <button type="button" onClick={() => warnUserFromAdmin("client", client.phone)} disabled={adminApiLoading} style={actionButton("#f97316")}>
+                            გაფრთხილება
                           </button>
-                          <button type="button" onClick={() => setClientAccountStatus(client.phone, "blocked")} disabled={adminApiLoading} style={actionButton("#ef4444")}>
-                            ბლოკი
+                          <button type="button" onClick={() => setClientAccountStatus(client.phone, "blocked")} disabled={adminApiLoading || client.status === "blocked"} style={actionButton("#ef4444")}>
+                            დაბლოკვა
+                          </button>
+                          <button type="button" onClick={() => setClientAccountStatus(client.phone, "active")} disabled={adminApiLoading || client.status !== "blocked"} style={actionButton("#10b981")}>
+                            ბლოკის მოხსნა
                           </button>
                         </div>
                       </div>
@@ -292,15 +306,18 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                   Admin ჩანაწერი: {profile.adminNote}
                 </div>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7, marginTop: 12 }}>
-                <button type="button" onClick={() => setCraftsmanAccountStatus("active")} disabled={adminApiLoading} style={actionButton("#10b981")}>
-                  აქტიური
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 12 }}>
+                <button type="button" onClick={() => sendAdminNoticeToUser("craftsman", profile.phone || "")} disabled={adminApiLoading || !profile.phone} style={actionButton("#0f172a")}>
+                  მიწერა
                 </button>
-                <button type="button" onClick={() => setCraftsmanAccountStatus("limited")} disabled={adminApiLoading} style={actionButton("#f97316")}>
-                  შეზღუდვა
+                <button type="button" onClick={() => warnUserFromAdmin("craftsman", profile.phone || "")} disabled={adminApiLoading || !profile.phone} style={actionButton("#f97316")}>
+                  გაფრთხილება
                 </button>
-                <button type="button" onClick={() => setCraftsmanAccountStatus("blocked")} disabled={adminApiLoading} style={actionButton("#ef4444")}>
-                  ბლოკი
+                <button type="button" onClick={() => setCraftsmanAccountStatus("blocked")} disabled={adminApiLoading || profile.accountStatus === "blocked"} style={actionButton("#ef4444")}>
+                  დაბლოკვა
+                </button>
+                <button type="button" onClick={() => setCraftsmanAccountStatus("active")} disabled={adminApiLoading || profile.accountStatus !== "blocked"} style={actionButton("#10b981")}>
+                  ბლოკის მოხსნა
                 </button>
               </div>
             </div>
@@ -343,15 +360,18 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                         Admin ჩანაწერი: {client.adminNote}
                       </div>
                     )}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7, marginTop: 12 }}>
-                      <button type="button" onClick={() => setClientAccountStatus(phone, "active")} disabled={adminApiLoading} style={actionButton("#10b981")}>
-                        აქტიური
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 12 }}>
+                      <button type="button" onClick={() => sendAdminNoticeToUser("client", phone)} disabled={adminApiLoading} style={actionButton("#0f172a")}>
+                        მიწერა
                       </button>
-                      <button type="button" onClick={() => setClientAccountStatus(phone, "limited")} disabled={adminApiLoading} style={actionButton("#f97316")}>
-                        შეზღუდვა
+                      <button type="button" onClick={() => warnUserFromAdmin("client", phone)} disabled={adminApiLoading} style={actionButton("#f97316")}>
+                        გაფრთხილება
                       </button>
-                      <button type="button" onClick={() => setClientAccountStatus(phone, "blocked")} disabled={adminApiLoading} style={actionButton("#ef4444")}>
-                        ბლოკი
+                      <button type="button" onClick={() => setClientAccountStatus(phone, "blocked")} disabled={adminApiLoading || client.accountStatus === "blocked"} style={actionButton("#ef4444")}>
+                        დაბლოკვა
+                      </button>
+                      <button type="button" onClick={() => setClientAccountStatus(phone, "active")} disabled={adminApiLoading || client.accountStatus !== "blocked"} style={actionButton("#10b981")}>
+                        ბლოკის მოხსნა
                       </button>
                     </div>
                   </div>

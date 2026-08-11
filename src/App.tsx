@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate as useRouterNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { BookingStatus, Screen, Worker, User, UserRole } from "./types";
 import { LoginScreen } from "./screens/LoginScreen";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -14,6 +14,7 @@ import { AdminScreen } from "./screens/AdminScreen";
 import { BottomNav } from "./components/BottomNav";
 import { dataService, isDemoDataMode } from "./services/dataService";
 import type { ClientProfile, CraftsmanBookingRequest } from "./services/dataService";
+import { isAbortError, reportApiError } from "./services/apiErrorUtils";
 import {
   cancelBookingRequest,
   captureBookingPayment,
@@ -38,6 +39,11 @@ import {
   signOutSupabase,
 } from "./services/supabaseAuthService";
 import { getValidationMessage } from "./services/validation";
+import {
+  bookingStatusTransitionError,
+  canChangeBookingStatus,
+} from "./utils/bookingWorkflow";
+import { usePlatformSettings } from "./hooks/usePlatformSettings";
 
 const getClientProfile = (phone: string) => {
   if (!isDemoDataMode) return {};
@@ -99,6 +105,11 @@ const archivedBookingStatuses = new Set<BookingStatus>([
 
 const isActiveBookingStatus = (status?: BookingStatus) =>
   !archivedBookingStatuses.has(status || "pending");
+
+// Supabase returns fresh array instances on every poll. Keep the current state
+// when its content has not changed so background sync does not restart screens.
+const keepEqualSnapshot = <T,>(current: T[], next: T[]) =>
+  JSON.stringify(current) === JSON.stringify(next) ? current : next;
 
 const screenPathMap: Partial<Record<Screen, string>> = {
   home: "/",
@@ -259,8 +270,8 @@ const VerificationRequiredScreen: React.FC<{
 );
 
 const App: React.FC = () => {
+  const { platformSettings } = usePlatformSettings();
   const location = useLocation();
-  const routerNavigate = useRouterNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [screen, setScreen] = useState<Screen>("home");
   const [messageTargetBookingId, setMessageTargetBookingId] = useState<string | null>(null);
@@ -289,11 +300,21 @@ const App: React.FC = () => {
   const [restoringSession, setRestoringSession] = useState(
     () => !isDemoDataMode && Boolean(getSupabaseSession()?.access_token)
   );
+  const pendingRouteScreenRef = React.useRef<Screen | null>(null);
+
+  const setBrowserPath = (path: string, replace = false) => {
+    if (window.location.pathname === path) return;
+    if (replace) {
+      window.history.replaceState(window.history.state, "", path);
+      return;
+    }
+    window.history.pushState(window.history.state, "", path);
+  };
 
   const loadApiUserIntoApp = async (
     fallbackPhone = "",
     fallbackRole: UserRole = "client"
-  ) => {
+  ): Promise<UserRole> => {
     const profile = await loadCurrentUserProfile();
     const nextRole = profile?.role || fallbackRole;
     const profileName = [profile?.first_name, profile?.last_name]
@@ -321,14 +342,14 @@ const App: React.FC = () => {
       loadClientBookings()
         .then(setBookings)
         .catch((error) => {
-          console.error(error);
+          reportApiError(error, { silentTransient: true });
           setBookings([]);
         });
     } else if (nextRole === "craftsman") {
       loadWorkerBookings()
         .then(setCraftsmanBookings)
         .catch((error) => {
-          console.error(error);
+          reportApiError(error, { silentTransient: true });
           setCraftsmanBookings([]);
         });
       setBookings([]);
@@ -347,12 +368,12 @@ const App: React.FC = () => {
           );
         })
         .catch((error) => {
-          console.error(error);
+          reportApiError(error, { silentTransient: true });
           setApiWorkerVerificationStatus("not_submitted");
         });
     }
 
-    setScreen("home");
+    return nextRole;
   };
 
   useEffect(() => {
@@ -370,7 +391,7 @@ const App: React.FC = () => {
       try {
         if (session.refresh_token) {
           await refreshSupabaseSession().catch((error) => {
-            console.error(error);
+            reportApiError(error, { silentTransient: true });
             return null;
           });
         }
@@ -381,7 +402,7 @@ const App: React.FC = () => {
           );
         }
       } catch (error) {
-        console.error(error);
+        reportApiError(error, { silentTransient: true });
         clearSupabaseSession();
         if (!cancelled) {
           setUser(null);
@@ -404,30 +425,42 @@ const App: React.FC = () => {
     if (restoringSession) return;
     if (!user) {
       if (location.pathname !== "/login") {
-        routerNavigate("/login", { replace: true });
+        setBrowserPath("/login", true);
       }
       return;
     }
     if (user.role === "admin") {
       if (location.pathname !== "/admin") {
-        routerNavigate("/admin", { replace: true });
+        setBrowserPath("/admin", true);
       }
       return;
     }
 
     const routeScreen = screenFromPath(location.pathname);
     if (routeScreen) {
-      setScreen((currentScreen) => (currentScreen === routeScreen ? currentScreen : routeScreen));
+      const pendingScreen = pendingRouteScreenRef.current;
+      if (pendingScreen && pendingScreen !== routeScreen) {
+        return;
+      }
+      pendingRouteScreenRef.current = null;
+      setScreen((currentScreen) => {
+        if (currentScreen === "profile" || currentScreen === "booking-confirm") {
+          return currentScreen;
+        }
+        return currentScreen === routeScreen ? currentScreen : routeScreen;
+      });
     }
-  }, [location.pathname, restoringSession, routerNavigate, user]);
+  }, [location.pathname, restoringSession, user]);
 
   useEffect(() => {
     if (!user || user.role === "admin") return;
-    const nextPath = screenPathMap[screen];
-    if (nextPath && location.pathname !== nextPath) {
-      routerNavigate(nextPath);
+    const routeScreen = screenFromPath(location.pathname);
+    if (routeScreen) return;
+    const fallbackPath = screenPathMap[screen] || "/";
+    if (location.pathname !== fallbackPath) {
+      setBrowserPath(fallbackPath, true);
     }
-  }, [location.pathname, routerNavigate, screen, user]);
+  }, [location.pathname, screen, user]);
 
   useEffect(() => {
     if (isDemoDataMode || !user) return;
@@ -441,16 +474,21 @@ const App: React.FC = () => {
       try {
         if (user.role === "client") {
           const nextBookings = await loadClientBookings(controller.signal);
-          if (!cancelled) setBookings(nextBookings);
+          if (!cancelled) {
+            setBookings((current) => keepEqualSnapshot(current, nextBookings));
+          }
           return;
         }
         if (user.role === "craftsman") {
           const nextBookings = await loadWorkerBookings(controller.signal);
-          if (!cancelled) setCraftsmanBookings(nextBookings);
+          if (!cancelled) {
+            setCraftsmanBookings((current) =>
+              keepEqualSnapshot(current, nextBookings)
+            );
+          }
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error(error);
+        reportApiError(error, { silentTransient: true });
       }
     };
 
@@ -459,7 +497,6 @@ const App: React.FC = () => {
     };
 
     refreshApiBookings();
-    const intervalId = window.setInterval(refreshApiBookings, 15000);
     window.addEventListener("booking-status-updated", refreshApiBookings);
     window.addEventListener("focus", refreshApiBookings);
     document.addEventListener("visibilitychange", refreshOnFocus);
@@ -467,7 +504,6 @@ const App: React.FC = () => {
     return () => {
       cancelled = true;
       activeController?.abort();
-      window.clearInterval(intervalId);
       window.removeEventListener("booking-status-updated", refreshApiBookings);
       window.removeEventListener("focus", refreshApiBookings);
       document.removeEventListener("visibilitychange", refreshOnFocus);
@@ -479,11 +515,15 @@ const App: React.FC = () => {
 
     const refreshDemoState = () => {
       if (user.role === "client") {
-        setBookings(dataService.getClientBookings());
+        setBookings((current) =>
+          keepEqualSnapshot(current, dataService.getClientBookings())
+        );
         return;
       }
       if (user.role === "craftsman") {
-        setCraftsmanBookings(dataService.getRealCraftsmanRequests());
+        setCraftsmanBookings((current) =>
+          keepEqualSnapshot(current, dataService.getRealCraftsmanRequests())
+        );
       }
     };
 
@@ -501,15 +541,18 @@ const App: React.FC = () => {
   const handleLogin = async (phone: string, role: UserRole) => {
     if (!isDemoDataMode) {
       try {
-        await loadApiUserIntoApp(phone, role);
+        const nextRole = await loadApiUserIntoApp(phone, role);
+        setBrowserPath(nextRole === "admin" ? "/admin" : "/", true);
+        setScreen("home");
       } catch (error) {
-        console.error(error);
+        reportApiError(error, { silentTransient: true });
         setUser({
           phone,
           role,
           name: role === "admin" ? "ადმინისტრატორი" : undefined,
         });
         setApiAccountStatus("active");
+        setBrowserPath(role === "admin" ? "/admin" : "/", true);
         setScreen("home");
       }
       return;
@@ -517,6 +560,7 @@ const App: React.FC = () => {
 
     if (role === "admin") {
       setUser({ phone, role, name: "ადმინისტრატორი" });
+      setBrowserPath("/admin", true);
       setScreen("home");
       return;
     }
@@ -530,16 +574,18 @@ const App: React.FC = () => {
     if (role === "client" && isDemoDataMode) {
       setBookings(dataService.getClientBookings());
     }
+    setBrowserPath("/", true);
     setScreen("home");
   };
 
   const handleLogout = () => {
     if (!isDemoDataMode) {
       signOutSupabase().catch((error) => {
-        console.error(error);
+        reportApiError(error, { silentTransient: true });
       });
     }
     setUser(null);
+    setBrowserPath("/login", true);
     setScreen("home");
     setBookings([]);
     setApiWorkerVerificationStatus(null);
@@ -588,11 +634,13 @@ const App: React.FC = () => {
     const controller = new AbortController();
     loadClientBookings(controller.signal)
       .then((nextBookings) => {
-        if (!cancelled) setBookings(nextBookings);
+        if (!cancelled) {
+          setBookings((current) => keepEqualSnapshot(current, nextBookings));
+        }
       })
       .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error(error);
+        if (isAbortError(error)) return;
+        reportApiError(error, { silentTransient: true });
       });
 
     return () => {
@@ -603,17 +651,23 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isDemoDataMode || user?.role !== "craftsman") return;
-    if (screen !== "bookings" && screen !== "messages" && screen !== "home") return;
+    // The craftsman workspace owns its booking refresh for home and bookings.
+    // App only needs an immediate refresh when the separate messages screen opens.
+    if (screen !== "messages") return;
 
     let cancelled = false;
     const controller = new AbortController();
     loadWorkerBookings(controller.signal)
       .then((nextBookings) => {
-        if (!cancelled) setCraftsmanBookings(nextBookings);
+        if (!cancelled) {
+          setCraftsmanBookings((current) =>
+            keepEqualSnapshot(current, nextBookings)
+          );
+        }
       })
       .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error(error);
+        if (isAbortError(error)) return;
+        reportApiError(error, { silentTransient: true });
       });
 
     return () => {
@@ -636,8 +690,8 @@ const App: React.FC = () => {
         }
       })
       .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error(error);
+        if (isAbortError(error)) return;
+        reportApiError(error, { silentTransient: true });
       });
 
     return () => {
@@ -661,8 +715,8 @@ const App: React.FC = () => {
         }
       })
       .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error(error);
+        if (isAbortError(error)) return;
+        reportApiError(error, { silentTransient: true });
       });
 
     return () => {
@@ -687,8 +741,8 @@ const App: React.FC = () => {
         }
       })
       .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error(error);
+        if (isAbortError(error)) return;
+        reportApiError(error, { silentTransient: true });
         if (!cancelled) setApiWorkerVerificationStatus("not_submitted");
       });
 
@@ -698,8 +752,19 @@ const App: React.FC = () => {
     };
   }, [user?.phone, user?.role]);
 
+  const showScreen = (nextScreen: Screen, replace = false) => {
+    const nextPath = screenPathMap[nextScreen];
+    if (nextPath && location.pathname !== nextPath) {
+      pendingRouteScreenRef.current = nextScreen;
+      setBrowserPath(nextPath, replace);
+    } else {
+      pendingRouteScreenRef.current = null;
+    }
+    setScreen(nextScreen);
+  };
+
   const goToWorker = (w: Worker) => {
-    if (w.verificationStatus !== "verified") {
+    if (w.verificationStatus && w.verificationStatus !== "verified") {
       window.alert("ეს ხელოსანი ჯერ ვერიფიცირებული არ არის და დაჯავშნა დროებით შეუძლებელია.");
       return;
     }
@@ -710,7 +775,7 @@ const App: React.FC = () => {
 
   const goToCategory = (cat: string) => {
     setSearchCategory(cat);
-    setScreen("search");
+    showScreen("search");
   };
 
   const handleBooked = async (
@@ -724,14 +789,33 @@ const App: React.FC = () => {
     if (accountStatus !== "active") {
       throw new Error("ანგარიში შეზღუდულია. ახალი ჯავშნის გაკეთება დროებით შეუძლებელია.");
     }
-    if (worker.verificationStatus !== "verified") {
+    if (worker.verificationStatus && worker.verificationStatus !== "verified") {
       throw new Error("ეს ხელოსანი ჯერ ვერიფიცირებული არ არის და დაჯავშნა დროებით შეუძლებელია.");
+    }
+    const workerKey = worker.backendId || String(worker.id);
+    const activeDuplicate = bookings.some((booking) => {
+      const bookingWorkerKey = booking.worker.backendId || String(booking.worker.id);
+      return (
+        bookingWorkerKey === workerKey &&
+        !["cancelled", "declined", "client_confirmed", "closed", "completed"].includes(
+          booking.status || "pending"
+        )
+      );
+    });
+    if (activeDuplicate) {
+      throw new Error("ამ ხელოსანთან უკვე გაქვთ აქტიური ჯავშანი. ჯერ დაასრულეთ ან გააუქმეთ არსებული ჯავშანი.");
+    }
+    const requestedSlot = details.scheduledAt
+      ? `${details.scheduledAt.slice(0, 10)}T${time}`
+      : "";
+    if (requestedSlot && worker.bookedSlots?.includes(requestedSlot)) {
+      throw new Error("ეს დრო უკვე დაკავებულია. აირჩიეთ სხვა დრო.");
     }
     const clientProfile = getClientProfile(user?.phone || "");
     const apiClientProfile =
       !isDemoDataMode && user?.role === "client"
         ? await loadCurrentUserProfile().catch((error) => {
-            console.error(error);
+            reportApiError(error, { silentTransient: true });
             return null;
           })
         : null;
@@ -748,7 +832,6 @@ const App: React.FC = () => {
     ]
       .filter(Boolean)
       .join(", ");
-    const platformSettings = dataService.getPlatformSettings();
     if (!isDemoDataMode) {
       try {
         setBookingActionError("");
@@ -775,7 +858,7 @@ const App: React.FC = () => {
         setSuccessData({ worker, day, time, dateLabel });
         setScreen("booking-confirm");
       } catch (error) {
-        console.error(error);
+        reportApiError(error, { silentTransient: true });
         const message = getValidationMessage(error, "ჯავშნის შექმნა ვერ მოხერხდა");
         setBookingActionError(message);
         throw new Error(message);
@@ -847,13 +930,15 @@ const App: React.FC = () => {
 
   const handleSuccessDone = () => {
     setSuccessData(null);
-    setScreen("bookings");
+    showScreen("bookings");
   };
 
   const handleCancelBooking = async (id: string, reason: string) => {
     const cancellationReason = reason || "კლიენტმა გააუქმა";
-    const platformSettings = dataService.getPlatformSettings();
     const targetBooking = bookings.find((booking) => booking.id === id);
+    if (!targetBooking || !canChangeBookingStatus("client", targetBooking.status, "cancelled")) {
+      throw new Error(bookingStatusTransitionError("client"));
+    }
     const scheduledAt = targetBooking?.details.scheduledAt
       ? new Date(targetBooking.details.scheduledAt).getTime()
       : 0;
@@ -880,7 +965,7 @@ const App: React.FC = () => {
             await openBookingDispute(
               id,
               "დაგვიანებული გაუქმება",
-              `სავარაუდო დაკავება: ${penaltyAmount} ლარი. მიზეზი: ${cancellationReason}`
+              `სავარაუდო თანხის დაკავება: ${penaltyAmount} ლარი. მიზეზი: ${cancellationReason}`
             );
           }
         } catch (followUpError) {
@@ -926,7 +1011,7 @@ const App: React.FC = () => {
             ? "დაგვიანებული გაუქმება"
             : request.disputeReason,
           disputeDetails: isLateCancellation
-            ? `სავარაუდო ჯარიმა: ${penaltyAmount} ლარი`
+            ? `სავარაუდო თანხის დაკავება: ${penaltyAmount} ლარი`
             : request.disputeDetails,
         }));
         dataService.prependCraftsmanNotification({
@@ -937,7 +1022,7 @@ const App: React.FC = () => {
             ? "ჯავშანი გაუქმდა და განხილვაში გადავიდა"
             : "ჯავშანი გაუქმდა",
           text: isLateCancellation
-            ? `კლიენტმა გააუქმა უფასო პერიოდის შემდეგ. სავარაუდო დაკავება: ${penaltyAmount} ლარი.`
+            ? `კლიენტმა გააუქმა უფასო პერიოდის შემდეგ. სავარაუდო თანხის დაკავება: ${penaltyAmount} ლარი.`
             : `კლიენტმა გააუქმა ჯავშანი. მიზეზი: ${cancellationReason}`,
           readAt: null,
           createdAt: new Date().toISOString(),
@@ -947,7 +1032,7 @@ const App: React.FC = () => {
             id: `${id}-late-cancel-${Date.now()}`,
             bookingId: id,
             reason: "დაგვიანებული გაუქმება",
-            details: `კლიენტმა გააუქმა უფასო პერიოდის შემდეგ. სავარაუდო ჯარიმა: ${penaltyAmount} ლარი.`,
+            details: `კლიენტმა გააუქმა უფასო პერიოდის შემდეგ. სავარაუდო თანხის დაკავება: ${penaltyAmount} ლარი.`,
             createdAt: new Date().toISOString(),
             status: "open",
           });
@@ -958,6 +1043,13 @@ const App: React.FC = () => {
   };
 
   const handleReviewBooking = async (id: string) => {
+    const targetBooking = bookings.find((booking) => booking.id === id);
+    if (targetBooking?.status === "declined") {
+      return;
+    }
+    if (!targetBooking || !canChangeBookingStatus("client", targetBooking.status, "client_confirmed")) {
+      throw new Error(bookingStatusTransitionError("client"));
+    }
     if (!isDemoDataMode) {
       setBookingActionError("");
       await confirmBookingCompletion(id);
@@ -1063,26 +1155,6 @@ const App: React.FC = () => {
           readAt: null,
           createdAt: new Date().toISOString(),
         });
-        const systemMessageExists = dataService
-          .getBookingMessages()
-          .some(
-            (message) =>
-              message.bookingId === id &&
-              message.sender === "system" &&
-              message.text.includes("დავა გაიხსნა")
-          );
-        if (!systemMessageExists) {
-          dataService.saveBookingMessages([
-            ...dataService.getBookingMessages(),
-            {
-              id: `${id}-system-${Date.now()}`,
-              bookingId: id,
-              sender: "system",
-              text: `დავა გაიხსნა. მიზეზი: ${reason}. Admin გადაამოწმებს საკითხს.`,
-              createdAt: new Date().toISOString(),
-            },
-          ]);
-        }
       }
       return next;
     });
@@ -1095,7 +1167,7 @@ const App: React.FC = () => {
     }
     setSelectedWorker(null);
     if (s !== "messages") setMessageTargetBookingId(null);
-    setScreen(s);
+    showScreen(s);
   };
 
   const handleUnreadChange = (count: number) => {
@@ -1220,7 +1292,7 @@ const App: React.FC = () => {
             onProfileUpdated={handleProfileUpdated}
             onOpenMessagesForBooking={(bookingId) => {
               setMessageTargetBookingId(bookingId);
-              setScreen("messages");
+              showScreen("messages");
             }}
           />
         )}
@@ -1276,9 +1348,9 @@ const App: React.FC = () => {
       {screen === "profile" && selectedWorker && (
         <ProfileScreen
           worker={selectedWorker}
-          onBack={() => setScreen(prevScreen)}
+          onBack={() => showScreen(prevScreen)}
           onBooked={handleBooked}
-          onOpenMessages={() => setScreen("messages")}
+          onOpenMessages={() => showScreen("messages")}
           hasBooked={bookings.some((booking) => booking.worker.id === selectedWorker.id)}
         />
       )}

@@ -12,7 +12,7 @@ export const statusLabel: Record<BookingStatus, string> = {
   en_route: "გზაშია",
   started: "დაიწყო",
   worker_completed: "ხელოსანმა დაასრულა",
-  client_confirmed: "დადასტურდა კლიენტით",
+  client_confirmed: "კლიენტმა დაადასტურა",
   closed: "დახურული",
   completed: "შესრულებული",
   declined: "უარყოფილი",
@@ -51,7 +51,7 @@ export const auditLabel: Record<AdminAuditLog["action"], string> = {
   verification_rejected: "ვერიფიკაცია უარყოფილია",
   dispute_reviewing: "დავა გადავიდა განხილვაში",
   dispute_refunded: "დავა დაიხურა თანხის დაბრუნებით",
-  dispute_released: "დავა დაიხურა ხელოსანზე თანხის გაშვებით",
+  dispute_released: "დავა დაიხურა და თანხა ხელოსანზე გაიშვა",
   dispute_warning: "დავა დაიხურა გაფრთხილებით",
   booking_closed: "ჯავშანი დაიხურა",
   booking_refunded: "ჯავშანი გაუქმდა და თანხა დაბრუნდა",
@@ -63,6 +63,7 @@ export const auditLabel: Record<AdminAuditLog["action"], string> = {
   client_status_changed: "კლიენტის სტატუსი შეიცვალა",
   craftsman_status_changed: "ხელოსნის სტატუსი შეიცვალა",
   admin_message_sent: "ხელოსანს Admin შეტყობინება გაეგზავნა",
+  admin_warning_sent: "Admin გაფრთხილება გაიგზავნა",
 };
 
 export const paymentStatusLabel: Record<

@@ -13,6 +13,10 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
   onClick,
   delay = 0,
 }) => {
+  const professionText = worker.skills?.length
+    ? worker.skills.join(" · ")
+    : worker.role;
+
   return (
     <div
       className="fade-up"
@@ -97,7 +101,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                   whiteSpace: "nowrap",
                 }}
               >
-                {worker.role} · {worker.city}
+                {professionText} · {worker.city}
               </div>
             </div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>

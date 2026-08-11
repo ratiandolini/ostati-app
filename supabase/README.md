@@ -2,6 +2,8 @@
 
 ეს ფოლდერი ამზადებს backend-ის საწყის ბაზას.
 
+მოკლე პრაქტიკული გაშვების სიისთვის ნახე `supabase/RUNBOOK.md`.
+
 ## 1. Project
 
 Supabase-ში შექმენი ახალი project.
@@ -79,6 +81,12 @@ supabase/dispute_workflow.sql
 supabase/subscription_workflow.sql
 ```
 
+არსებული და მომავალი ხელოსნების თვიური საფასურის Admin პარამეტრთან სინქრონისთვის გაუშვი:
+
+```text
+supabase/subscription_pricing.sql
+```
+
 Auth mapping-ის შემდეგ policies ჩართე:
 
 ```text
@@ -154,6 +162,21 @@ Storage bucket-ებისთვის გაუშვი:
 supabase/storage.sql
 ```
 
+თუ ძველ Supabase ბაზაზე profile photo, verification documents, Admin settings ან
+signed URL-ები ისევ `RLS` / `Unauthorized` / `not found` შეცდომას აჩვენებს, მაშინ
+ერთჯერადად გაუშვი:
+
+```text
+supabase/hotfix_profile_admin_storage.sql
+```
+
+ჯავშნის სტატუსის notification-ების სწრაფი გადამოწმებისთვის გამოიყენე მოკლე
+სარემონტო სია:
+
+```text
+supabase/STATUS_NOTIFICATION_FLOW.md
+```
+
 ## 3. RLS
 
 `schema.sql` ჩართავს Row Level Security-ს ყველა მთავარ table-ზე.
@@ -181,7 +204,8 @@ supabase/storage.sql
 `subscription_workflow.sql` ახალ ხელოსანს ავტომატურად აძლევს 30 დღიან უფასო პერიოდს,
 ქმნის `starter` subscription-ს, trial-ის დასრულების შემდეგ status-ს `past_due`-ზე
 გადაყავს და trial-ის დასრულებამდე notification-ის ფუნქციას ამატებს. საწყისი თვიური
-ფასი არის 50 GEL და იცვლება `default_monthly_subscription_amount()` ფუნქციაში.
+ფასი მოდის Admin-ის პლატფორმის პარამეტრიდან (`craftsmanMonthlyFee`), ხოლო თუ პარამეტრი
+არ არის შენახული, ნაგულისხმევად გამოიყენება 29 GEL.
 `run_subscription_maintenance` ერთ action-ად უშვებს expired trial refresh-ს და
 trial reminder notification-ების შექმნას.
 
@@ -293,3 +317,7 @@ helper-ებით იტვირთება. Demo/MVP რეჟიმის�
 {auth.uid()}/profile/avatar.webp
 {auth.uid()}/verification/id-front.jpg
 ```
+
+თუ storage bucket-ები მწვანედ ჩანს, მაგრამ კონკრეტული ფოტო Admin-იდან მაინც არ
+იხსნება, ჯერ სცადე იგივე მომხმარებლით ახალი სატესტო ფოტოს ატვირთვა. ძველი path-ები
+შეიძლება ძველი policy-ით ან სხვა user folder-ით იყოს შენახული.

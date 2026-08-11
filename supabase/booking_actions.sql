@@ -54,6 +54,26 @@ begin
     raise exception 'Worker cannot receive bookings right now';
   end if;
 
+  if exists (
+    select 1
+    from public.bookings b
+    where b.worker_id = p_worker_id
+      and b.scheduled_at = p_scheduled_at
+      and b.status in ('pending', 'confirmed', 'en_route', 'started', 'worker_completed')
+  ) then
+    raise exception 'ეს დრო უკვე დაკავებულია. აირჩიეთ სხვა დრო.';
+  end if;
+
+  if exists (
+    select 1
+    from public.bookings b
+    where b.worker_id = p_worker_id
+      and b.client_id = client_user_id
+      and b.status in ('pending', 'confirmed', 'en_route', 'started', 'worker_completed')
+  ) then
+    raise exception 'ამ ხელოსანთან უკვე გაქვთ აქტიური ჯავშანი. ჯერ დაასრულეთ ან გააუქმეთ არსებული ჯავშანი.';
+  end if;
+
   select workers.user_id
   into worker_user_id
   from public.workers

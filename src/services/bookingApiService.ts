@@ -3,6 +3,7 @@ import type { BookingStatus } from "../types";
 import type { BookingDetails } from "../screens/ProfileScreen";
 import type { Booking } from "../screens/BookingsScreen";
 import type { CraftsmanBookingRequest } from "./appStorage";
+import { reportApiError } from "./apiErrorUtils";
 import { createSupabaseRestClient } from "./supabaseRest";
 import {
   createSignedStorageUrl,
@@ -78,6 +79,7 @@ interface ApiClientBooking {
     price_min?: number | string | null;
     price_max?: number | string | null;
     skills?: string[] | null;
+    verification_status?: "not_started" | "pending" | "verified" | "rejected" | null;
   };
   details?: ApiBookingDetails | null;
 }
@@ -228,6 +230,9 @@ const mapClientBooking = (booking: ApiClientBooking): Booking => {
     worker: {
       id: stableNumberId(booking.worker.id),
       backendId: booking.worker.id,
+      // A booking can only be created for a verified worker. Older booking RPC
+      // responses may omit this field, so keep the historical booking clickable.
+      verificationStatus: booking.worker.verification_status || "verified",
       name: workerName,
       role: booking.worker.role || "ხელოსანი",
       avatar: booking.worker.avatar_url || initialsFromName(workerName),
@@ -340,7 +345,7 @@ const signBookingPhoto = async (value: string) => {
   try {
     return await createSignedStorageUrl("booking-photos", value);
   } catch (error) {
-    console.error(error);
+    reportApiError(error, { silentTransient: true });
     return value.startsWith("http") ? "" : extractStoragePath("booking-photos", value);
   }
 };

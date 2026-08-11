@@ -136,13 +136,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       <div className="auth-content fade-up">
         <div className="auth-brand">
           <div className="auth-logo">🔨</div>
-          <span>ხელოსნები</span>
+          <span>მარჯვე</span>
         </div>
 
         {step === "role" && (
           <>
             <h1 className="auth-title">
-              იპოვე საუკეთესო ხელოსანი შენი სახლისთვის
+              იპოვე სანდო ხელოსანი შენი სახლისთვის
             </h1>
             <p className="auth-subtitle">აირჩიე როგორ გსურს შესვლა</p>
 

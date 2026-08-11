@@ -82,7 +82,7 @@ declare
   actor uuid := public.current_app_user_id();
   target_booking public.bookings%rowtype;
   worker_user_id uuid;
-  created_message_id uuid;
+  created_message_id uuid := gen_random_uuid();
   message_text text := nullif(trim(coalesce(p_text, '')), '');
 begin
   if not public.current_admin_has_permission('bookings') then
@@ -110,10 +110,6 @@ begin
   into worker_user_id
   from public.workers
   where id = target_booking.worker_id;
-
-  insert into public.messages (booking_id, sender_id, text)
-  values (p_booking_id, actor, message_text)
-  returning id into created_message_id;
 
   perform public.notify_user(
     worker_user_id,
@@ -227,9 +223,12 @@ begin
       'unread_count', (
         select count(*)
         from public.messages unread_messages
+        left join public.users unread_sender on unread_sender.id = unread_messages.sender_id
         where unread_messages.booking_id = b.id
           and unread_messages.sender_id <> current_user_id
           and unread_messages.read_at is null
+          and coalesce(unread_sender.role::text, '') <> 'admin'
+          and unread_messages.text not like 'სისტემა:%'
       ),
       'archived', b.status::text in ('client_confirmed', 'closed', 'completed', 'declined', 'cancelled')
     ) as item
@@ -246,7 +245,10 @@ begin
         end as text,
         m.created_at
       from public.messages m
+      left join public.users sender_user on sender_user.id = m.sender_id
       where m.booking_id = b.id
+        and coalesce(sender_user.role::text, '') <> 'admin'
+        and m.text not like 'სისტემა:%'
       order by m.created_at desc
       limit 1
     ) last_message on true
@@ -313,7 +315,9 @@ begin
   into result
   from public.messages m
   left join public.users sender_user on sender_user.id = m.sender_id
-  where m.booking_id = p_booking_id;
+  where m.booking_id = p_booking_id
+    and coalesce(sender_user.role::text, '') <> 'admin'
+    and m.text not like 'სისტემა:%';
 
   return result;
 end;

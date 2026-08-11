@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { actionButton, adminCard } from "./adminUi";
 import { verificationLabel } from "./adminLabels";
 import type { VerificationFilter } from "./adminTypes";
@@ -51,6 +51,15 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
   adminApiLoading,
   setVerificationStatus,
 }) => {
+  const [showDetails, setShowDetails] = useState(false);
+  const [queuePage, setQueuePage] = useState(0);
+  const queuePageSize = 10;
+  const queuePageCount = Math.max(1, Math.ceil(filteredVerificationQueue.length / queuePageSize));
+  const visibleVerificationQueue = filteredVerificationQueue.slice(
+    queuePage * queuePageSize,
+    (queuePage + 1) * queuePageSize
+  );
+
   return (
           <section style={{ ...adminCard, padding: 16 }}>
             <div style={{ marginBottom: 14 }}>
@@ -60,7 +69,7 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
                     ვერიფიკაციის რიგი
                   </h2>
                   <p style={{ margin: "5px 0 0", color: "var(--text2)", fontSize: 12, lineHeight: 1.45 }}>
-                    ბევრი ხელოსანი აქ compact სიად გამოჩნდება. დოკუმენტები გაიხსნება მხოლოდ არჩეულ ქარდზე.
+                    ბევრი ხელოსანი აქ მოკლე სიად გამოჩნდება. დოკუმენტები გაიხსნება მხოლოდ არჩეულ ქარდზე.
                   </p>
                 </div>
                 <span
@@ -93,7 +102,10 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
                         <button
                           key={value}
                           type="button"
-                          onClick={() => setVerificationFilter(value as VerificationFilter)}
+                          onClick={() => {
+                            setVerificationFilter(value as VerificationFilter);
+                            setQueuePage(0);
+                          }}
                           style={{
                             flex: "0 0 auto",
                             minHeight: 34,
@@ -113,7 +125,7 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
                   </div>
 
                   <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
-                    {filteredVerificationQueue.map((item) => {
+                    {visibleVerificationQueue.map((item) => {
                       const selected = verificationTarget?.workerId === item.workerId;
                       const docs = [
                         item.documents.idFront,
@@ -126,7 +138,10 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
                         <button
                           key={item.workerId}
                           type="button"
-                          onClick={() => setSelectedVerificationWorkerId(item.workerId)}
+                          onClick={() => {
+                            setSelectedVerificationWorkerId(item.workerId);
+                            setShowDetails(true);
+                          }}
                           style={{
                             width: "100%",
                             padding: 11,
@@ -184,10 +199,37 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
                       </div>
                     )}
                   </div>
+                  {filteredVerificationQueue.length > queuePageSize && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 12 }}>
+                      <span style={{ color: "var(--text3)", fontSize: 11, fontWeight: 850 }}>
+                        გვერდი {queuePage + 1} / {queuePageCount}
+                      </span>
+                      <div style={{ display: "flex", gap: 7 }}>
+                        <button
+                          type="button"
+                          disabled={queuePage === 0}
+                          onClick={() => setQueuePage((page) => Math.max(0, page - 1))}
+                          style={actionButton(queuePage === 0 ? "#dbe4ef" : "#f1f5f9", queuePage === 0 ? "#94a3b8" : "var(--text)")}
+                        >
+                          წინა
+                        </button>
+                        <button
+                          type="button"
+                          disabled={queuePage >= queuePageCount - 1}
+                          onClick={() => setQueuePage((page) => Math.min(queuePageCount - 1, page + 1))}
+                          style={actionButton(queuePage >= queuePageCount - 1 ? "#dbe4ef" : "var(--primary)", queuePage >= queuePageCount - 1 ? "#94a3b8" : "white")}
+                        >
+                          შემდეგი
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
 
+            {showDetails && (
+              <>
             {verificationQueue.length > 0 && <div style={{ height: 1, background: "var(--border)", margin: "8px 0 14px" }} />}
 
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -214,6 +256,45 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
               >
                 {verificationLabel[verificationStatus]}
               </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDetails(false)}
+              style={{ ...actionButton("#f1f5f9", "var(--text)"), marginTop: 12 }}
+            >
+              დეტალების დამალვა
+            </button>
+            <div
+              style={{
+                marginTop: 12,
+                padding: 10,
+                borderRadius: 14,
+                background: "#f8fafc",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <div style={{ color: "var(--text)", fontSize: 12, fontWeight: 950 }}>
+                პროფილის ფოტო
+              </div>
+              {verificationTarget?.photoUrl ? (
+                <img
+                  src={verificationTarget.photoUrl}
+                  alt="ხელოსნის პროფილის ფოტო"
+                  style={{
+                    width: 112,
+                    height: 112,
+                    marginTop: 8,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    border: "1px solid var(--border)",
+                    display: "block",
+                  }}
+                />
+              ) : (
+                <div style={{ marginTop: 7, color: "var(--text3)", fontSize: 12, fontWeight: 850 }}>
+                  პროფილის ფოტო ჯერ არ აქვს ატვირთული
+                </div>
+              )}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 14 }}>
@@ -365,12 +446,24 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
                 <button
                   type="button"
                   disabled={adminApiLoading}
-                  onClick={() => setVerificationStatus("rejected", "დოკუმენტები ხელახლაა გადასამოწმებელი")}
+                  onClick={() => {
+                    const note = window.prompt(
+                      "მიუთითე მიზეზი, რატომ ვერ გაიარა ხელოსანმა ვერიფიკაცია:",
+                      "პროფილის ფოტო ან დოკუმენტები ხელახლაა გადასამოწმებელი"
+                    );
+                    if (note === null) return;
+                    setVerificationStatus(
+                      "rejected",
+                      note.trim() || "პროფილის ფოტო ან დოკუმენტები ხელახლაა გადასამოწმებელი"
+                    );
+                  }}
                   style={actionButton("#ef4444")}
                 >
                   უარყოფა
                 </button>
               </div>
+            )}
+              </>
             )}
           </section>
   );

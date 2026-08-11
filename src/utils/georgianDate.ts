@@ -85,9 +85,7 @@ export const formatGeorgianDate = (value: string | Date, options?: { shortMonth?
 export const formatGeorgianTime = (value: string | Date) => {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString("ka-GE", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  return `${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes()
+  ).padStart(2, "0")}`;
 };

@@ -64,6 +64,7 @@ export interface AdminVerificationItem {
   userId: string;
   name: string;
   phone: string;
+  photoUrl?: string | null;
   city?: string | null;
   verificationStatus: "not_started" | "pending" | "verified" | "rejected";
   accountStatus: "active" | "limited" | "blocked" | "pending";
@@ -86,6 +87,7 @@ export interface AdminUserSummary {
   status: "active" | "limited" | "blocked" | "pending";
   ratingAvg: number;
   ratingCount: number;
+  warningCount?: number;
   workerId?: string | null;
   workerRole?: string | null;
   verificationStatus?: "not_started" | "pending" | "verified" | "rejected" | null;
@@ -213,6 +215,7 @@ interface ApiAdminUserRow {
   status: "active" | "limited" | "blocked" | "pending";
   rating_avg?: number | string | null;
   rating_count?: number | null;
+  warning_count?: number | null;
   worker_id?: string | null;
   worker_role?: string | null;
   verification_status?: "not_started" | "pending" | "verified" | "rejected" | null;
@@ -456,6 +459,7 @@ const mapAdminUser = (user: ApiAdminUserRow): AdminUserSummary => ({
   status: user.status,
   ratingAvg: Number(user.rating_avg || 0),
   ratingCount: user.rating_count || 0,
+  warningCount: user.warning_count || 0,
   workerId: user.worker_id,
   workerRole: user.worker_role,
   verificationStatus: user.verification_status,
@@ -586,6 +590,40 @@ export const updateAdminAccountStatus = async (
       p_phone: phone,
       p_status: status,
       p_admin_note: adminNote || null,
+    }
+  );
+  return mapLaunchState(state);
+};
+
+export const sendAdminUserNotice = async (
+  targetRole: AdminAccountRole,
+  phone: string,
+  message: string
+) => {
+  const client = createSupabaseRestClient();
+  const state = await client.rpc<AdminLaunchStateRow>(
+    "admin_send_user_notice",
+    {
+      p_target_role: targetRole,
+      p_phone: phone,
+      p_message: message,
+    }
+  );
+  return mapLaunchState(state);
+};
+
+export const warnAdminUser = async (
+  targetRole: AdminAccountRole,
+  phone: string,
+  message: string
+) => {
+  const client = createSupabaseRestClient();
+  const state = await client.rpc<AdminLaunchStateRow>(
+    "admin_warn_user",
+    {
+      p_target_role: targetRole,
+      p_phone: phone,
+      p_message: message,
     }
   );
   return mapLaunchState(state);

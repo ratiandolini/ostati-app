@@ -5,20 +5,20 @@ export const getDisputeResolutionConfirmMessage = (
   resolution: AdminDisputeResolution
 ) => {
   if (resolution === "refund_client") {
-    return "დავა დაიხუროს კლიენტისთვის თანხის დაბრუნებით?";
+    return "დავა დაიხუროს და თანხა კლიენტს დაუბრუნდეს?";
   }
   if (resolution === "release_worker") {
-    return "დავა დაიხუროს ხელოსანზე თანხის გაშვებით?";
+    return "დავა დაიხუროს და თანხა ხელოსანზე გაიშვას?";
   }
-  return "დავა დაიხუროს გაფრთხილებით?";
+  return "დავა დაიხუროს მხოლოდ Admin გაფრთხილებით?";
 };
 
 export const getDisputeResolutionText = (
   resolution: AdminDisputeResolution
 ) => {
-  if (resolution === "refund_client") return "თანხა კლიენტს უბრუნდება";
-  if (resolution === "release_worker") return "თანხა ხელოსანზე გადადის";
-  return "დავა გაფრთხილებით დაიხურა";
+  if (resolution === "refund_client") return "თანხა კლიენტს დაუბრუნდა";
+  if (resolution === "release_worker") return "თანხა ხელოსანზე გაიშვა";
+  return "დავა დაიხურა გაფრთხილებით";
 };
 
 export const getDisputeAuditAction = (

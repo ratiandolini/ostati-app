@@ -147,11 +147,11 @@ export const getAdminLaunchSmokeState = ({
     },
     {
       id: "launch_report",
-      label: "Final report snapshot",
+      label: "საბოლოო report",
       detail:
         productionGuardItems.length === 0
-          ? "Report მზადაა launch snapshot-ისთვის"
-          : `${productionGuardItems.length} blocker დარჩა report-მდე`,
+          ? "Report მზადაა გაშვების მდგომარეობის შესანახად"
+          : `${productionGuardItems.length} ბლოკერი დარჩა report-მდე`,
       done: productionGuardItems.length === 0,
       missing: launchReportSmokeMissing,
       targetTab: "settings",
@@ -168,7 +168,7 @@ export const getAdminLaunchSmokeState = ({
       : "launch_ready";
   const launchReportDraftReasons = [
     launchReportBlockersRemain
-      ? `Production blocker-ები დარჩენილია: ${productionGuardItems.length}`
+      ? `Production ბლოკერები დარჩენილია: ${productionGuardItems.length}`
       : "",
     launchReportSmokeIncomplete
       ? `Smoke flow დასრულებულია ${launchSmokeDoneCount}/${launchSmokeSteps.length}`
@@ -220,7 +220,7 @@ export const getAdminLaunchSmokeState = ({
           border: "#bbf7d0",
           label: "Launch snapshot მზადაა",
           detail:
-            "Smoke flow და production blockers დახურულია. შეგიძლია საბოლოო report ჩამოტვირთო.",
+            "გაშვების ტესტი და production ბლოკერები დახურულია. შეგიძლია საბოლოო report ჩამოტვირთო.",
           button: "Report ჩამოტვირთვა",
           tab: "settings",
         };

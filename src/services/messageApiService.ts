@@ -1,4 +1,5 @@
 import type { BookingMessage } from "./appStorage";
+import { reportApiError } from "./apiErrorUtils";
 import { createSupabaseRestClient } from "./supabaseRest";
 import {
   createSignedStorageUrl,
@@ -45,7 +46,7 @@ const signChatAttachment = async (value?: string | null) => {
   try {
     return await createSignedStorageUrl("chat-attachments", value);
   } catch (error) {
-    console.error(error);
+    reportApiError(error, { silentTransient: true });
     return value.startsWith("http")
       ? undefined
       : extractStoragePath("chat-attachments", value);
@@ -144,12 +145,17 @@ export const sendBookingAttachment = async (bookingId: string, file: File) => {
   return uploaded;
 };
 
-export const markBookingMessagesRead = (bookingId: string) => {
+export const markBookingMessagesRead = async (bookingId: string) => {
   const client = createSupabaseRestClient();
-  return client.rpc<{ booking_id: string; updated_count: number }>(
-    "mark_booking_messages_read",
-    {
-      p_booking_id: bookingId,
-    }
-  );
+  try {
+    return await client.rpc<{ booking_id: string; updated_count: number }>(
+      "mark_booking_messages_read",
+      {
+        p_booking_id: bookingId,
+      }
+    );
+  } catch (error) {
+    reportApiError(error, { silentTransient: true });
+    return { booking_id: bookingId, updated_count: 0 };
+  }
 };

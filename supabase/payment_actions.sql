@@ -101,9 +101,6 @@ begin
     payment_note
   );
 
-  insert into public.messages (booking_id, sender_id, text)
-  values (p_booking_id, current_user_id, payment_note);
-
   insert into public.audit_logs (
     actor_id,
     action,
@@ -237,9 +234,6 @@ begin
     'თანხა დაბრუნდა',
     refund_note
   );
-
-  insert into public.messages (booking_id, sender_id, text)
-  values (p_booking_id, current_user_id, refund_note);
 
   insert into public.audit_logs (
     actor_id,

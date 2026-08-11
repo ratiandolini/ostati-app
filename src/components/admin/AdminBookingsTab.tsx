@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { actionButton, adminCard } from "./adminUi";
 import { paymentStatusShortLabel, statusLabel } from "./adminLabels";
 import type { AdminPermission } from "./adminPermissions";
@@ -22,6 +22,12 @@ const statusTimingText = (request: CraftsmanBookingRequest) => {
   }
   return "";
 };
+
+const canAdminCloseBooking = (status: BookingStatus) =>
+  !["cancelled", "declined", "closed", "completed"].includes(status);
+
+const canAdminRefundBooking = (status: BookingStatus) =>
+  !["cancelled", "declined", "closed", "completed"].includes(status);
 
 interface AdminBookingsTabProps {
   interventionRequests: CraftsmanBookingRequest[];
@@ -54,6 +60,18 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
   setBookingPaymentStatus,
   sendMessageToWorker,
 }) => {
+  const [showRegularBookings, setShowRegularBookings] = useState(false);
+  const [regularBookingsPage, setRegularBookingsPage] = useState(0);
+  const regularBookingsPageSize = 10;
+  const regularBookingsPageCount = Math.max(
+    1,
+    Math.ceil(visibleRegularRequests.length / regularBookingsPageSize)
+  );
+  const pagedRegularRequests = visibleRegularRequests.slice(
+    regularBookingsPage * regularBookingsPageSize,
+    (regularBookingsPage + 1) * regularBookingsPageSize
+  );
+
   return (
           <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ ...adminCard, padding: 14 }}>
@@ -165,9 +183,9 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
                     {can("finance") && (
                       <button
                         type="button"
-                        disabled={adminApiLoading}
+                        disabled={adminApiLoading || !canAdminCloseBooking(request.status)}
                         onClick={() => updateBookingEverywhere(request.id, "closed", "released")}
-                        style={actionButton("#10b981")}
+                        style={actionButton(canAdminCloseBooking(request.status) ? "#10b981" : "#dbe4ef", canAdminCloseBooking(request.status) ? "white" : "var(--text3)")}
                       >
                         Admin-ით დახურვა
                       </button>
@@ -175,9 +193,9 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
                     {can("finance") && (
                       <button
                         type="button"
-                        disabled={adminApiLoading}
+                        disabled={adminApiLoading || !canAdminRefundBooking(request.status)}
                         onClick={() => updateBookingEverywhere(request.id, "cancelled", "refunded")}
-                        style={actionButton("#ef4444")}
+                        style={actionButton(canAdminRefundBooking(request.status) ? "#ef4444" : "#dbe4ef", canAdminRefundBooking(request.status) ? "white" : "var(--text3)")}
                       >
                         Admin-ით დაბრუნება
                       </button>
@@ -202,11 +220,27 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
               </div>
             )}
 
-            <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 950, marginTop: 8 }}>
-              ჩვეულებრივი ჯავშნები
+            <div style={{ ...adminCard, padding: 12, marginTop: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div>
+                  <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 950 }}>
+                    ყველა ჯავშანი
+                  </div>
+                  <div style={{ marginTop: 3, color: "var(--text3)", fontSize: 11, fontWeight: 800 }}>
+                    {visibleRegularRequests.length} ჩვეულებრივი პროცესი
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRegularBookings((current) => !current)}
+                  style={actionButton(showRegularBookings ? "#f1f5f9" : "var(--primary)", showRegularBookings ? "var(--text)" : "white")}
+                >
+                  {showRegularBookings ? "დამალვა" : "სიის გახსნა"}
+                </button>
+              </div>
             </div>
-            {visibleRegularRequests.length ? (
-              visibleRegularRequests.map((request) => {
+            {showRegularBookings && (visibleRegularRequests.length ? (
+              pagedRegularRequests.map((request) => {
                 const timingText = statusTimingText(request);
                 return (
                 <div key={request.id} style={{ ...adminCard, padding: 14 }}>
@@ -273,6 +307,31 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
             ) : (
               <div style={{ ...adminCard, padding: 24, textAlign: "center", color: "var(--text3)", fontWeight: 800 }}>
                 ჩვეულებრივი ჯავშანი ამ ფილტრით არ მოიძებნა
+              </div>
+            ))}
+            {showRegularBookings && visibleRegularRequests.length > regularBookingsPageSize && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <span style={{ color: "var(--text3)", fontSize: 11, fontWeight: 850 }}>
+                  გვერდი {regularBookingsPage + 1} / {regularBookingsPageCount}
+                </span>
+                <div style={{ display: "flex", gap: 7 }}>
+                  <button
+                    type="button"
+                    disabled={regularBookingsPage === 0}
+                    onClick={() => setRegularBookingsPage((page) => Math.max(0, page - 1))}
+                    style={actionButton(regularBookingsPage === 0 ? "#dbe4ef" : "#f1f5f9", regularBookingsPage === 0 ? "#94a3b8" : "var(--text)")}
+                  >
+                    წინა
+                  </button>
+                  <button
+                    type="button"
+                    disabled={regularBookingsPage >= regularBookingsPageCount - 1}
+                    onClick={() => setRegularBookingsPage((page) => Math.min(regularBookingsPageCount - 1, page + 1))}
+                    style={actionButton(regularBookingsPage >= regularBookingsPageCount - 1 ? "#dbe4ef" : "var(--primary)", regularBookingsPage >= regularBookingsPageCount - 1 ? "#94a3b8" : "white")}
+                  >
+                    შემდეგი
+                  </button>
+                </div>
               </div>
             )}
           </section>

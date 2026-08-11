@@ -10,25 +10,25 @@ export interface AdminOverviewItem {
 }
 
 interface AdminOverviewInput {
-  verificationStatus: string;
+  pendingVerificationCount: number;
   openDisputesCount: number;
   urgentDisputesCount: number;
   interventionRequestsCount: number;
 }
 
 export const getAdminSummaryCards = ({
-  verificationStatus,
+  pendingVerificationCount,
   openDisputesCount,
   urgentDisputesCount,
   interventionRequestsCount,
 }: AdminOverviewInput): AdminOverviewItem[] => [
   {
     label: "შესამოწმებელი",
-    value: verificationStatus === "pending" ? 1 : 0,
+    value: pendingVerificationCount,
     hint: "ხელოსნის დოკუმენტები",
     tabId: "verification",
     permission: "verification",
-    color: verificationStatus === "pending" ? "#c2410c" : "#64748b",
+    color: pendingVerificationCount ? "#c2410c" : "#64748b",
   },
   {
     label: "ღია დავები",
@@ -49,17 +49,17 @@ export const getAdminSummaryCards = ({
 ];
 
 export const getAdminWorkQueueItems = ({
-  verificationStatus,
+  pendingVerificationCount,
   openDisputesCount,
   interventionRequestsCount,
 }: AdminOverviewInput): AdminOverviewItem[] => [
   {
     label:
-      verificationStatus === "pending"
+      pendingVerificationCount
         ? "ხელოსნის დოკუმენტები შესამოწმებელია"
         : "ვერიფიკაციის რიგი ცარიელია",
-    value: verificationStatus === "pending" ? 1 : 0,
-    color: verificationStatus === "pending" ? "#c2410c" : "#64748b",
+    value: pendingVerificationCount,
+    color: pendingVerificationCount ? "#c2410c" : "#64748b",
     tabId: "verification",
     permission: "verification",
   },

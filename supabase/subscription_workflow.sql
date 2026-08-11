@@ -1,9 +1,15 @@
 create or replace function public.default_trial_days()
 returns integer
 language sql
-immutable
+stable
 as $$
-  select 30;
+  select greatest(
+    0,
+    coalesce(
+      nullif((select value_json ->> 'freeTrialDays' from public.platform_settings where key = 'platform'), '')::integer,
+      30
+    )
+  );
 $$;
 
 create or replace function public.default_monthly_subscription_amount()
@@ -11,7 +17,7 @@ returns numeric
 language sql
 immutable
 as $$
-  select 50.00::numeric;
+  select 29.00::numeric;
 $$;
 
 create or replace function public.ensure_worker_trial_started()
@@ -43,8 +49,14 @@ language plpgsql
 as $$
 declare
   trial_end timestamptz;
+  monthly_amount numeric;
 begin
   trial_end := new.trial_started_at + make_interval(days => public.default_trial_days());
+  select coalesce(nullif(value_json ->> 'craftsmanMonthlyFee', '')::numeric, public.default_monthly_subscription_amount())
+    into monthly_amount
+    from public.platform_settings
+   where key = 'platform';
+  monthly_amount := coalesce(monthly_amount, public.default_monthly_subscription_amount());
 
   if not exists (
     select 1
@@ -64,7 +76,7 @@ begin
     values (
       new.id,
       'starter',
-      public.default_monthly_subscription_amount(),
+      monthly_amount,
       'trial',
       trial_end,
       new.trial_started_at,
@@ -144,7 +156,7 @@ begin
       w.user_id,
       'subscription',
       'უფასო პერიოდი სრულდება',
-      'ხელოსნის 30 დღიანი უფასო პერიოდი მალე დასრულდება. გადახდის ჩართვის შემდეგ პროფილი აქტიური დარჩება.'
+      'ხელოსნის უფასო პერიოდი მალე დასრულდება. გადახდის ჩართვის შემდეგ პროფილი აქტიური დარჩება.'
     from public.subscriptions s
     join public.workers w on w.id = s.worker_id
     where s.status = 'trial'

@@ -307,7 +307,24 @@ export const AdminDisputesTab: React.FC<AdminDisputesTabProps> = ({
                     )}
 
                     {dispute.status !== "resolved" ? (
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
+                      <div style={{ marginTop: 14 }}>
+                        <div
+                          style={{
+                            marginBottom: 9,
+                            padding: 10,
+                            borderRadius: 12,
+                            background: "#f8fafc",
+                            border: "1px solid var(--border)",
+                            color: "var(--text2)",
+                            fontSize: 11,
+                            fontWeight: 800,
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          გადაწყვეტილების წინ Admin ჩანაწერი აუცილებელია. ეს ჩანაწერი
+                          მხარეებს ცალკე შეტყობინებად გამოუჩნდებათ და საუბარში არ აირევა.
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <button
                           type="button"
                           disabled={adminApiLoading || dispute.status === "reviewing"}
@@ -321,12 +338,12 @@ export const AdminDisputesTab: React.FC<AdminDisputesTabProps> = ({
                         </button>
                         {can("finance") && (
                           <button type="button" disabled={adminApiLoading} onClick={() => resolveDispute(dispute, "refund_client")} style={actionButton("#ef4444")}>
-                            {refundLoading ? "ბრუნდება..." : "კლიენტისთვის თანხის დაბრუნება"}
+                            {refundLoading ? "ბრუნდება..." : "თანხა კლიენტს დაუბრუნდეს"}
                           </button>
                         )}
                         {can("finance") && (
                           <button type="button" disabled={adminApiLoading} onClick={() => resolveDispute(dispute, "release_worker")} style={actionButton("#10b981")}>
-                            {releaseLoading ? "იხურება..." : "ხელოსნის მხარეს დახურვა"}
+                            {releaseLoading ? "იშვება..." : "თანხა ხელოსანზე გაიშვას"}
                           </button>
                         )}
                         <button
@@ -337,6 +354,7 @@ export const AdminDisputesTab: React.FC<AdminDisputesTabProps> = ({
                         >
                           {warningLoading ? "იხურება..." : "გაფრთხილებით დახურვა"}
                         </button>
+                        </div>
                       </div>
                     ) : (
                       <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: "#f8fafc", border: "1px solid var(--border)", color: "var(--text2)", fontSize: 12, fontWeight: 850 }}>

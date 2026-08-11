@@ -1,0 +1,10 @@
+{
+  "short_name": "მარჯვე",
+  "name": "მარჯვე",
+  "description": "სანდო ხელოსნების პოვნა, დაჯავშნა და სამუშაოს მართვა",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#17233a",
+  "background_color": "#f8fafc",
+  "icons": []
+}

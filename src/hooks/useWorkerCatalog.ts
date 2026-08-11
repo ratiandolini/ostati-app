@@ -4,6 +4,7 @@ import {
   getDemoWorkerCatalog,
   loadWorkerCatalog,
 } from "../services/workerCatalogService";
+import { isAbortError, isTransientApiError } from "../services/apiErrorUtils";
 
 export const useWorkerCatalog = () => {
   const [workers, setWorkers] = useState<Worker[]>(() => getDemoWorkerCatalog());
@@ -24,14 +25,16 @@ export const useWorkerCatalog = () => {
       })
       .catch((nextError) => {
         if (cancelled) return;
-        if (nextError instanceof DOMException && nextError.name === "AbortError") {
+        if (isAbortError(nextError)) {
           return;
         }
         setWorkers(getDemoWorkerCatalog());
         setError(
-          nextError instanceof Error
-            ? nextError.message
-            : "ხელოსნების სია ვერ ჩაიტვირთა"
+          isTransientApiError(nextError)
+            ? null
+            : nextError instanceof Error
+              ? nextError.message
+              : "ხელოსნების სია ვერ ჩაიტვირთა"
         );
         if (!cancelled) setLoading(false);
       });

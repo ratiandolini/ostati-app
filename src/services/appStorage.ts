@@ -29,6 +29,7 @@ export interface BookingReview {
     cleanliness: number;
     deadline: number;
   };
+  comment?: string;
   createdAt: string;
 }
 
@@ -145,7 +146,8 @@ export interface AdminAuditLog {
     | "launch_checklist_updated"
     | "client_status_changed"
     | "craftsman_status_changed"
-    | "admin_message_sent";
+    | "admin_message_sent"
+    | "admin_warning_sent";
   target: string;
   summary: string;
   createdAt: string;
@@ -208,7 +210,7 @@ export interface ClientNotification {
   id: string;
   title?: string;
   text: string;
-  type: "confirmed" | "review";
+  type: "confirmed" | "review" | "admin_message" | "admin_warning" | "account_status";
   sourceType?: string;
   bookingId?: string;
   readAt?: string | null;
@@ -297,9 +299,9 @@ const normalizeRating = (value: number) => Number(value.toFixed(1));
 const defaultPlatformSettings: PlatformSettings = {
   bookingFee: 15,
   commissionPercent: 10,
-  craftsmanMonthlyFee: 30,
-  freeTrialDays: 30,
-  freeCancellationHours: 24,
+  craftsmanMonthlyFee: 29,
+  freeTrialDays: 14,
+  freeCancellationHours: 12,
   lateCancellationFeePercent: 30,
   authProvider: "email_password",
   paymentProvider: "manual_mvp_hold",
@@ -309,13 +311,13 @@ const defaultPlatformSettings: PlatformSettings = {
 
 const defaultLegalSettings: LegalSettings = {
   bookingRules:
-    "ჯავშნისას კლიენტის თანხა დროებით იყინება. ხელოსანს თანხა არ ერიცხება, სანამ სამუშაო პროცესი არ დასრულდება და სტატუსი არ დადასტურდება.",
+    "ჯავშნისას კლიენტის ჯავშნის საფასური დროებით იყინება. ხელოსანს თანხა არ ერიცხება, სანამ სამუშაო არ დასრულდება და კლიენტი შესრულებას არ დაადასტურებს.",
   cancellationRules:
-    "უფასო გაუქმება შესაძლებელია ვიზიტამდე მითითებული დროით ადრე. დაგვიანებული გაუქმება ან შეთანხმების დარღვევა აისახება რეიტინგსა და ანგარიშზე.",
+    "უფასო გაუქმება შესაძლებელია ვიზიტამდე მითითებული დროით ადრე. ამ დროის შემდეგ გაუქმებას Admin გადაამოწმებს და თანხის შესაძლო დაკავება/დაბრუნება გადაწყდება მიზეზისა და ჯავშნის ისტორიის მიხედვით. დაგვიანება ან შეთანხმების დარღვევა აისახება რეიტინგსა და ანგარიშზე.",
   privacyRules:
-    "ტელეფონის ნომერი და პირადი დეტალები არ ჩანს, სანამ სისტემა კომუნიკაციისთვის უსაფრთხო ეტაპს არ დაადასტურებს. ძირითადი კომუნიკაცია ჩატში რჩება.",
+    "ტელეფონის ნომერი და პირადი დეტალები არ ჩანს, სანამ სისტემა უსაფრთხო ეტაპს არ დაადასტურებს. ძირითადი კომუნიკაცია ჩატში რჩება, რათა შეთანხმებები, დაგვიანებები და მტკიცებულებები ერთ ადგილზე იყოს.",
   supportRules:
-    "დავების დროს Admin ამოწმებს ჯავშნის ისტორიას, მიმოწერას, სტატუსებს და ატვირთულ მტკიცებულებებს.",
+    "დავა იხსნება ჯავშნიდან ან ჩატიდან პრობლემის აღწერით. Admin ამოწმებს ჯავშნის დეტალებს, მიმოწერას, სტატუსების ისტორიას, ატვირთულ მტკიცებულებებს და თანხის მდგომარეობას, შემდეგ იღებს გადაწყვეტილებას დაბრუნებაზე, ხელოსანზე თანხის გაშვებაზე ან გაფრთხილებაზე.",
 };
 
 const defaultPrePaymentChecklist: PrePaymentChecklistItem[] = [
@@ -411,6 +413,14 @@ const defaultMobileQaScenarios: MobileQaScenario[] = [
     done: false,
   },
   {
+    id: "profile_storage",
+    area: "mobile",
+    label: "პროფილი, ფოტო და შენახვა",
+    detail:
+      "კლიენტის და ხელოსნის პროფილში ფოტო/სახელი/მისამართი/ნომერი ინახება, refresh-ის შემდეგ არ იკარგება.",
+    done: false,
+  },
+  {
     id: "verification_lock",
     area: "admin",
     label: "ვერიფიკაციამდე ხელოსანი დაბლოკილია",
@@ -485,6 +495,7 @@ export const appStorage = {
 
   savePlatformSettings(settings: PlatformSettings) {
     writeJson("platformSettings", settings);
+    emitAppDataEvent("platform-settings-updated", settings);
   },
 
   getLegalSettings(): LegalSettings {
@@ -496,6 +507,7 @@ export const appStorage = {
 
   saveLegalSettings(settings: LegalSettings) {
     writeJson("legalSettings", settings);
+    emitAppDataEvent("platform-settings-updated", settings);
   },
 
   getPrePaymentChecklist(): PrePaymentChecklistItem[] {

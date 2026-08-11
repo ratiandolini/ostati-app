@@ -27,9 +27,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const topWorkers = [...workers]
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 3);
-  const topWorkerIds = new Set(topWorkers.map((worker) => worker.id));
   const allWorkers = [...workers]
-    .filter((worker) => !topWorkerIds.has(worker.id))
     .sort((a, b) => b.rating - a.rating);
   const visibleCategories = categories
     .filter((cat) => cat !== "all")

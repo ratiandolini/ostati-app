@@ -10,6 +10,7 @@ import {
 import { loadMyClientPoints } from "../services/reviewApiService";
 import { mergeClientPointsWithLocalAwards } from "../services/clientPointsCache";
 import { clientProfileSchema, getValidationMessage } from "../services/validation";
+import { reportApiError } from "../services/apiErrorUtils";
 
 interface ProfileUserScreenProps {
   user: User;
@@ -133,9 +134,9 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
         });
         setClientPoints(mergeClientPointsWithLocalAwards(user.phone, points));
       })
-      .catch(() => {
+      .catch((error) => {
         if (controller.signal.aborted) return;
-        setUploadError("პროფილის ჩატვირთვა ვერ მოხერხდა");
+        reportApiError(error, { silentTransient: true });
       });
 
     loadProfile();
@@ -154,16 +155,6 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
     setClientPoints(dataService.getClientPoints(user.phone));
     setClientReviews(dataService.getClientReviews(user.phone));
   }, [user.phone]);
-  const clientReviewAverages = clientReviews.length
-    ? clientReviews.reduce(
-        (next, review) => ({
-          communication: next.communication + review.criteria.communication,
-          timeManagement: next.timeManagement + review.criteria.timeManagement,
-          clarity: next.clarity + review.criteria.clarity,
-        }),
-        { communication: 0, timeManagement: 0, clarity: 0 }
-      )
-    : null;
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -438,47 +429,22 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
         }}
       >
         <h3 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 900 }}>
-          ხელოსნების შეფასებები
+          ჩემი რეიტინგი
         </h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          {[
-            [
-              "კომუნიკაცია",
-              clientReviewAverages
-                ? clientReviewAverages.communication / clientReviews.length
-                : clientRating.value,
-            ],
-            [
-              "დრო",
-              clientReviewAverages
-                ? clientReviewAverages.timeManagement / clientReviews.length
-                : clientRating.value,
-            ],
-            [
-              "სიზუსტე",
-              clientReviewAverages
-                ? clientReviewAverages.clarity / clientReviews.length
-                : clientRating.value,
-            ],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              style={{
-                padding: 9,
-                borderRadius: 12,
-                background: "#f8fafc",
-                border: "1px solid var(--border)",
-                minWidth: 0,
-              }}
-            >
-              <div style={{ color: "#f59e0b", fontSize: 13, fontWeight: 950 }}>
-                ★ {Number(value).toFixed(1)}
-              </div>
-              <div style={{ marginTop: 3, color: "var(--text2)", fontSize: 10, fontWeight: 850 }}>
-                {label}
-              </div>
-            </div>
-          ))}
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 14,
+            background: "#f8fafc",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <div style={{ color: "#f59e0b", fontSize: 18, fontWeight: 950 }}>
+            ★ {clientRating.value.toFixed(1)}
+            <span style={{ color: "var(--text2)", fontSize: 13, marginLeft: 6 }}>
+              ({clientRating.count})
+            </span>
+          </div>
         </div>
         {clientReviews.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
@@ -495,9 +461,7 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
                   lineHeight: 1.4,
                 }}
               >
-                ★ {review.overall.toFixed(1)} · კომუნიკაცია{" "}
-                {review.criteria.communication} · დრო {review.criteria.timeManagement} ·
-                სიზუსტე {review.criteria.clarity}
+                ★ {review.overall.toFixed(1)}
               </div>
             ))}
           </div>

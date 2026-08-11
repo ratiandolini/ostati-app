@@ -3,6 +3,7 @@ import {
   getSupabaseUserId,
 } from "./supabaseAuthService";
 import { getSupabaseConfig } from "./supabaseConfig";
+import { compressImageFile } from "../utils/imageFiles";
 
 export type StorageBucket =
   | "profile-photos"
@@ -140,16 +141,20 @@ export const uploadStorageFile = async ({
     throw new Error("Supabase session is required before uploading files.");
   }
 
+  const uploadFile = await compressImageFile(file, {
+    maxSide: bucket === "profile-photos" ? 900 : 1400,
+    maxBytes: bucket === "profile-photos" ? 900_000 : 1_800_000,
+  });
   const cleanPath = normalizePath(path);
   const response = await fetch(
     `${config.url}/storage/v1/object/${bucket}/${cleanPath}`,
     {
       method: "POST",
-      body: file,
+      body: uploadFile,
       headers: {
         apikey: config.anonKey,
         Authorization: `Bearer ${accessToken}`,
-        "Content-Type": file.type || "application/octet-stream",
+        "Content-Type": uploadFile.type || "application/octet-stream",
         "x-upsert": upsert ? "true" : "false",
       },
     }

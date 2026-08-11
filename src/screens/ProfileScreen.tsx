@@ -3,6 +3,7 @@ import { Worker } from "../types";
 import { dataService } from "../services/dataService";
 import { getBookingQuestionFields } from "../services/professionQuestions";
 import { bookingDetailsSchema, getValidationMessage } from "../services/validation";
+import { usePlatformSettings } from "../hooks/usePlatformSettings";
 
 interface ProfileScreenProps {
   worker: Worker;
@@ -81,24 +82,29 @@ const minutesToTime = (value: number) => {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 };
 
-const getScheduleTimes = (date: Date) => {
-  const profile = dataService.getCraftsmanProfile();
+const getScheduleTimes = (worker: Worker, date: Date) => {
   const weekday = date.getDay() === 0 ? 7 : date.getDay();
-  const schedule = profile.schedule?.find((item) => item.weekday === weekday);
-  if (!schedule) return baseTimes;
+  const schedule = worker.schedule?.find((item) => item.weekday === weekday);
+  if (!schedule) return worker.schedule?.length ? [] : baseTimes;
   const start = timeToMinutes(schedule.startTime);
   const end = timeToMinutes(schedule.endTime);
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
-    return baseTimes;
+    return worker.schedule?.length ? [] : baseTimes;
   }
   const slots: string[] = [];
   for (let minutes = start; minutes < end; minutes += 60) {
     slots.push(minutesToTime(minutes));
   }
-  return slots.length ? slots : baseTimes;
+  return slots.length ? slots : worker.schedule?.length ? [] : baseTimes;
 };
 
-const getAvailableTimes = (_workerId: number, date: Date) => getScheduleTimes(date);
+const getAvailableTimes = (worker: Worker, date: Date) => {
+  const dateKey = toDateKey(date);
+  const booked = new Set(worker.bookedSlots || []);
+  return getScheduleTimes(worker, date).filter(
+    (time) => !booked.has(`${dateKey}T${time}`) && !booked.has(`${dateKey} ${time}`)
+  );
+};
 
 const isSameDate = (a: Date, b: Date) => toDateKey(a) === toDateKey(b);
 
@@ -159,7 +165,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     roofType: "",
   });
   const timesRef = useRef<HTMLElement | null>(null);
-  const unavailableRanges = useMemo(readUnavailableRanges, []);
+  const unavailableRanges = useMemo(
+    () => worker.unavailableRanges || readUnavailableRanges(),
+    [worker.unavailableRanges]
+  );
 
   const daysInMonth = new Date(
     visibleMonth.getFullYear(),
@@ -202,10 +211,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const availableTimes = useMemo(
     () =>
-      getAvailableTimes(worker.id, selectedDate).filter(
+      getAvailableTimes(worker, selectedDate).filter(
         (time) => timeToMinutes(time) >= getMinimumBookableMinutes(selectedDate)
       ),
-    [worker.id, selectedDate]
+    [worker, selectedDate]
   );
   useEffect(() => {
     if (selectedTime && !availableTimes.includes(selectedTime)) {
@@ -216,8 +225,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     () => dataService.getWorkerReviews(worker.id),
     [worker.id]
   );
-  const platformSettings = useMemo(() => dataService.getPlatformSettings(), []);
-  const legalSettings = useMemo(() => dataService.getLegalSettings(), []);
+  const workerProfessionText = worker.skills?.length
+    ? worker.skills.join(" · ")
+    : worker.role;
+  const { platformSettings, legalSettings } = usePlatformSettings();
   const reviewAverages = useMemo(() => {
     if (!workerReviews.length) {
       return {
@@ -368,7 +379,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
           <div>
             <h1 className="screen-title">{worker.name}</h1>
-            <p className="screen-subtitle">{worker.role}</p>
+            <p className="screen-subtitle">{workerProfessionText}</p>
           </div>
         </section>
 

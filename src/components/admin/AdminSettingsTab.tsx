@@ -43,6 +43,7 @@ interface AdminSettingsTabProps {
   adminApiLoading: boolean;
   adminApiError: string;
   settingsSaveMessage: string;
+  settingsDirty: boolean;
 }
 
 export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
@@ -66,6 +67,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
   adminApiLoading,
   adminApiError,
   settingsSaveMessage,
+  settingsDirty,
 }) => (
           <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ ...adminCard, padding: 16 }}>
@@ -75,6 +77,50 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               <div style={{ color: "var(--text2)", fontSize: 12, lineHeight: 1.5 }}>
                 ეს მნიშვნელობები გამოიყენება demo ჯავშნებზე და მომავალში იგივე
                 წესები გადავა backend/payment ლოგიკაში.
+              </div>
+            </div>
+
+            <div style={{ ...adminCard, padding: 14, borderColor: "#bfdbfe", background: "#eff6ff" }}>
+              <h2 style={{ margin: "0 0 8px", fontSize: 17, color: "var(--text)" }}>
+                ფასები, კომისია და უფასო პერიოდი
+              </h2>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: 8,
+                }}
+              >
+                {[
+                  ["ჯავშანი", `${settingsDraft.bookingFee} ლარი`],
+                  ["საკომისიო", `${settingsDraft.commissionPercent}%`],
+                  ["თვიური", `${settingsDraft.craftsmanMonthlyFee} ლარი`],
+                  ["უფასო", `${settingsDraft.freeTrialDays} დღე`],
+                  ["გაუქმება", `${settingsDraft.freeCancellationHours} სთ.`],
+                  ["დაკავება", `${settingsDraft.lateCancellationFeePercent}%`],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    style={{
+                      minWidth: 0,
+                      padding: 10,
+                      borderRadius: 12,
+                      background: "white",
+                      border: "1px solid #bfdbfe",
+                    }}
+                  >
+                    <div style={{ color: "var(--text3)", fontSize: 10, fontWeight: 900 }}>
+                      {label}
+                    </div>
+                    <div style={{ marginTop: 3, color: "var(--text)", fontSize: 14, fontWeight: 950 }}>
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 9, color: "#1d4ed8", fontSize: 11, fontWeight: 850, lineHeight: 1.45 }}>
+                შესაცვლელი ველები ამავე გვერდზეა ქვემოთ, სათაურებით: ჯავშნის საფასური,
+                პლატფორმის საკომისიო, ხელოსნის თვიური გადასახადი და უფასო გაუქმება.
               </div>
             </div>
 
@@ -188,7 +234,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <div>
                   <h2 style={{ margin: "0 0 6px", fontSize: 17, color: "var(--text)" }}>
-                    Production blocker-ები
+                    Production ბლოკერები
                   </h2>
                   <div
                     style={{
@@ -564,6 +610,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               <button
                 type="button"
                 onClick={resetSettingsDrafts}
+                disabled={adminApiLoading || !settingsDirty}
                 style={actionButton("#f1f5f9", "var(--text)")}
               >
                 დაბრუნება
@@ -571,8 +618,12 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               <button
                 type="button"
                 onClick={saveLegalSettings}
-                disabled={adminApiLoading}
-                style={actionButton("#10b981")}
+                disabled={adminApiLoading || !settingsDirty}
+                style={{
+                  ...actionButton(settingsDirty ? "#10b981" : "#dbe4ef"),
+                  color: settingsDirty ? "white" : "var(--text3)",
+                  opacity: adminApiLoading || !settingsDirty ? 0.75 : 1,
+                }}
               >
                 ყველაფრის შენახვა
               </button>

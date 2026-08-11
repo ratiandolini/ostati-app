@@ -2,6 +2,7 @@ import {
   createSignedStorageUrl,
   StorageBucket,
 } from "../../services/supabaseStorageService";
+import { reportApiError } from "../../services/apiErrorUtils";
 import type { BookingDispute } from "../../services/dataService";
 
 interface VerificationDocuments {
@@ -33,7 +34,7 @@ export const loadVerificationSignedUrls = async (
           await resolveSignedUrl("verification-documents", value),
         ] as const;
       } catch (error) {
-        console.error(error);
+        reportApiError(error, { silentTransient: true });
         return [key, ""] as const;
       }
     })
@@ -63,7 +64,7 @@ export const loadDisputeEvidenceSignedUrls = async (
           await resolveSignedUrl("booking-photos", item.url),
         ] as const;
       } catch (error) {
-        console.error(error);
+        reportApiError(error, { silentTransient: true });
         return [item.key, ""] as const;
       }
     })

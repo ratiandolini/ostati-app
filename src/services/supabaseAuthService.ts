@@ -156,14 +156,11 @@ export const saveSupabaseSession = (session: SupabaseAuthSession) => {
 
 export const clearSupabaseSession = () => {
   window.localStorage.removeItem(sessionKey);
+  window.localStorage.removeItem("pendingDevSupabaseAuth");
 };
 
 export const requestPhoneOtp = (phone: string, role: AuthRole) => {
   if (isDevPasswordAuth()) {
-    window.localStorage.setItem(
-      "pendingDevSupabaseAuth",
-      JSON.stringify({ phone, role })
-    );
     return Promise.resolve({ message_id: "dev-password-auth" });
   }
 

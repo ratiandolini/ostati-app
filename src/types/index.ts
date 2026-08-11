@@ -52,6 +52,16 @@ export interface Worker {
   skills: string[];
   reviews: Review[];
   busyDays: number[];
+  schedule?: Array<{
+    weekday: number;
+    startTime: string;
+    endTime: string;
+  }>;
+  unavailableRanges?: Array<{
+    start: string;
+    end: string;
+  }>;
+  bookedSlots?: string[];
 }
 
 export type Screen =

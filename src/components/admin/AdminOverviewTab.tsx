@@ -37,6 +37,7 @@ interface OperationalQueueItem {
   label: string;
   count: number;
   detail: string;
+  action: string;
   tabId: AdminTab;
   priority: number;
   tone: string;
@@ -376,8 +377,8 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                     lineHeight: 1.45,
                   }}
                 >
-                  Smoke flow სრულად გავლილია. ახლა report ჩამოტვირთე და production
-                  blocker-ები გადაამოწმე.
+                  გაშვების ძირითადი ტესტი სრულად გავლილია. ახლა report ჩამოტვირთე
+                  და production ბლოკერები გადაამოწმე.
                 </div>
               )}
               <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
@@ -643,9 +644,11 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                         color: item.count ? item.tone : "var(--text3)",
                         fontSize: 10,
                         fontWeight: 950,
+                        textAlign: "right",
+                        lineHeight: 1.25,
                       }}
                     >
-                      გახსნა
+                      {item.action}
                     </span>
                   </button>
                 ))}
@@ -678,8 +681,8 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                   }}
                 >
                   {blockingSystemChecks.length
-                    ? `${blockingSystemChecks.length} blocker`
-                    : "blocker არაა"}
+                    ? `${blockingSystemChecks.length} ბლოკერი`
+                    : "ბლოკერი არაა"}
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
@@ -1040,7 +1043,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                   }}
                 >
                   Mobile QA სრულად გავლილია. ახლა შეიძლება report-ის ჩამოტვირთვა
-                  და production blockers-ის გადამოწმება.
+                  და production ბლოკერების გადამოწმება.
                 </div>
               )}
               {mobileQaNotes.length > 0 && (

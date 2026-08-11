@@ -81,13 +81,13 @@ export const platformSettingNumberFields: Array<{
     key: "freeCancellationHours",
     label: "უფასო გაუქმება",
     suffix: "საათი",
-    hint: "ამ დრომდე გაუქმება ჯარიმის გარეშეა.",
+    hint: "ამ დრომდე გაუქმება დამატებითი დაკავების გარეშეა.",
   },
   {
     key: "lateCancellationFeePercent",
     label: "დაგვიანებული გაუქმების დაკავება",
     suffix: "%",
-    hint: "უფასო პერიოდის შემდეგ Admin გადაამოწმებს ამ სავარაუდო დაკავებას.",
+    hint: "უფასო პერიოდის შემდეგ Admin გადაამოწმებს ამ სავარაუდო თანხის დაკავებას.",
   },
 ];
 

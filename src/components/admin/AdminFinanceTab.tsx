@@ -4,6 +4,7 @@ import { paymentStatusHelp, statusLabel } from "./adminLabels";
 import { money, parseFirstAmount, penaltyAmountForBooking } from "./adminUtils";
 import type { PlatformSettings } from "../../services/dataService";
 import type { Booking } from "../../screens/BookingsScreen";
+import { normalizeGeorgianDateLabel } from "../../utils/georgianDate";
 
 type AdminPaymentStatus = NonNullable<Booking["paymentStatus"]>;
 
@@ -95,7 +96,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                   {
                     label: "დაგვიანებული გაუქმება",
                     value: `${platformSettings.lateCancellationFeePercent}%`,
-                    hint: "სავარაუდო დაკავება",
+                    hint: "სავარაუდო თანხის დაკავება",
                   },
                   {
                     label: "თვიური",
@@ -147,7 +148,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                   {
                     label: "გადამოწმება",
                     value: financeReviewBookings.length,
-                    hint: `სავარაუდო დაკავება ${money(lateCancellationPenaltyTotal)}`,
+                    hint: `სავარაუდო თანხის დაკავება ${money(lateCancellationPenaltyTotal)}`,
                     bg: "#fff7ed",
                     color: "#c2410c",
                   },
@@ -296,7 +297,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                           {booking.worker.name}
                         </strong>
                         <div style={{ marginTop: 3, color: "var(--text2)", fontSize: 12 }}>
-                          {booking.worker.role} · {booking.dateLabel} · {booking.time}
+                          {booking.worker.role} · {normalizeGeorgianDateLabel(booking.dateLabel)} · {booking.time}
                         </div>
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -329,7 +330,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                         }}
                       >
                         დაგვიანებული გაუქმება. Admin-მა უნდა გადაამოწმოს მიზეზი და
-                        გადაწყვიტოს დაბრუნება თუ დაკავება. სავარაუდო დაკავება:{" "}
+                        გადაწყვიტოს დაბრუნება თუ დაკავება. სავარაუდო თანხის დაკავება:{" "}
                         {money(penaltyAmountForBooking(booking, platformSettings))}.
                       </div>
                     )}

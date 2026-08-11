@@ -6,6 +6,7 @@ export interface OperationalQueueItem {
   label: string;
   count: number;
   detail: string;
+  action: string;
   tabId: AdminTab;
   priority: number;
   tone: string;
@@ -41,6 +42,7 @@ export const getAdminOperationalQueue = ({
       detail: pendingVerificationCount
         ? "ხელოსნის დოკუმენტები ელოდება დადასტურებას"
         : "შესამოწმებელი ვერიფიკაცია არ არის",
+      action: pendingVerificationCount ? "დოკუმენტების გახსნა" : "ვერიფიკაციის ნახვა",
       tabId: "verification",
       priority: pendingVerificationCount ? 3 : 0,
       tone: "#1d4ed8",
@@ -53,6 +55,7 @@ export const getAdminOperationalQueue = ({
       detail: urgentDisputesCount
         ? "დავა 24 საათზე მეტია ღიაა ან განხილვას ითხოვს"
         : "ვადაგასული დავა არ არის",
+      action: urgentDisputesCount ? "სასწრაფო დავების გახსნა" : "დავების ნახვა",
       tabId: "disputes",
       priority: urgentDisputesCount ? 4 : 0,
       tone: "#b91c1c",
@@ -65,6 +68,7 @@ export const getAdminOperationalQueue = ({
       detail: openDisputesCount
         ? "კლიენტის/ხელოსნის პრობლემა Admin-ის პასუხს ელოდება"
         : "ღია დავა არ არის",
+      action: openDisputesCount ? "დავის განხილვა" : "არქივის ნახვა",
       tabId: "disputes",
       priority: openDisputesCount ? 2 : 0,
       tone: "#c2410c",
@@ -75,7 +79,7 @@ export const getAdminOperationalQueue = ({
       label: "ფინანსური განხილვა",
       count: financeReviewCount + financeRefundCount + financeReleaseCount,
       detail: financeReviewCount
-        ? `დაგვიანებული გაუქმება/დავა. სავარაუდო დაკავება ${money(
+        ? `დაგვიანებული გაუქმება/დავა. სავარაუდო თანხის დაკავება ${money(
             lateCancellationPenaltyTotal
           )}`
         : financeRefundCount
@@ -83,6 +87,10 @@ export const getAdminOperationalQueue = ({
           : financeReleaseCount
             ? "დასრულებულ ჯავშანზე თანხა გასაშვებია"
             : "ფინანსური ჩარევა არ სჭირდება",
+      action:
+        financeReviewCount || financeRefundCount || financeReleaseCount
+          ? "ფინანსების გახსნა"
+          : "ფინანსების ნახვა",
       tabId: "finance",
       priority:
         financeReviewCount || financeRefundCount || financeReleaseCount ? 3 : 0,
@@ -96,6 +104,7 @@ export const getAdminOperationalQueue = ({
       detail: interventionRequestsCount
         ? "გაუქმება, დავა ან Admin ჩანაწერი გადასაწყვეტია"
         : "ჯავშნების რიგი სუფთაა",
+      action: interventionRequestsCount ? "ჯავშნების გადამოწმება" : "ჯავშნების ნახვა",
       tabId: "bookings",
       priority: interventionRequestsCount ? 2 : 0,
       tone: "#7c3aed",

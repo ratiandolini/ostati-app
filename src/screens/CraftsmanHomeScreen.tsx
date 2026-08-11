@@ -3,6 +3,11 @@ import { BookingStatus, Screen, User } from "../types";
 import { categories, georgiaCities } from "../data/workers";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
+  isAbortError,
+  isTransientApiError,
+  reportApiError,
+} from "../services/apiErrorUtils";
+import {
   loadCurrentWorkerProfile,
   saveWorkerBankAccount,
   saveCurrentWorkerProfile,
@@ -24,12 +29,22 @@ import {
   loadReviewedBookingIds,
   submitBookingReview,
 } from "../services/reviewApiService";
+import { openBookingDispute } from "../services/disputeApiService";
 import {
   clientReviewSchema,
   craftsmanProfileSchema,
   getValidationMessage,
 } from "../services/validation";
-import { formatGeorgianDate, formatGeorgianTime } from "../utils/georgianDate";
+import {
+  formatGeorgianDate,
+  formatGeorgianTime,
+  normalizeGeorgianDateLabel,
+} from "../utils/georgianDate";
+import {
+  bookingStatusTransitionError,
+  canChangeBookingStatus,
+} from "../utils/bookingWorkflow";
+import { usePlatformSettings } from "../hooks/usePlatformSettings";
 
 interface Booking {
   id: string;
@@ -96,6 +111,11 @@ interface CraftsmanHomeScreenProps {
   }) => void;
   onOpenMessagesForBooking?: (bookingId: string) => void;
 }
+
+// Polling responses are new arrays even when the server data is unchanged.
+// Preserving the old reference prevents visual resets during background sync.
+const keepEqualSnapshot = <T,>(current: T[], next: T[]) =>
+  JSON.stringify(current) === JSON.stringify(next) ? current : next;
 
 const DAYS = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვ"];
 const DAY_TO_WEEKDAY: Record<string, number> = {
@@ -196,9 +216,11 @@ const formatNotificationDate = (value?: string) => {
 
 const formatBookingDateTime = (booking: Booking) => {
   const scheduledAt = booking.scheduledAt;
-  if (!scheduledAt) return `${booking.date} · ${booking.time}`;
+  if (!scheduledAt) return `${normalizeGeorgianDateLabel(booking.date)} · ${booking.time}`;
   const date = new Date(scheduledAt);
-  if (Number.isNaN(date.getTime())) return `${booking.date} · ${booking.time}`;
+  if (Number.isNaN(date.getTime())) {
+    return `${normalizeGeorgianDateLabel(booking.date)} · ${booking.time}`;
+  }
   return `${formatGeorgianDate(date)} · ${formatGeorgianTime(date)}`;
 };
 
@@ -392,9 +414,9 @@ const parseSnapshotRecord = (snapshot: string): Record<string, unknown> => {
   }
 };
 
-const getWorkerPaymentMeta = (booking: Booking) => {
+const getWorkerPaymentMeta = (booking: Booking, fallbackBookingFee: number) => {
   const status = booking.paymentStatus || "held";
-  const amount = booking.bookingFee || dataService.getPlatformSettings().bookingFee;
+  const amount = booking.bookingFee || fallbackBookingFee;
   if (status === "released") {
     return {
       label: "თანხა დადასტურდა",
@@ -547,6 +569,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   >("all");
   const [workView, setWorkView] = useState<"active" | "archive">("active");
   const [workQuery, setWorkQuery] = useState("");
+  const [expandedArchiveIds, setExpandedArchiveIds] = useState<string[]>([]);
   const [rating, setRating] = useState(() => {
     if (!isDemoDataMode) return { value: 0, count: 0 };
     const stored = dataService.getWorkerRating(999);
@@ -560,6 +583,13 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     null
   );
   const [detailsBooking, setDetailsBooking] = useState<Booking | null>(null);
+  const [bookingReasonAction, setBookingReasonAction] = useState<{
+    booking: Booking;
+    kind: "decline" | "cannot_complete";
+  } | null>(null);
+  const [bookingReason, setBookingReason] = useState("");
+  const [bookingReasonNote, setBookingReasonNote] = useState("");
+  const [bookingReasonError, setBookingReasonError] = useState("");
   const [showClientRating, setShowClientRating] = useState(false);
   const [clientRating, setClientRating] = useState<ClientRating>({
     communication: 0,
@@ -588,7 +618,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       : "";
   });
   const [professions, setProfessions] = useState<string[]>(() => {
-    if (!isDemoDataMode) return ["მალიარი"];
+    if (!isDemoDataMode) return [];
     const profile = readCraftsmanProfile();
     if (Array.isArray(profile.professions) && profile.professions.length) {
       return profile.professions;
@@ -596,7 +626,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     if (typeof profile.role === "string" && profile.role) {
       return [profile.role];
     }
-    return ["მალიარი"];
+    return [];
   });
   const initialPrice = isDemoDataMode
     ? parseStoredPrice(readCraftsmanProfile().price)
@@ -606,7 +636,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   );
   const [priceMin, setPriceMin] = useState(String(initialPrice.min));
   const [priceMax, setPriceMax] = useState(String(initialPrice.max || 120));
-  const platformMonthlyFee = dataService.getPlatformSettings().craftsmanMonthlyFee;
+  const { platformSettings } = usePlatformSettings();
+  const platformMonthlyFee = platformSettings.craftsmanMonthlyFee;
+  const platformFreeTrialDays = platformSettings.freeTrialDays;
   const [verification, setVerification] = useState(() => {
     if (!isDemoDataMode) {
       return {
@@ -644,7 +676,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       ? dataService.getCraftsmanTrialStart()
       : new Date().toISOString();
     const trialEndsAt = new Date(
-      new Date(trialStartedAt).getTime() + 30 * 86400000
+      new Date(trialStartedAt).getTime() + platformFreeTrialDays * 86400000
     ).toISOString();
     return {
       status: "trial",
@@ -674,8 +706,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     : user.phone.includes("@")
       ? user.phone
       : "ნომერი დასამატებელია";
-  const mainProfession = professions[0] || "მალიარი";
-  const professionText = professions.join(" · ");
+  const mainProfession = professions[0] || "პროფესია ასარჩევია";
+  const professionText = professions.length ? professions.join(" · ") : "პროფესია ასარჩევია";
   const normalizedPriceMin = Number(priceMin) || 0;
   const normalizedPriceMax = Number(priceMax) || normalizedPriceMin;
   const normalizedExperienceYears = Math.max(0, Number(experienceYears) || 0);
@@ -866,11 +898,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         }
         const trialStartedAt =
           profile.trial_started_at || new Date().toISOString();
-        const trialEndsAt =
-          profile.subscription?.trial_ends_at ||
-          new Date(
-            new Date(trialStartedAt).getTime() + 30 * 86400000
-          ).toISOString();
+        const trialEndsAt = new Date(
+          new Date(trialStartedAt).getTime() + platformFreeTrialDays * 86400000
+        ).toISOString();
         setSubscriptionInfo({
           status:
             profile.subscription?.status ||
@@ -878,7 +908,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             "trial",
           trialStartedAt,
           trialEndsAt,
-          monthlyAmount: Number(profile.subscription?.amount || platformMonthlyFee),
+          monthlyAmount: Number(platformMonthlyFee || 29),
         });
         if (profile.schedule?.length) {
           const firstSchedule = profile.schedule[0];
@@ -916,8 +946,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         );
       })
       .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error(error);
+        if (isAbortError(error)) return;
+        reportApiError(error, { silentTransient: true });
       });
 
     return () => {
@@ -925,6 +955,16 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       controller.abort();
     };
   }, []);
+
+  useEffect(() => {
+    setSubscriptionInfo((current) => ({
+      ...current,
+      trialEndsAt: new Date(
+        new Date(current.trialStartedAt).getTime() + platformFreeTrialDays * 86400000
+      ).toISOString(),
+      monthlyAmount: Number(platformMonthlyFee || 29),
+    }));
+  }, [platformFreeTrialDays, platformMonthlyFee]);
 
   useEffect(() => {
     if (!isDemoDataMode) return;
@@ -977,14 +1017,21 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
   const refreshCraftsmanNotifications = () => {
     if (isDemoDataMode) {
-      setNotifications(dataService.getCraftsmanNotifications() as AppNotification[]);
+      setNotifications((current) =>
+        keepEqualSnapshot(
+          current,
+          dataService.getCraftsmanNotifications() as AppNotification[]
+        )
+      );
       setNotificationError("");
       return;
     }
 
     loadNotifications(10)
       .then((nextNotifications) => {
-        setNotifications(nextNotifications);
+        setNotifications((current) =>
+          keepEqualSnapshot(current, nextNotifications)
+        );
         setNotificationError("");
       })
       .catch((error) => {
@@ -1011,12 +1058,15 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       loadNotifications(10, controller.signal)
         .then((nextNotifications) => {
           if (cancelled) return;
-          setNotifications(nextNotifications);
+          setNotifications((current) =>
+            keepEqualSnapshot(current, nextNotifications)
+          );
           setNotificationError("");
         })
         .catch((error) => {
-          if (error instanceof DOMException && error.name === "AbortError") return;
+          if (isAbortError(error)) return;
           if (cancelled) return;
+          if (isTransientApiError(error)) return;
           setNotificationError(
             error instanceof Error
               ? error.message
@@ -1029,7 +1079,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     };
 
     refresh();
-    const intervalId = window.setInterval(refresh, isDemoDataMode ? 8000 : 10000);
     window.addEventListener("craftsman-notifications-updated", refresh);
     window.addEventListener("booking-status-updated", refresh);
     window.addEventListener("focus", refresh);
@@ -1038,7 +1087,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     return () => {
       cancelled = true;
       activeController?.abort();
-      window.clearInterval(intervalId);
       window.removeEventListener("craftsman-notifications-updated", refresh);
       window.removeEventListener("booking-status-updated", refresh);
       window.removeEventListener("focus", refresh);
@@ -1109,14 +1157,15 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
   const openCraftsmanNotification = (notification: AppNotification) => {
     if (!notification.readAt) markCraftsmanNotificationRead(notification.id);
-    if (!notification.bookingId) return;
     if (
       notification.sourceType === "admin_message" ||
+      notification.sourceType === "admin_warning" ||
+      notification.sourceType === "account_status" ||
       notification.title === "Admin შეტყობინება"
     ) {
-      onOpenMessagesForBooking?.(notification.bookingId);
       return;
     }
+    if (!notification.bookingId) return;
     const linkedBooking = bookings.find(
       (booking) => booking.id === notification.bookingId
     );
@@ -1134,11 +1183,15 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       activeController = controller;
       loadWorkerBookings(controller.signal)
         .then((nextBookings) => {
-          if (!cancelled) setBookings(nextBookings as Booking[]);
+          if (!cancelled) {
+            setBookings((current) =>
+              keepEqualSnapshot(current, nextBookings as Booking[])
+            );
+          }
         })
         .catch((error) => {
-          if (error instanceof DOMException && error.name === "AbortError") return;
-          console.error(error);
+          if (isAbortError(error)) return;
+          reportApiError(error, { silentTransient: true });
         });
     };
     const refreshOnFocus = () => {
@@ -1146,7 +1199,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     };
 
     refreshApiWorkerBookings();
-    const intervalId = window.setInterval(refreshApiWorkerBookings, 15000);
     window.addEventListener("booking-status-updated", refreshApiWorkerBookings);
     window.addEventListener("focus", refreshApiWorkerBookings);
     document.addEventListener("visibilitychange", refreshOnFocus);
@@ -1154,7 +1206,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     return () => {
       cancelled = true;
       activeController?.abort();
-      window.clearInterval(intervalId);
       window.removeEventListener("booking-status-updated", refreshApiWorkerBookings);
       window.removeEventListener("focus", refreshApiWorkerBookings);
       document.removeEventListener("visibilitychange", refreshOnFocus);
@@ -1164,7 +1215,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const reloadWorkerBookings = async () => {
     if (isDemoDataMode) return;
     const nextBookings = await loadWorkerBookings();
-    setBookings(nextBookings as Booking[]);
+    setBookings((current) =>
+      keepEqualSnapshot(current, nextBookings as Booking[])
+    );
   };
 
   const displayedBookings = demoMode
@@ -1243,7 +1296,11 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     });
   }, [activeWorks, archivedWorks, workFilter, workQuery, workView]);
 
-  const updateStatus = async (id: string, status: BookingStatus) => {
+  const updateStatus = async (
+    id: string,
+    status: BookingStatus,
+    cancellationReason?: string
+  ) => {
     if (accountStatus !== "active") {
       setBookingActionError(
         "ანგარიში შეზღუდულია. ჯავშნის სტატუსის შეცვლა დროებით შეუძლებელია."
@@ -1251,13 +1308,17 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       return;
     }
     const target = bookings.find((booking) => booking.id === id);
+    if (!target || !canChangeBookingStatus("craftsman", target.status, status)) {
+      setBookingActionError(bookingStatusTransitionError("craftsman"));
+      return;
+    }
     setBookingActionError("");
 
     if (!isDemoDataMode) {
       if (status === "completed") return;
       setBookingActionId(id);
       try {
-        await updateBookingStatus(id, status);
+        await updateBookingStatus(id, status, cancellationReason);
         await reloadWorkerBookings();
         refreshCraftsmanNotifications();
         window.dispatchEvent(
@@ -1266,7 +1327,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           })
         );
         setDetailsBooking((current) =>
-          current?.id === id ? { ...current, status } : current
+          current?.id === id
+            ? { ...current, status, cancellationReason: cancellationReason || current.cancellationReason }
+            : current
         );
         if (status === "confirmed" || status === "declined") {
           setDetailsBooking(null);
@@ -1285,12 +1348,18 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
     setBookings((prev) =>
       prev.map((booking) =>
-        booking.id === id ? { ...booking, status } : booking
+        booking.id === id
+          ? { ...booking, status, cancellationReason: cancellationReason || booking.cancellationReason }
+          : booking
       )
     );
     persistBookingStatus(id, status);
     if (isDemoDataMode) {
-      dataService.updateClientBooking(id, (booking) => ({ ...booking, status }));
+      dataService.updateClientBooking(id, (booking) => ({
+        ...booking,
+        status,
+        cancellationReason: cancellationReason || booking.cancellationReason,
+      }));
     }
     if (target && status === "confirmed") {
       if (isDemoDataMode) {
@@ -1308,7 +1377,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           ? `ხელოსანი გზაშია: ${target.service}`
           : status === "started"
             ? `სამუშაო დაიწყო: ${target.service}`
-            : `ხელოსანმა სამუშაო დასრულებულად მონიშნა: ${target.service}. დაადასტურეთ და შეაფასეთ.`;
+            : `დაადასტურეთ შესრულება და შეაფასეთ: ${target.service}`;
       if (isDemoDataMode) {
         dataService.prependClientNotification({
           id: `${id}-${status}-${Date.now()}`,
@@ -1320,16 +1389,108 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     }
     if (target && status === "declined") {
       if (isDemoDataMode) {
-        const text = `ხელოსანმა ვიზიტი გააუქმა: ${target.service}. შეგიძლიათ შეაფასოთ გამოცდილება.`;
+        const text = `ხელოსანმა ჯავშანი უარყო: ${target.service}.${
+          cancellationReason ? ` მიზეზი: ${cancellationReason}` : ""
+        }`;
         dataService.prependClientNotification({
           id: `${id}-declined-review-${Date.now()}`,
           text,
-          type: "review",
+          type: "confirmed",
           bookingId: id,
         });
       }
     }
     setDetailsBooking(null);
+  };
+
+  const openBookingReasonAction = (
+    booking: Booking,
+    kind: "decline" | "cannot_complete"
+  ) => {
+    setBookingReasonAction({ booking, kind });
+    setBookingReason("");
+    setBookingReasonNote("");
+    setBookingReasonError("");
+  };
+
+  const submitBookingReasonAction = async () => {
+    if (!bookingReasonAction) return;
+    if (!bookingReason) {
+      setBookingReasonError("აირჩიეთ მიზეზი.");
+      return;
+    }
+
+    const { booking, kind } = bookingReasonAction;
+    const fullReason = [bookingReason, bookingReasonNote.trim()]
+      .filter(Boolean)
+      .join(". ");
+    setBookingReasonError("");
+
+    try {
+      if (kind === "decline") {
+        await updateStatus(booking.id, "declined", fullReason);
+      } else if (!isDemoDataMode) {
+        setBookingActionId(booking.id);
+        await openBookingDispute(
+          booking.id,
+          "ხელოსანმა სამუშაო ვერ შეასრულა",
+          fullReason
+        );
+        await reloadWorkerBookings();
+        refreshCraftsmanNotifications();
+        setDetailsBooking(null);
+      } else {
+        setBookings((current) =>
+          current.map((item) =>
+            item.id === booking.id
+              ? {
+                  ...item,
+                  status: "disputed",
+                  paymentStatus: "disputed",
+                  disputeReason: "ხელოსანმა სამუშაო ვერ შეასრულა",
+                  disputeDetails: fullReason,
+                }
+              : item
+          )
+        );
+        dataService.updateCraftsmanRequest(booking.id, (item) => ({
+          ...item,
+          status: "disputed",
+          paymentStatus: "disputed",
+          disputeReason: "ხელოსანმა სამუშაო ვერ შეასრულა",
+          disputeDetails: fullReason,
+        }));
+        dataService.updateClientBooking(booking.id, (item) => ({
+          ...item,
+          status: "disputed",
+          paymentStatus: "disputed",
+          disputeReason: "ხელოსანმა სამუშაო ვერ შეასრულა",
+          disputeDetails: fullReason,
+        }));
+        dataService.prependBookingDispute({
+          id: `${booking.id}-worker-cannot-complete-${Date.now()}`,
+          bookingId: booking.id,
+          reason: "ხელოსანმა სამუშაო ვერ შეასრულა",
+          details: fullReason,
+          createdAt: new Date().toISOString(),
+          status: "open",
+        });
+        dataService.prependClientNotification({
+          id: `${booking.id}-worker-cannot-complete-${Date.now()}`,
+          bookingId: booking.id,
+          type: "confirmed",
+          text: `ხელოსანმა დააფიქსირა, რომ სამუშაო ვერ სრულდება. Admin გადაამოწმებს. მიზეზი: ${fullReason}`,
+        });
+        setDetailsBooking(null);
+      }
+      setBookingReasonAction(null);
+    } catch (error) {
+      setBookingReasonError(
+        error instanceof Error ? error.message : "მოქმედება ვერ შესრულდა"
+      );
+    } finally {
+      setBookingActionId(null);
+    }
   };
 
   const askCompleteBooking = (booking: Booking) => {
@@ -1347,6 +1508,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       return;
     }
     const target = completingBooking;
+    if (!canChangeBookingStatus("craftsman", target.status, "worker_completed")) {
+      setReviewError(bookingStatusTransitionError("craftsman"));
+      return;
+    }
     if (!isDemoDataMode) {
       setBookingActionId(target.id);
       try {
@@ -1423,8 +1588,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const toggleProfession = (profession: string) => {
     setProfessions((prev) => {
       if (prev.includes(profession)) {
-        const next = prev.filter((item) => item !== profession);
-        return next.length ? next : prev;
+        return prev.filter((item) => item !== profession);
       }
       return [...prev, profession];
     });
@@ -1692,7 +1856,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     }
     if (status === "completed") return;
     updateBookingStatus(id, status).catch((error) => {
-      console.error(error);
+      reportApiError(error, { silentTransient: true });
     });
   };
 
@@ -1729,13 +1893,66 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     const meta = statusMeta[booking.status];
     const tone = getWorkStatusTone(booking.status);
     const isArchived = archivedWorkStatuses.includes(booking.status);
+    const expanded = !isArchived || expandedArchiveIds.includes(booking.id);
     const actionLoading = bookingActionId === booking.id;
     const clientShortName = booking.clientName.replace(
       /^(\S+)\s+(\S).*/,
       "$1 $2."
     );
-    const paymentMeta = getWorkerPaymentMeta(booking);
+        const paymentMeta = getWorkerPaymentMeta(
+          booking,
+          platformSettings.bookingFee
+        );
     const disputeMeta = getWorkerDisputeMeta(booking);
+
+    if (isArchived && !expanded) {
+      return (
+        <button
+          type="button"
+          className="fade-up"
+          onClick={() =>
+            setExpandedArchiveIds((current) =>
+              current.includes(booking.id) ? current : [...current, booking.id]
+            )
+          }
+          style={{
+            width: "100%",
+            padding: 14,
+            borderRadius: 14,
+            background: "white",
+            border: `1px solid ${tone.border}`,
+            boxShadow: "var(--shadow-sm)",
+            textAlign: "left",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {clientShortName} · {booking.service}
+              </div>
+              <div style={{ marginTop: 4, color: "var(--text2)", fontSize: 12, fontWeight: 750 }}>
+                {formatBookingDateTime(booking)}
+              </div>
+            </div>
+            <span
+              style={{
+                flexShrink: 0,
+                padding: "6px 9px",
+                borderRadius: 999,
+                background: tone.bg,
+                color: tone.color,
+                border: `1px solid ${tone.border}`,
+                fontSize: 11,
+                fontWeight: 950,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {meta.label}
+            </span>
+          </div>
+        </button>
+      );
+    }
 
     return (
       <div
@@ -1881,7 +2098,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => updateStatus(booking.id, "declined")}
+              onClick={() => openBookingReasonAction(booking, "decline")}
               disabled={actionLoading}
               style={{
                 gridColumn: "1 / -1",
@@ -1899,13 +2116,12 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           </div>
         )}
         {booking.status === "confirmed" && (
-          <div style={{ marginTop: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
             <button
               type="button"
               onClick={() => updateStatus(booking.id, "en_route")}
               disabled={actionLoading}
               style={{
-                width: "100%",
                 minHeight: 42,
                 borderRadius: 10,
                 background: actionLoading ? "#94a3b8" : "var(--primary)",
@@ -1916,16 +2132,31 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             >
               {actionLoading ? "იცვლება..." : "გზაში ვარ"}
             </button>
+            <button
+              type="button"
+              onClick={() => openBookingReasonAction(booking, "cannot_complete")}
+              disabled={actionLoading}
+              style={{
+                minHeight: 42,
+                borderRadius: 10,
+                background: "#fff7ed",
+                color: "#c2410c",
+                border: "1px solid #fed7aa",
+                fontSize: 12,
+                fontWeight: 900,
+              }}
+            >
+              ვერ ვასრულებ
+            </button>
           </div>
         )}
         {booking.status === "en_route" && (
-          <div style={{ marginTop: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
             <button
               type="button"
               onClick={() => updateStatus(booking.id, "started")}
               disabled={actionLoading}
               style={{
-                width: "100%",
                 minHeight: 42,
                 borderRadius: 10,
                 background: actionLoading ? "#94a3b8" : "#0891b2",
@@ -1936,16 +2167,31 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             >
               {actionLoading ? "იცვლება..." : "სამუშაო დაიწყო"}
             </button>
+            <button
+              type="button"
+              onClick={() => openBookingReasonAction(booking, "cannot_complete")}
+              disabled={actionLoading}
+              style={{
+                minHeight: 42,
+                borderRadius: 10,
+                background: "#fff7ed",
+                color: "#c2410c",
+                border: "1px solid #fed7aa",
+                fontSize: 12,
+                fontWeight: 900,
+              }}
+            >
+              ვერ ვასრულებ
+            </button>
           </div>
         )}
         {booking.status === "started" && (
-          <div style={{ marginTop: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
             <button
               type="button"
               onClick={() => askCompleteBooking(booking)}
               disabled={actionLoading}
               style={{
-                width: "100%",
                 minHeight: 42,
                 borderRadius: 10,
                 background: actionLoading ? "#94a3b8" : "#10b981",
@@ -1956,15 +2202,30 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             >
               ჩემი მხრიდან დასრულდა
             </button>
+            <button
+              type="button"
+              onClick={() => openBookingReasonAction(booking, "cannot_complete")}
+              disabled={actionLoading}
+              style={{
+                minHeight: 42,
+                borderRadius: 10,
+                background: "#fff7ed",
+                color: "#c2410c",
+                border: "1px solid #fed7aa",
+                fontSize: 12,
+                fontWeight: 900,
+              }}
+            >
+              ვერ ვასრულებ
+            </button>
           </div>
         )}
         {isArchived && (
-          <div style={{ marginTop: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
             <button
               type="button"
               onClick={() => setDetailsBooking(booking)}
               style={{
-                width: "100%",
                 minHeight: 40,
                 borderRadius: 10,
                 background: "#f8fafc",
@@ -1975,6 +2236,25 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               }}
             >
               დეტალების ნახვა
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setExpandedArchiveIds((current) =>
+                  current.filter((bookingId) => bookingId !== booking.id)
+                )
+              }
+              style={{
+                minHeight: 40,
+                borderRadius: 10,
+                background: "#eef3f9",
+                color: "var(--text2)",
+                border: "1px solid var(--border)",
+                fontSize: 13,
+                fontWeight: 900,
+              }}
+            >
+              აკეცვა
             </button>
           </div>
         )}
@@ -2213,7 +2493,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                       <div style={{ marginTop: 4, fontSize: 11, fontWeight: 750, lineHeight: 1.45, overflowWrap: "anywhere" }}>
                         {notification.text}
                       </div>
-                      {notification.bookingId && (
+                      {notification.bookingId &&
+                        notification.sourceType !== "admin_message" &&
+                        notification.sourceType !== "admin_warning" &&
+                        notification.sourceType !== "account_status" && (
                         <div
                           style={{
                             marginTop: 8,
@@ -2222,10 +2505,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                             fontWeight: 950,
                           }}
                         >
-                          {notification.sourceType === "admin_message" ||
-                          notification.title === "Admin შეტყობინება"
-                            ? "ჩათის გახსნა"
-                            : "მოთხოვნის გახსნა"}
+                          მოთხოვნის გახსნა
                         </div>
                       )}
                     </button>
@@ -2584,6 +2864,28 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 {profileUploadError}
               </div>
             )}
+            <div
+              style={{
+                marginTop: 14,
+                padding: 14,
+                borderRadius: 14,
+                border: "1px solid #fed7aa",
+                background: "#fff7ed",
+                textAlign: "left",
+              }}
+            >
+              <div style={{ color: "#c2410c", fontSize: 12, fontWeight: 900, marginBottom: 8 }}>
+                მნიშვნელოვანი მოთხოვნები:
+              </div>
+              {[
+                "სახე კარგად უნდა ჩანდეს",
+                "მზის სათვალეში გადაღება არ შეიძლება",
+              ].map((text) => (
+                <div key={text} style={{ color: "#92400e", fontSize: 12, lineHeight: 1.7 }}>
+                  • {text}
+                </div>
+              ))}
+            </div>
           </div>
 
           <section style={{ marginTop: 16 }}>
@@ -2598,8 +2900,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               }}
             >
               {[
-                { label: "სახელი", value: firstName, set: setFirstName },
-                { label: "გვარი", value: lastName, set: setLastName },
+                { label: "სახელი (ქართულად)", value: firstName, set: setFirstName },
+                { label: "გვარი (ქართულად)", value: lastName, set: setLastName },
               ].map((field) => (
                 <label
                   key={field.label}
@@ -2725,27 +3027,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             </label>
           </section>
 
-          <div
-            style={{
-              marginTop: 16,
-              padding: 16,
-              borderRadius: 16,
-              border: "1px solid #fed7aa",
-              background: "#fff7ed",
-            }}
-          >
-            <div style={{ color: "#c2410c", fontSize: 12, fontWeight: 900, marginBottom: 8 }}>
-              მნიშვნელოვანი მოთხოვნები:
-            </div>
-            {[
-              "სახე კარგად უნდა ჩანდეს",
-              "მზის სათვალეში გადაღება არ შეიძლება",
-            ].map((text) => (
-              <div key={text} style={{ color: "#92400e", fontSize: 12, lineHeight: 1.7 }}>
-                • {text}
-              </div>
-            ))}
-          </div>
             </>
           )}
 
@@ -3372,6 +3653,112 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         </div>
       )}
 
+      {bookingReasonAction && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 110,
+            display: "flex",
+            alignItems: "flex-end",
+            background: "rgba(15,23,42,0.42)",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxHeight: "86%",
+              overflowY: "auto",
+              padding: "22px 22px max(22px, env(safe-area-inset-bottom))",
+              borderRadius: "22px 22px 0 0",
+              background: "white",
+              boxShadow: "0 -18px 45px rgba(15,23,42,0.18)",
+            }}
+          >
+            <h2 style={{ margin: "0 0 8px", color: "var(--text)", fontSize: 21, fontWeight: 900 }}>
+              {bookingReasonAction.kind === "decline" ? "ჯავშნის უარყოფა" : "სამუშაო ვერ სრულდება"}
+            </h2>
+            <p style={{ margin: "0 0 16px", color: "var(--text2)", fontSize: 13, lineHeight: 1.55 }}>
+              {bookingReasonAction.kind === "decline"
+                ? "კლიენტი მიზეზს შეტყობინებაში ნახავს და შეძლებს სხვა ხელოსნის არჩევას."
+                : "კლიენტს და Admin-ს ეცნობება მიზეზი. ჯავშანი გადავა გადამოწმებაზე; თანხის გადაწყვეტილებას სისტემა/Admin მიიღებს."}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(bookingReasonAction.kind === "decline"
+                ? ["დრო არ მაქვს", "მისამართი ძალიან შორსაა", "ეს საქმე ჩემი სფერო არაა", "მოთხოვნა ბუნდოვანია", "სხვა მიზეზი"]
+                : ["სამუშაო მოცულობა აღწერილს არ შეესაბამება", "უსაფრთხოდ შესრულება შეუძლებელია", "საჭირო სპეციალისტი/ინსტრუმენტი არ მაქვს", "კლიენტი ადგილზე არ დამხვდა", "სხვა მიზეზი"]
+              ).map((reason) => {
+                const selected = bookingReason === reason;
+                return (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => { setBookingReason(reason); setBookingReasonError(""); }}
+                    style={{
+                      minHeight: 44,
+                      padding: "10px 12px",
+                      textAlign: "left",
+                      borderRadius: 11,
+                      border: `1px solid ${selected ? "#17243a" : "var(--border)"}`,
+                      background: selected ? "#17243a" : "white",
+                      color: selected ? "white" : "var(--text)",
+                      fontSize: 13,
+                      fontWeight: 850,
+                    }}
+                  >
+                    {reason}
+                  </button>
+                );
+              })}
+            </div>
+            <label style={{ display: "block", marginTop: 16, color: "var(--text2)", fontSize: 12, fontWeight: 850 }}>
+              დამატებითი განმარტება (სურვილისამებრ)
+              <textarea
+                value={bookingReasonNote}
+                onChange={(event) => setBookingReasonNote(event.target.value)}
+                placeholder="მოკლედ აუხსენით რა მოხდა..."
+                style={{
+                  width: "100%",
+                  minHeight: 82,
+                  boxSizing: "border-box",
+                  resize: "vertical",
+                  marginTop: 7,
+                  padding: 11,
+                  borderRadius: 11,
+                  border: "1px solid var(--border)",
+                  color: "var(--text)",
+                  fontFamily: "inherit",
+                  fontSize: 13,
+                }}
+              />
+            </label>
+            {bookingReasonError && (
+              <div style={{ marginTop: 10, color: "#b91c1c", fontSize: 12, fontWeight: 800 }}>
+                {bookingReasonError}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button
+                type="button"
+                onClick={() => setBookingReasonAction(null)}
+                disabled={Boolean(bookingActionId)}
+                style={{ flex: 1, minHeight: 48, borderRadius: 12, background: "#f1f5f9", color: "var(--text)", fontWeight: 900 }}
+              >
+                უკან
+              </button>
+              <button
+                type="button"
+                onClick={submitBookingReasonAction}
+                disabled={Boolean(bookingActionId)}
+                style={{ flex: 1, minHeight: 48, borderRadius: 12, background: "#c2410c", color: "white", fontWeight: 900, opacity: bookingActionId ? 0.7 : 1 }}
+              >
+                {bookingActionId ? "იგზავნება..." : "გაგზავნა"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {completingBooking && (
         <div
           style={{
@@ -3386,7 +3773,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           <div
             style={{
               width: "100%",
-              padding: 22,
+              maxHeight: "86%",
+              overflowY: "auto",
+              padding: "22px 22px max(22px, env(safe-area-inset-bottom))",
               borderRadius: "22px 22px 0 0",
               background: "white",
               boxShadow: "0 -18px 45px rgba(15,23,42,0.18)",
@@ -3625,7 +4014,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               {formatBookingDateTime(detailsBooking)}
             </p>
             {(() => {
-              const paymentMeta = getWorkerPaymentMeta(detailsBooking);
+              const paymentMeta = getWorkerPaymentMeta(
+                detailsBooking,
+                platformSettings.bookingFee
+              );
               return (
                 <div
                   style={{
@@ -3877,7 +4269,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => updateStatus(detailsBooking.id, "declined")}
+                    onClick={() => openBookingReasonAction(detailsBooking, "decline")}
                     disabled={bookingActionId === detailsBooking.id}
                     style={{
                       flex: 1,

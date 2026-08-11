@@ -4,6 +4,7 @@ import { EmptyState } from "../components/EmptyState";
 import { Stars } from "../components/Stars";
 import { BookingDetails } from "./ProfileScreen";
 import { dataService, isDemoDataMode } from "../services/dataService";
+import { isAbortError, isTransientApiError, reportApiError } from "../services/apiErrorUtils";
 import {
   BookingPaymentSummary,
   loadBookingPaymentSummary,
@@ -31,6 +32,10 @@ import {
   formatGeorgianTime,
   normalizeGeorgianDateLabel,
 } from "../utils/georgianDate";
+import { usePlatformSettings } from "../hooks/usePlatformSettings";
+
+const keepEqualSnapshot = <T,>(current: T[], next: T[]) =>
+  JSON.stringify(current) === JSON.stringify(next) ? current : next;
 
 export interface Booking {
   worker: Worker;
@@ -90,12 +95,19 @@ const statusIndex = (status?: BookingStatus) => {
   return trackingSteps.findIndex((step) => step.status === status);
 };
 
+const canCancelBooking = (status?: BookingStatus) =>
+  status === "pending" ||
+  status === "confirmed" ||
+  status === "en_route" ||
+  status === "started";
+
 const paymentMessage = (
   booking: Booking,
   isDisputed: boolean,
-  paymentStatus: BookingPaymentSummary["status"] | Booking["paymentStatus"] | undefined
+  paymentStatus: BookingPaymentSummary["status"] | Booking["paymentStatus"] | undefined,
+  fallbackBookingFee: number
 ) => {
-  const fee = booking.bookingFee || dataService.getPlatformSettings().bookingFee;
+  const fee = booking.bookingFee || fallbackBookingFee;
   if (isDisputed || paymentStatus === "failed" || paymentStatus === "disputed") {
     return "პრობლემა გახსნილია. ჯავშნის თანხა დროებით შეჩერებულია.";
   }
@@ -148,7 +160,12 @@ const money = (value: number | string | undefined, currency = "GEL") => {
 
 const notificationText = (notification: { type: string; text: string }) => {
   if (notification.type === "review") {
-    return "ხელოსანმა სამუშაო დასრულებულად მონიშნა. დაადასტურეთ შესრულება და შეაფასეთ.";
+    if (notification.text.startsWith("ხელოსანმა სამუშაო დასრულებულად მონიშნა")) {
+      return "დაადასტურეთ შესრულება და შეაფასეთ.";
+    }
+    return notification.text.includes("დაადასტურეთ")
+      ? notification.text
+      : "დაადასტურეთ შესრულება და შეაფასეთ.";
   }
   return notification.text;
 };
@@ -288,6 +305,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
     }, {});
   }, [disputedIds]);
   const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
+  const [reviewComment, setReviewComment] = useState("");
   const [reviewScores, setReviewScores] = useState({
     quality: 0,
     punctuality: 0,
@@ -300,6 +318,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   const [reviewError, setReviewError] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [bookingView, setBookingView] = useState<"active" | "archive">("active");
+  const { platformSettings, legalSettings } = usePlatformSettings();
   const bookingIds = useMemo(() => new Set(bookings.map((booking) => booking.id)), [bookings]);
   const reviewedBookingIds = useMemo(() => new Set(reviewedIds), [reviewedIds]);
   const archivedBookings = useMemo(
@@ -358,13 +377,15 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
     [notifications, closedReviewBookingIds]
   );
   const [notificationError, setNotificationError] = useState("");
-  const legalSettings = useMemo(() => dataService.getLegalSettings(), []);
 
   const refreshNotifications = () => {
     if (isDemoDataMode) {
-      setNotifications(
-        dataService.getClientNotifications().filter((notification) =>
-          notification.bookingId ? bookingIds.has(notification.bookingId) : false
+      setNotifications((current) =>
+        keepEqualSnapshot(
+          current,
+          dataService.getClientNotifications().filter((notification) =>
+            notification.bookingId ? bookingIds.has(notification.bookingId) : false
+          )
         )
       );
       setNotificationError("");
@@ -374,9 +395,12 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
     loadNotifications()
       .then((nextNotifications) => {
         setNotificationError("");
-        setNotifications(
-          nextNotifications.filter((notification) =>
-            notification.bookingId ? bookingIds.has(notification.bookingId) : true
+        setNotifications((current) =>
+          keepEqualSnapshot(
+            current,
+            nextNotifications.filter((notification) =>
+              notification.bookingId ? bookingIds.has(notification.bookingId) : true
+            )
           )
         );
       })
@@ -406,15 +430,19 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
         .then((nextNotifications) => {
           if (cancelled) return;
           setNotificationError("");
-          setNotifications(
-            nextNotifications.filter((notification) =>
-              notification.bookingId ? bookingIds.has(notification.bookingId) : true
+          setNotifications((current) =>
+            keepEqualSnapshot(
+              current,
+              nextNotifications.filter((notification) =>
+                notification.bookingId ? bookingIds.has(notification.bookingId) : true
+              )
             )
           );
         })
         .catch((error) => {
-          if (error instanceof DOMException && error.name === "AbortError") return;
+          if (isAbortError(error)) return;
           if (cancelled) return;
+          if (isTransientApiError(error)) return;
           setNotificationError(
             error instanceof Error
               ? error.message
@@ -427,7 +455,6 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
     };
 
     refresh();
-    const intervalId = window.setInterval(refresh, isDemoDataMode ? 8000 : 10000);
     window.addEventListener("client-notifications-updated", refresh);
     window.addEventListener("booking-status-updated", refresh);
     window.addEventListener("focus", refresh);
@@ -436,7 +463,6 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
     return () => {
       cancelled = true;
       activeController?.abort();
-      window.clearInterval(intervalId);
       window.removeEventListener("client-notifications-updated", refresh);
       window.removeEventListener("booking-status-updated", refresh);
       window.removeEventListener("focus", refresh);
@@ -496,7 +522,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
         }
       })
       .catch((error) => {
-        console.error(error);
+        reportApiError(error, { silentTransient: true });
       });
 
     return () => {
@@ -519,6 +545,11 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
 
   const submitCancel = async () => {
     if (!cancelBooking) return;
+    if (!canCancelBooking(cancelBooking.status)) {
+      setCancelBooking(null);
+      setCancelError("დასრულების ეტაპზე ჯავშნის გაუქმება აღარ არის ხელმისაწვდომი.");
+      return;
+    }
     const validation = cancellationSchema.safeParse({ reason: cancelReason });
     if (!validation.success) {
       setCancelError(getValidationMessage(validation.error, "გაუქმების მიზეზი აირჩიეთ"));
@@ -614,8 +645,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
         service: problemBooking.worker.role,
         dateLabel: problemBooking.dateLabel,
         time: problemBooking.time,
-        amount:
-          problemBooking.bookingFee || dataService.getPlatformSettings().bookingFee,
+        amount: problemBooking.bookingFee || platformSettings.bookingFee,
         paymentStatus: "disputed",
         evidence,
         createdAt: new Date().toISOString(),
@@ -655,6 +685,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
           bookingId: reviewBooking.id,
           revieweeRole: "craftsman",
           criteria: reviewScores,
+          comment: reviewComment,
         });
       } catch (error) {
         setReviewError(
@@ -687,6 +718,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
         workerName: reviewBooking.worker.name,
         overall,
         criteria: reviewScores,
+        comment: reviewComment.trim() || undefined,
       });
       dataService.saveReviewedBookingIds(nextReviewed);
     }
@@ -711,6 +743,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
     }
     setReviewBooking(null);
     setReviewScores({ quality: 0, punctuality: 0, cleanliness: 0, deadline: 0 });
+    setReviewComment("");
     setReviewSubmitting(false);
   };
 
@@ -930,6 +963,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                           cleanliness: 0,
                           deadline: 0,
                         });
+                        setReviewComment("");
                       }
                     }}
                     style={{
@@ -1048,9 +1082,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                 isCompleted ||
                 b.status === "declined" ||
                 b.status === "cancelled";
-              const bookingFee =
-                b.bookingFee || dataService.getPlatformSettings().bookingFee;
-              const platformSettings = dataService.getPlatformSettings();
+              const bookingFee = b.bookingFee || platformSettings.bookingFee;
               const hoursLeft = hoursUntilBooking(b);
               const isLateCancellationWindow =
                 hoursLeft < platformSettings.freeCancellationHours;
@@ -1074,6 +1106,8 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                     : ["გაყინულია", "გადამოწმება", "დადასტურდა"];
               const needsClientReview =
                 b.status === "worker_completed" && !reviewedIds.includes(b.id);
+              const needsReliabilityReview =
+                b.status === "declined" && !reviewedIds.includes(b.id);
               const statusTone =
                 b.status === "cancelled" || b.status === "declined"
                   ? {
@@ -1186,7 +1220,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                         {b.worker.name}
                       </div>
                       <div style={{ fontSize: 12, color: "var(--text2)" }}>
-                        {b.worker.role}
+                        {b.worker.skills?.length ? b.worker.skills.join(" · ") : b.worker.role}
                       </div>
                       <div
                         style={{
@@ -1201,11 +1235,11 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                     </div>
                     <div
                       style={{
-                        flex: "0 1 126px",
-                        minWidth: 86,
+                        flex: "0 0 auto",
+                        minWidth: 116,
                         background: statusTone.bg,
                         borderRadius: 999,
-                        padding: "7px 9px",
+                        padding: "7px 10px",
                         textAlign: "center",
                         border: `1px solid ${statusTone.border}`,
                       }}
@@ -1216,7 +1250,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                           fontWeight: 800,
                           lineHeight: 1.25,
                           color: statusTone.color,
-                          overflowWrap: "anywhere",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         {statusLabel}
@@ -1324,7 +1358,12 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                       lineHeight: 1.45,
                     }}
                   >
-                    {paymentMessage(b, isDisputed, effectivePaymentStatus)}
+                    {paymentMessage(
+                      b,
+                      isDisputed,
+                      effectivePaymentStatus,
+                      platformSettings.bookingFee
+                    )}
                     <div
                       style={{
                         display: "grid",
@@ -1385,7 +1424,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                       <span>დაჯავშნის საფასური</span>
                       <span>{money(bookingFee, paymentCurrency)}</span>
                     </div>
-                    {!isInactive && (
+                    {canCancelBooking(b.status) && (
                       <div
                         style={{
                           marginTop: 8,
@@ -1402,7 +1441,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                         }}
                       >
                         {isLateCancellationWindow
-                          ? `უფასო გაუქმების პერიოდი გასულია. გაუქმების შემთხვევაში Admin გადაამოწმებს მიზეზს. სავარაუდო დაკავება: ${money(possiblePenalty, paymentCurrency)}.`
+                          ? `უფასო გაუქმების პერიოდი გასულია. გაუქმების შემთხვევაში Admin გადაამოწმებს მიზეზს. სავარაუდო თანხის დაკავება: ${money(possiblePenalty, paymentCurrency)}.`
                           : `უფასო გაუქმება შესაძლებელია ვიზიტამდე ${platformSettings.freeCancellationHours} საათზე ადრე.`}
                         <details style={{ marginTop: 7 }}>
                           <summary
@@ -1534,7 +1573,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                       {b.cancellationPolicy && (
                         <div style={{ marginTop: 6, color: "#7f1d1d", fontWeight: 800 }}>
                           {b.cancellationPolicy === "late_review"
-                            ? `გადამოწმდება Admin-ის მიერ. სავარაუდო დაკავება: ${
+                            ? `გადამოწმდება Admin-ის მიერ. სავარაუდო თანხის დაკავება: ${
                                 b.cancellationPenaltyAmount || 0
                               } ლარი.`
                             : "გაუქმება უფასო პერიოდის ფარგლებშია."}
@@ -1570,6 +1609,29 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                       დადასტურება და შეფასება
                     </button>
                   )}
+                  {needsReliabilityReview && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReviewBooking(b);
+                        setReviewScores({ quality: 0, punctuality: 0, cleanliness: 0, deadline: 0 });
+                        setReviewComment("");
+                      }}
+                      style={{
+                        width: "100%",
+                        marginBottom: 10,
+                        padding: "12px",
+                        borderRadius: 12,
+                        background: "#fff7ed",
+                        color: "#c2410c",
+                        border: "1px solid #fed7aa",
+                        fontSize: 13,
+                        fontWeight: 900,
+                      }}
+                    >
+                      სანდოობის შეფასება
+                    </button>
+                  )}
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
@@ -1587,7 +1649,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                     >
                       პროფილი
                     </button>
-                    {!isInactive && (
+                    {canCancelBooking(b.status) && (
                       <button
                         onClick={() => {
                           setCancelBooking(b);
@@ -1651,15 +1713,25 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
             background: "rgba(15,23,42,0.35)",
           }}
         >
-          <div style={{ width: "100%", padding: 22, borderRadius: "22px 22px 0 0", background: "white" }}>
+          <div
+            style={{
+              width: "100%",
+              maxHeight: "86%",
+              overflowY: "auto",
+              padding: "22px 22px max(22px, env(safe-area-inset-bottom))",
+              borderRadius: "22px 22px 0 0",
+              background: "white",
+            }}
+          >
             {(() => {
-              const settings = dataService.getPlatformSettings();
               const hoursLeft = hoursUntilBooking(cancelBooking);
-              const lateCancellation = hoursLeft < settings.freeCancellationHours;
-              const bookingFee = cancelBooking.bookingFee || settings.bookingFee;
+              const lateCancellation =
+                hoursLeft < platformSettings.freeCancellationHours;
+              const bookingFee =
+                cancelBooking.bookingFee || platformSettings.bookingFee;
               const penaltyAmount = lateCancellation
                 ? Math.round(
-                    (bookingFee * settings.lateCancellationFeePercent) / 100
+                    (bookingFee * platformSettings.lateCancellationFeePercent) / 100
                   )
                 : 0;
               return (
@@ -1684,7 +1756,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
               }}
             >
               {lateCancellation
-                ? `უფასო გაუქმების დრო გასულია. ეს მოქმედება აისახება ანგარიშზე და Admin გადაამოწმებს. სავარაუდო დაკავება: ${penaltyAmount} ლარი.`
+                ? `უფასო გაუქმების დრო გასულია. ეს მოქმედება აისახება ანგარიშზე და Admin გადაამოწმებს. სავარაუდო თანხის დაკავება: ${penaltyAmount} ლარი.`
                 : `${legalSettings.cancellationRules} დაჯავშნის საფასური დაბრუნდება.`}
             </div>
             {cancelError && (
@@ -2026,7 +2098,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
         >
           <div style={{ width: "100%", padding: 22, borderRadius: "22px 22px 0 0", background: "white" }}>
             <h2 style={{ margin: "0 0 8px", color: "var(--text)", fontSize: 22, fontWeight: 900 }}>
-              შეაფასე ხელოსანი
+              {reviewBooking.status === "declined" ? "შეაფასე სანდოობა" : "შეაფასე ხელოსანი"}
             </h2>
             <p style={{ margin: "0 0 16px", color: "var(--text2)", fontSize: 13 }}>
               {reviewBooking.worker.name}
@@ -2048,12 +2120,20 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                 {reviewError}
               </div>
             )}
-            {[
-              { key: "quality" as const, label: "შესრულებული სამუშაოს ხარისხი" },
-              { key: "punctuality" as const, label: "დროულად მოსვლა ობიექტზე" },
-              { key: "cleanliness" as const, label: "სისუფთავე" },
-              { key: "deadline" as const, label: "დათქმულ ვადაში ჩაბარება" },
-            ].map((item) => (
+            {(reviewBooking.status === "declined"
+              ? [
+                  { key: "quality" as const, label: "კომუნიკაცია" },
+                  { key: "punctuality" as const, label: "დროულად პასუხი" },
+                  { key: "cleanliness" as const, label: "უარყოფის მიზეზის სიზუსტე" },
+                  { key: "deadline" as const, label: "საერთო სანდოობა" },
+                ]
+              : [
+                  { key: "quality" as const, label: "შესრულებული სამუშაოს ხარისხი" },
+                  { key: "punctuality" as const, label: "დროულად მოსვლა ობიექტზე" },
+                  { key: "cleanliness" as const, label: "სისუფთავე" },
+                  { key: "deadline" as const, label: "დათქმულ ვადაში ჩაბარება" },
+                ]
+            ).map((item) => (
               <div key={item.key} style={{ marginBottom: 13 }}>
                 <div style={{ marginBottom: 7, color: "var(--text)", fontSize: 13, fontWeight: 900 }}>
                   {item.label}
@@ -2084,6 +2164,15 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                 </div>
               </div>
             ))}
+            <label style={{ display: "block", marginBottom: 14, color: "var(--text2)", fontSize: 12, fontWeight: 850 }}>
+              კომენტარი (სურვილისამებრ)
+              <textarea
+                value={reviewComment}
+                onChange={(event) => setReviewComment(event.target.value)}
+                placeholder="მოკლედ აღწერე გამოცდილება..."
+                style={{ width: "100%", minHeight: 76, boxSizing: "border-box", resize: "vertical", marginTop: 7, padding: 10, borderRadius: 10, border: "1px solid var(--border)", fontFamily: "inherit", fontSize: 13 }}
+              />
+            </label>
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 type="button"

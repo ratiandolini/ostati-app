@@ -123,6 +123,40 @@ interface AdminReportInput {
   adminMembers: AdminMember[];
 }
 
+const sensitiveReportKeyPattern =
+  /phone|email|contactphone|contact_phone|clientphone|workerphone|bankaccount|idfront|idback|attachmenturl|sitephoto|photourl|verificationdocuments/i;
+
+const maskSensitiveValue = (value: unknown) => {
+  if (typeof value !== "string") return "[დაფარული]";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.includes("@")) {
+    const [name, domain = ""] = trimmed.split("@");
+    return `${name.slice(0, 2)}***@${domain}`;
+  }
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length >= 6) {
+    return `${digits.slice(0, 3)}***${digits.slice(-2)}`;
+  }
+  return "[დაფარული]";
+};
+
+const sanitizeReportValue = (value: unknown, key = ""): unknown => {
+  if (sensitiveReportKeyPattern.test(key)) return maskSensitiveValue(value);
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeReportValue(item));
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).reduce<
+      Record<string, unknown>
+    >((next, [entryKey, entryValue]) => {
+      next[entryKey] = sanitizeReportValue(entryValue, entryKey);
+      return next;
+    }, {});
+  }
+  return value;
+};
+
 export const downloadLaunchReadinessReport = ({
   exportedBy,
   currentAdminMember,
@@ -193,6 +227,11 @@ export const downloadLaunchReadinessReport = ({
   const report = {
     exportedAt,
     exportedBy,
+    privacy: {
+      sensitiveFieldsRedacted: true,
+      note:
+        "Report-ში ტელეფონი, ელფოსტა, საბანკო ანგარიში და private storage path-ები დაფარულია.",
+    },
     exportedRole: currentAdminMember,
     launchStatus: launchReportStatus,
     draftReasons: launchReportDraftReasons,
@@ -273,7 +312,7 @@ export const downloadLaunchReadinessReport = ({
     },
   };
 
-  const blob = new Blob([JSON.stringify(report, null, 2)], {
+  const blob = new Blob([JSON.stringify(sanitizeReportValue(report), null, 2)], {
     type: "application/json;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);

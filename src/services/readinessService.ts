@@ -50,6 +50,8 @@ export const getSystemReadinessChecks = (
   settings: PlatformSettings
 ): ReadinessCheck[] => {
   const supabaseConfig = resolveSupabaseConfigStatus();
+  const authMode = process.env.REACT_APP_AUTH_MODE || "";
+  const devPasswordMode = authMode === "dev_password";
 
   return [
     {
@@ -79,6 +81,17 @@ export const getSystemReadinessChecks = (
             : "SMS OTP არჩეულია",
       ready: settings.authProvider !== "demo",
       severity: settings.authProvider === "demo" ? "warning" : "ok",
+    },
+    {
+      id: "auth_env_mode",
+      label: "Auth გარემო",
+      detail: devPasswordMode
+        ? "ჩართულია dev_password რეჟიმი, გამოიყენება მხოლოდ ლოკალური ტესტისთვის"
+        : authMode
+          ? `${authMode} რეჟიმი`
+          : "Auth mode .env-ში არ არის მითითებული",
+      ready: !devPasswordMode && Boolean(authMode),
+      severity: devPasswordMode || !authMode ? "warning" : "ok",
     },
     {
       id: "payment_provider",

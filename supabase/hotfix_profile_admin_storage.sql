@@ -301,6 +301,50 @@ select
   w.experience_years,
   w.verification_status,
   coalesce(wpn.skills, array[]::text[]) as skills,
+  coalesce(
+    (
+      select jsonb_agg(
+        jsonb_build_object(
+          'weekday', ws.weekday,
+          'start_time', to_char(ws.start_time, 'HH24:MI'),
+          'end_time', to_char(ws.end_time, 'HH24:MI')
+        )
+        order by ws.weekday
+      )
+      from public.worker_schedule ws
+      where ws.worker_id = w.id
+    ),
+    '[]'::jsonb
+  ) as schedule,
+  coalesce(
+    (
+      select jsonb_agg(
+        jsonb_build_object(
+          'start', to_char(wur.starts_at, 'YYYY-MM-DD'),
+          'end', to_char(wur.ends_at, 'YYYY-MM-DD')
+        )
+        order by wur.starts_at
+      )
+      from public.worker_unavailable_ranges wur
+      where wur.worker_id = w.id
+    ),
+    '[]'::jsonb
+  ) as unavailable_ranges,
+  coalesce(
+    (
+      select array_remove(
+        array_agg(
+          to_char(b.scheduled_at at time zone 'Asia/Tbilisi', 'YYYY-MM-DD"T"HH24:MI')
+          order by b.scheduled_at
+        ),
+        null
+      )
+      from public.bookings b
+      where b.worker_id = w.id
+        and b.status in ('pending', 'confirmed', 'en_route', 'started', 'worker_completed')
+    ),
+    array[]::text[]
+  ) as booked_slots,
   w.created_at
 from public.workers w
 join public.users u on u.id = w.user_id
@@ -638,6 +682,26 @@ begin
 
   if not public.worker_can_receive_bookings(p_worker_id) then
     raise exception 'Worker cannot receive bookings right now';
+  end if;
+
+  if exists (
+    select 1
+    from public.bookings b
+    where b.worker_id = p_worker_id
+      and b.scheduled_at = p_scheduled_at
+      and b.status in ('pending', 'confirmed', 'en_route', 'started', 'worker_completed')
+  ) then
+    raise exception 'ეს დრო უკვე დაკავებულია. აირჩიეთ სხვა დრო.';
+  end if;
+
+  if exists (
+    select 1
+    from public.bookings b
+    where b.worker_id = p_worker_id
+      and b.client_id = client_user_id
+      and b.status in ('pending', 'confirmed', 'en_route', 'started', 'worker_completed')
+  ) then
+    raise exception 'ამ ხელოსანთან უკვე გაქვთ აქტიური ჯავშანი. ჯერ დაასრულეთ ან გააუქმეთ არსებული ჯავშანი.';
   end if;
 
   select workers.user_id

@@ -18,6 +18,16 @@ interface SupabaseWorkerCard {
   experience_years: number | string | null;
   verification_status?: "not_started" | "pending" | "verified" | "rejected" | null;
   skills: string[] | null;
+  schedule?: Array<{
+    weekday: number;
+    start_time: string;
+    end_time: string;
+  }> | null;
+  unavailable_ranges?: Array<{
+    start: string;
+    end: string;
+  }> | null;
+  booked_slots?: string[] | null;
 }
 
 const avatarColors = ["#17243a", "#2563eb", "#047857", "#b45309", "#7c3aed"];
@@ -75,6 +85,9 @@ const getSavedCraftsmanWorker = (): Worker | null => {
       : ["ინტერიერი", "ფასადი", "შეკეთება"],
     busyDays: [12, 13, 19],
     reviews: [],
+    schedule: profile.schedule || [],
+    unavailableRanges: dataService.getCraftsmanUnavailableRanges(),
+    bookedSlots: [],
   };
 };
 
@@ -125,6 +138,14 @@ const mapSupabaseWorker = (row: SupabaseWorkerCard, index: number): Worker => {
     skills,
     busyDays: [],
     reviews: [],
+    schedule:
+      row.schedule?.map((item) => ({
+        weekday: Number(item.weekday),
+        startTime: String(item.start_time || "").slice(0, 5),
+        endTime: String(item.end_time || "").slice(0, 5),
+      })) || [],
+    unavailableRanges: row.unavailable_ranges || [],
+    bookedSlots: row.booked_slots || [],
   };
 };
 

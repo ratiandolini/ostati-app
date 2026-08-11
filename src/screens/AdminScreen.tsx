@@ -28,7 +28,6 @@ import {
   saveCachedPreflightState,
 } from "../components/admin/adminPreflightCache";
 import {
-  appendDemoSystemMessage,
   prependDemoBookingNotification,
   prependDemoCraftsmanNotification,
 } from "../components/admin/adminDemoEffects";
@@ -148,10 +147,12 @@ import {
   reviewAdminWorkerVerification,
   resolveAdminDisputeAction,
   saveAdminLaunchSettings,
+  sendAdminUserNotice,
   updateAdminAccountStatus,
   updateAdminBookingAction,
   updateAdminMemberState,
   updateLaunchChecklistItem,
+  warnAdminUser,
 } from "../services/adminApiService";
 import { sendAdminBookingMessage } from "../services/messageApiService";
 import type {
@@ -194,6 +195,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   const cachedPreflightState = useMemo(loadCachedPreflightState, []);
   const preflightScope = useMemo(getPreflightCacheScope, []);
   const [tab, setTab] = useState<AdminTab>("overview");
+  const [showLaunchTools, setShowLaunchTools] = useState(false);
   const [adminQuery, setAdminQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AdminStatusFilter>("all");
   const [verificationFilter, setVerificationFilter] =
@@ -408,6 +410,9 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     () => adminLaunchState?.legalSettings ?? fallbackStorage.getLegalSettings(),
     [adminLaunchState, version]
   );
+  const settingsDirty =
+    JSON.stringify(settingsDraft) !== JSON.stringify(platformSettings) ||
+    JSON.stringify(legalDraft) !== JSON.stringify(legalSettings);
   const prePaymentChecklist = useMemo(
     () =>
       adminLaunchState?.prePaymentChecklist ??
@@ -655,13 +660,15 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     (item) => item.verificationStatus === "pending"
   ).length;
   const adminOverviewInput = {
-    verificationStatus,
+    pendingVerificationCount,
     openDisputesCount: openDisputes.length,
     urgentDisputesCount: urgentDisputes.length,
     interventionRequestsCount: interventionRequests.length,
   };
   const adminSummaryCards = getAdminSummaryCards(adminOverviewInput);
   const adminWorkQueueItems = getAdminWorkQueueItems(adminOverviewInput);
+  const showDashboard = tab === "overview";
+  const showOperationalControls = ["bookings", "disputes", "users"].includes(tab);
   const { operationalQueue, nextAdminAction } = getAdminOperationalQueue({
     pendingVerificationCount,
     urgentDisputesCount: urgentDisputes.length,
@@ -723,7 +730,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
 
     try {
       if (isDemoDataMode) {
-        appendDemoSystemMessage(bookingId, `Admin: ${text}`);
         prependDemoCraftsmanNotification(
           bookingId,
           "Admin შეტყობინება",
@@ -1009,24 +1015,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         } else if (resolution === "release_worker") {
           mirrorBookingUpdate(dispute.bookingId, "closed", "released", note);
         }
-        dataService.prependClientNotification({
-          id: `${dispute.id}-${Date.now()}`,
-          bookingId: dispute.bookingId,
-          type: "confirmed",
-          title: "დავა დაიხურა",
-          text: `დავის გადაწყვეტილება: ${resolutionText}`,
-          readAt: null,
-          createdAt: new Date().toISOString(),
-        });
-        dataService.prependCraftsmanNotification({
-          id: `${dispute.id}-worker-${Date.now()}`,
-          bookingId: dispute.bookingId,
-          type: "confirmed",
-          title: "დავა დაიხურა",
-          text: `დავის გადაწყვეტილება: ${resolutionText}`,
-          readAt: null,
-          createdAt: new Date().toISOString(),
-        });
         setAdminNote("");
         setAdminApiSuccess("დავის გადაწყვეტილება შენახულია და მხარეებს შეტყობინება გაეგზავნათ.");
         refresh();
@@ -1048,10 +1036,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       adminNote: note || current.adminNote,
       resolvedAt: new Date().toISOString(),
     }));
-    appendDemoSystemMessage(
-      dispute.bookingId,
-      `დავის გადაწყვეტილება: ${resolutionText}. ${note ? `Admin ჩანაწერი: ${note}` : ""}`.trim()
-    );
     if (resolution === "refund_client") {
       recordAudit(
         getDisputeAuditAction(resolution),
@@ -1112,28 +1096,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
           status: "reviewing",
           adminNote: note || current.adminNote,
         }));
-        dataService.prependClientNotification({
-          id: `${dispute.id}-reviewing-${Date.now()}`,
-          bookingId: dispute.bookingId,
-          type: "confirmed",
-          title: "დავა განხილვაშია",
-          text: note
-            ? `Admin ამოწმებს დავას. ჩანაწერი: ${note}`
-            : "Admin ამოწმებს დავის დეტალებს და თანხა დროებით შეჩერებულია.",
-          readAt: null,
-          createdAt: new Date().toISOString(),
-        });
-        dataService.prependCraftsmanNotification({
-          id: `${dispute.id}-worker-reviewing-${Date.now()}`,
-          bookingId: dispute.bookingId,
-          type: "confirmed",
-          title: "დავა განხილვაშია",
-          text: note
-            ? `Admin ამოწმებს დავას. ჩანაწერი: ${note}`
-            : "Admin ამოწმებს დავის დეტალებს და თანხა დროებით შეჩერებულია.",
-          readAt: null,
-          createdAt: new Date().toISOString(),
-        });
         setAdminNote("");
         setAdminApiSuccess("დავა გადავიდა განხილვაში და მხარეებს შეტყობინება გაეგზავნათ.");
         refresh();
@@ -1156,10 +1118,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       status: "reviewing",
       adminNote: note || current.adminNote,
     }));
-    appendDemoSystemMessage(
-      dispute.bookingId,
-      `დავა გადავიდა განხილვაში. ${note ? `Admin ჩანაწერი: ${note}` : "Admin ამოწმებს დეტალებს."}`
-    );
     prependDemoBookingNotification(
       dispute.bookingId,
       "დავა განხილვაშია",
@@ -1298,6 +1256,14 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     setLegalDraft(state.legalSettings);
     setAdminApiError("");
     setSettingsSaveMessage("შენახულია");
+    window.dispatchEvent(
+      new CustomEvent("platform-settings-updated", {
+        detail: {
+          platformSettings: state.platformSettings,
+          legalSettings: state.legalSettings,
+        },
+      })
+    );
   };
 
   const resetSettingsDrafts = () => {
@@ -1345,7 +1311,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     recordAudit(
       "platform_settings_updated",
       "platform",
-      `ჯავშანი ${settingsDraft.bookingFee} ლარი · საკომისიო ${settingsDraft.commissionPercent}% · თვიური ${settingsDraft.craftsmanMonthlyFee} ლარი · late cancel ${settingsDraft.lateCancellationFeePercent}%`
+      `ჯავშანი ${settingsDraft.bookingFee} ლარი · საკომისიო ${settingsDraft.commissionPercent}% · თვიური ${settingsDraft.craftsmanMonthlyFee} ლარი · დაგვიანებული გაუქმების დაკავება ${settingsDraft.lateCancellationFeePercent}%`
     );
     refresh();
   };
@@ -1561,6 +1527,15 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       adminNote:
         note || fallbackStorage.getClientProfile(phone).adminNote,
     });
+    dataService.prependClientNotification({
+      id: `client-status-${Date.now()}`,
+      title: status === "blocked" ? "ანგარიში დაბლოკილია" : "ანგარიში აქტიურია",
+      text: note || "Admin-მა ანგარიშის სტატუსი განაახლა.",
+      type: "account_status",
+      sourceType: "account_status",
+      createdAt: new Date().toISOString(),
+      readAt: null,
+    });
     recordAudit(
       "client_status_changed",
       phone,
@@ -1624,12 +1599,132 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       accountStatus: status,
       adminNote: note || profile.adminNote,
     });
+    dataService.prependCraftsmanNotification({
+      id: `craftsman-status-${Date.now()}`,
+      title: status === "blocked" ? "ანგარიში დაბლოკილია" : "ანგარიში აქტიურია",
+      text: note || "Admin-მა ანგარიშის სტატუსი განაახლა.",
+      type: "account_status",
+      sourceType: "account_status",
+      createdAt: new Date().toISOString(),
+      readAt: null,
+    });
     recordAudit(
       "craftsman_status_changed",
       targetPhone || "craftsman",
       getAccountStatusAuditSummary("craftsman", accountLabel[status], note)
     );
     setAdminNote("");
+  };
+
+  const sendAdminNoticeToUser = async (
+    targetRole: "client" | "craftsman",
+    phone: string
+  ) => {
+    if (!can("users")) {
+      setAdminApiError("ამ Admin როლს მომხმარებლებთან მიწერის უფლება არ აქვს");
+      return;
+    }
+    const text =
+      adminNote.trim() ||
+      window.prompt("რა შეტყობინება გავუგზავნოთ მომხმარებელს?")?.trim() ||
+      "";
+    if (!text) return;
+
+    setAdminApiError("");
+    setAdminApiSuccess("");
+
+    if (!isDemoDataMode) {
+      setAdminApiLoading(true);
+      try {
+        applyAdminLaunchState(
+          await sendAdminUserNotice(targetRole, phone, text)
+        );
+        setAdminApiSuccess("Admin შეტყობინება გაიგზავნა.");
+        setAdminNote("");
+      } catch (error) {
+        setAdminApiError(
+          getAdminErrorMessage(error, "Admin შეტყობინების გაგზავნა ვერ მოხერხდა")
+        );
+      } finally {
+        setAdminApiLoading(false);
+      }
+      return;
+    }
+
+    const notification = {
+      id: `admin-notice-${Date.now()}`,
+      title: "Admin შეტყობინება",
+      text,
+      type: "admin_message" as const,
+      sourceType: "admin_message",
+      createdAt: new Date().toISOString(),
+      readAt: null,
+    };
+    if (targetRole === "craftsman") {
+      dataService.prependCraftsmanNotification(notification);
+    } else {
+      dataService.prependClientNotification(notification);
+    }
+    recordAudit("admin_message_sent", phone, text);
+    setAdminNote("");
+    setAdminApiSuccess("Admin შეტყობინება გაიგზავნა.");
+    refresh();
+  };
+
+  const warnUserFromAdmin = async (
+    targetRole: "client" | "craftsman",
+    phone: string
+  ) => {
+    if (!can("users")) {
+      setAdminApiError("ამ Admin როლს გაფრთხილების გაგზავნის უფლება არ აქვს");
+      return;
+    }
+    const text =
+      adminNote.trim() ||
+      window.prompt("გაფრთხილების ტექსტი")?.trim() ||
+      "";
+    if (!text) return;
+    if (!window.confirm("გაფრთხილება გაეგზავნება მომხმარებელს და ჩაიწერება Admin ისტორიაში. გავაგრძელოთ?")) {
+      return;
+    }
+
+    setAdminApiError("");
+    setAdminApiSuccess("");
+
+    if (!isDemoDataMode) {
+      setAdminApiLoading(true);
+      try {
+        applyAdminLaunchState(await warnAdminUser(targetRole, phone, text));
+        setAdminApiSuccess("გაფრთხილება გაიგზავნა.");
+        setAdminNote("");
+      } catch (error) {
+        setAdminApiError(
+          getAdminErrorMessage(error, "გაფრთხილების გაგზავნა ვერ მოხერხდა")
+        );
+      } finally {
+        setAdminApiLoading(false);
+      }
+      return;
+    }
+
+    const notification = {
+      id: `admin-warning-${Date.now()}`,
+      title: "Admin გაფრთხილება",
+      text,
+      type: "admin_warning" as const,
+      sourceType: "admin_warning",
+      createdAt: new Date().toISOString(),
+      readAt: null,
+    };
+    if (targetRole === "craftsman") {
+      dataService.prependCraftsmanNotification(notification);
+    } else {
+      dataService.prependClientNotification(notification);
+    }
+    recordAudit("admin_warning_sent", phone, text);
+    setAdminNote("");
+    setAdminApiSuccess("გაფრთხილება გაიგზავნა.");
+    refresh();
   };
 
   return (
@@ -1743,6 +1838,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       </div>
 
       <div style={{ padding: "0 24px" }}>
+        {showDashboard && (
+          <>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
           {adminSummaryCards.filter((item) => can(item.permission)).map((item) => (
             <button
@@ -1808,6 +1905,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             ))}
           </div>
         </div>
+          </>
+        )}
 
         <div
           style={{
@@ -1847,6 +1946,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
           })}
         </div>
 
+        {showOperationalControls && (
         <div
           style={{
             ...adminCard,
@@ -1899,7 +1999,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
               </button>
             )}
           </div>
-          <div style={{ display: "flex", gap: 7, overflowX: "auto", marginTop: 10 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
             {[
               { id: "all" as const, label: "ყველა" },
               { id: "active" as const, label: "აქტიური" },
@@ -1913,7 +2013,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
                   type="button"
                   onClick={() => setStatusFilter(item.id)}
                   style={{
-                    flexShrink: 0,
                     minHeight: 34,
                     padding: "0 11px",
                     borderRadius: 999,
@@ -1922,6 +2021,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
                     border: `1px solid ${selected ? "var(--primary)" : "var(--border)"}`,
                     fontSize: 11,
                     fontWeight: 900,
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {item.label}
@@ -1953,6 +2053,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             შეზღუდვასა და ბლოკზე. ჯავშნებში „ხელოსანთან მიწერა“ ამავე ტექსტს გაუგზავნის ხელოსანს.
           </div>
         </div>
+        )}
 
         {!isDemoDataMode && (adminApiLoading || adminApiError || adminApiSuccess) && (
           <div
@@ -1983,6 +2084,34 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
         )}
 
         {tab === "overview" && (
+          <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ ...adminCard, padding: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 950 }}>
+                    გაშვების შემოწმებები
+                  </div>
+                  <div style={{ marginTop: 4, color: "var(--text3)", fontSize: 11, lineHeight: 1.4, fontWeight: 750 }}>
+                    ტექნიკური შემოწმებები და Mobile QA მხოლოდ საჭიროებისას გახსენი.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowLaunchTools((current) => !current)}
+                  style={{
+                    ...actionButton(
+                      showLaunchTools ? "#f1f5f9" : "var(--primary)",
+                      showLaunchTools ? "var(--text)" : "white"
+                    ),
+                    minWidth: 88,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {showLaunchTools ? "დამალვა" : "გახსნა"}
+                </button>
+              </div>
+            </div>
+            {showLaunchTools && (
           <AdminOverviewTab
             readyCount={readyCount}
             productionReadiness={productionReadiness}
@@ -2012,6 +2141,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             saveMobileQaScenarioNote={saveMobileQaScenarioNote}
             toggleMobileQaScenario={toggleMobileQaScenario}
           />
+            )}
+          </section>
         )}
 
         {tab === "verification" && (
@@ -2103,6 +2234,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             getClientUserStats={getClientUserStatsForPhone}
             setCraftsmanAccountStatus={setCraftsmanAccountStatus}
             setClientAccountStatus={setClientAccountStatus}
+            sendAdminNoticeToUser={sendAdminNoticeToUser}
+            warnUserFromAdmin={warnUserFromAdmin}
           />
         )}
 
@@ -2128,6 +2261,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             adminApiLoading={adminApiLoading}
             adminApiError={adminApiError}
             settingsSaveMessage={settingsSaveMessage}
+            settingsDirty={settingsDirty}
           />
         )}
 

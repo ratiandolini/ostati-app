@@ -19,6 +19,7 @@ declare
   created_dispute_id uuid;
   target_client_id uuid;
   target_worker_user_id uuid;
+  admin_user_id uuid;
 begin
   current_user_id := public.current_app_user_id();
 
@@ -61,8 +62,8 @@ begin
       target_worker_user_id,
       p_booking_id,
       'dispute',
-      'კლიენტმა პრობლემა გახსნა',
-      'მიზეზი: ' || trim(p_reason) || '. Admin გადაამოწმებს საკითხს.'
+      'ჯავშანზე დავა გაიხსნა',
+      'Admin გადაამოწმებს საკითხს და გადაწყვეტილებას შეტყობინებით გამოგიგზავნით.'
     );
   end if;
 
@@ -76,12 +77,20 @@ begin
     );
   end if;
 
-  insert into public.messages (booking_id, sender_id, text)
-  values (
-    p_booking_id,
-    current_user_id,
-    'სისტემა: დავა გაიხსნა. მიზეზი: ' || trim(p_reason) || '. Admin გადაამოწმებს საკითხს.'
-  );
+  for admin_user_id in
+    select id
+    from public.users
+    where role = 'admin'::public.user_role
+      and status = 'active'::public.user_status
+  loop
+    perform public.notify_user(
+      admin_user_id,
+      p_booking_id,
+      'admin_dispute',
+      'ახალი დავა გაიხსნა',
+      'კლიენტმა დავა გახსნა. მიზეზი და კომენტარი იხილეთ Admin პანელში.'
+    );
+  end loop;
 
   return jsonb_build_object(
     'booking_id', p_booking_id,

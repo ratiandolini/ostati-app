@@ -92,9 +92,9 @@ values
     '{
       "bookingFee": 15,
       "commissionPercent": 10,
-      "craftsmanMonthlyFee": 30,
-      "freeTrialDays": 30,
-      "freeCancellationHours": 24,
+      "craftsmanMonthlyFee": 29,
+      "freeTrialDays": 14,
+      "freeCancellationHours": 12,
       "lateCancellationFeePercent": 30,
       "authProvider": "email_password",
       "paymentProvider": "manual_mvp_hold",
@@ -105,21 +105,27 @@ values
   (
     'legal',
     '{
-      "bookingRules": "ჯავშნისას კლიენტის თანხა დროებით იყინება. ხელოსანს თანხა არ ერიცხება, სანამ სამუშაო პროცესი არ დასრულდება და სტატუსი არ დადასტურდება.",
-      "cancellationRules": "უფასო გაუქმება შესაძლებელია ვიზიტამდე მითითებული დროით ადრე. დაგვიანებული გაუქმება ან შეთანხმების დარღვევა აისახება რეიტინგსა და ანგარიშზე.",
-      "privacyRules": "ტელეფონის ნომერი და პირადი დეტალები არ ჩანს, სანამ სისტემა კომუნიკაციისთვის უსაფრთხო ეტაპს არ დაადასტურებს. ძირითადი კომუნიკაცია ჩატში რჩება.",
-      "supportRules": "დავების დროს Admin ამოწმებს ჯავშნის ისტორიას, მიმოწერას, სტატუსებს და ატვირთულ მტკიცებულებებს."
+      "bookingRules": "ჯავშნისას კლიენტის ჯავშნის საფასური დროებით იყინება. ხელოსანს თანხა არ ერიცხება, სანამ სამუშაო არ დასრულდება და კლიენტი შესრულებას არ დაადასტურებს.",
+      "cancellationRules": "უფასო გაუქმება შესაძლებელია ვიზიტამდე მითითებული დროით ადრე. ამ დროის შემდეგ გაუქმებას Admin გადაამოწმებს და თანხის შესაძლო დაკავება/დაბრუნება გადაწყდება მიზეზისა და ჯავშნის ისტორიის მიხედვით. დაგვიანება ან შეთანხმების დარღვევა აისახება რეიტინგსა და ანგარიშზე.",
+      "privacyRules": "ტელეფონის ნომერი და პირადი დეტალები არ ჩანს, სანამ სისტემა უსაფრთხო ეტაპს არ დაადასტურებს. ძირითადი კომუნიკაცია ჩატში რჩება, რათა შეთანხმებები, დაგვიანებები და მტკიცებულებები ერთ ადგილზე იყოს.",
+      "supportRules": "დავა იხსნება ჯავშნიდან ან ჩატიდან პრობლემის აღწერით. Admin ამოწმებს ჯავშნის დეტალებს, მიმოწერას, სტატუსების ისტორიას, ატვირთულ მტკიცებულებებს და თანხის მდგომარეობას, შემდეგ იღებს გადაწყვეტილებას დაბრუნებაზე, ხელოსანზე თანხის გაშვებაზე ან გაფრთხილებაზე."
     }'::jsonb
   )
-on conflict (key) do nothing;
+on conflict (key) do update
+set value_json = excluded.value_json,
+    updated_at = now();
 
 insert into public.admin_members (id, name, role, permissions, active)
 values
   ('owner', 'მფლობელი', 'owner', array['verification', 'disputes', 'bookings', 'finance', 'users', 'settings', 'audit'], true),
   ('verification', 'ვერიფიკაციის ოპერატორი', 'verification', array['verification', 'audit'], true),
-  ('support', 'Support', 'support', array['disputes', 'bookings', 'users', 'audit'], true),
+  ('support', 'დახმარების ოპერატორი', 'support', array['disputes', 'bookings', 'users', 'audit'], true),
   ('finance', 'ფინანსები', 'finance', array['finance', 'disputes', 'audit'], true)
-on conflict (id) do nothing;
+on conflict (id) do update
+set name = excluded.name,
+    role = excluded.role,
+    permissions = excluded.permissions,
+    active = excluded.active;
 
 insert into public.launch_checklist_items (id, group_key, area, label, detail, done)
 values
@@ -136,10 +142,15 @@ values
   ('worker_status_flow', 'mobile_qa', 'craftsman', 'ხელოსანი მართავს სამუშაოს სტატუსებს', 'მოლოდინში -> დადასტურებული -> გზაშია -> დაიწყო -> დასრულდა მუშაობს და refresh-ის შემდეგ არ იკარგება.', false),
   ('chat_unread', 'mobile_qa', 'client', 'ჩატი და unread badge', 'მესიჯი ჩანს ორივე მხარეს, წაკითხვის შემდეგ unread ციფრი ქრება, ფოტო/ფაილი ჩანს სწორად.', false),
   ('mobile_reviews', 'mobile_qa', 'client', 'ორმხრივი შეფასება', 'დასრულების შემდეგ კლიენტი აფასებს ხელოსანს, ხელოსანი აფასებს კლიენტს და ქარდები იხურება.', false),
+  ('profile_storage', 'mobile_qa', 'mobile', 'პროფილი, ფოტო და შენახვა', 'კლიენტის და ხელოსნის პროფილში ფოტო/სახელი/მისამართი/ნომერი ინახება, refresh-ის შემდეგ არ იკარგება.', false),
   ('verification_lock', 'mobile_qa', 'admin', 'ვერიფიკაციამდე ხელოსანი დაბლოკილია', 'დოკუმენტების ატვირთვამდე სამუშაო ადგილი არ იხსნება; Admin ხედავს დოკუმენტებს და ამტკიცებს/უარყოფს.', false),
   ('admin_dispute', 'mobile_qa', 'admin', 'Admin ამუშავებს დავას', 'პრობლემის გახსნისას Admin ხედავს მიზეზს, ჩანაწერს, თანხის სტატუსს და audit log-ს.', false),
   ('mobile_layout', 'mobile_qa', 'mobile', 'მობილური ეკრანი არ იშლება', 'ქვედა მენიუ, ფილტრები, ქარდები, modal-ები და Admin tabs არ ფარავს ტექსტს პატარა ეკრანზე.', false)
-on conflict (id) do nothing;
+on conflict (id) do update
+set group_key = excluded.group_key,
+    area = excluded.area,
+    label = excluded.label,
+    detail = excluded.detail;
 
 create or replace function public.get_admin_launch_state()
 returns jsonb
@@ -219,6 +230,7 @@ begin
             'userId', users.id,
             'name', trim(coalesce(users.first_name, '') || ' ' || coalesce(users.last_name, '')),
             'phone', users.phone,
+            'photoUrl', users.photo_url,
             'city', workers.city,
             'verificationStatus', workers.verification_status,
             'accountStatus', users.status,
@@ -290,6 +302,30 @@ begin
   return result;
 end;
 $$;
+
+create or replace function public.get_public_app_settings()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'platformSettings',
+    coalesce(
+      (select value_json from public.platform_settings where key = 'platform'),
+      '{}'::jsonb
+    ),
+    'legalSettings',
+    coalesce(
+      (select value_json from public.platform_settings where key = 'legal'),
+      '{}'::jsonb
+    )
+  );
+$$;
+
+grant execute on function public.get_public_app_settings()
+to anon, authenticated;
 
 create or replace function public.get_current_admin_context()
 returns jsonb
@@ -665,9 +701,171 @@ begin
     )
   );
 
+  perform public.notify_user(
+    target_user_id,
+    null,
+    'account_status',
+    case
+      when status_value = 'active'::public.user_status then 'ანგარიში აქტიურია'
+      when status_value = 'limited'::public.user_status then 'ანგარიში შეზღუდულია'
+      else 'ანგარიში დაბლოკილია'
+    end,
+    coalesce(nullif(trim(coalesce(p_admin_note, '')), ''), 'Admin-მა ანგარიშის სტატუსი განაახლა.')
+  );
+
   return public.get_admin_launch_state();
 end;
 $$;
+
+create or replace function public.admin_send_user_notice(
+  p_target_role text,
+  p_phone text,
+  p_message text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor uuid := public.current_app_user_id();
+  target_user_id uuid;
+  target_role public.user_role;
+  normalized_phone text := regexp_replace(coalesce(p_phone, ''), '\D', '', 'g');
+  message_text text := nullif(trim(coalesce(p_message, '')), '');
+begin
+  if not public.current_admin_has_permission('users') then
+    raise exception 'Only admins can message users';
+  end if;
+
+  if p_target_role not in ('client', 'craftsman') then
+    raise exception 'Unsupported account role: %', p_target_role;
+  end if;
+
+  if normalized_phone = '' then
+    raise exception 'Phone is required';
+  end if;
+
+  if message_text is null then
+    raise exception 'Message is required';
+  end if;
+
+  target_role := p_target_role::public.user_role;
+
+  select id
+  into target_user_id
+  from public.users
+  where role = target_role
+    and regexp_replace(phone, '\D', '', 'g') = normalized_phone
+  order by case when phone = p_phone then 0 else 1 end, created_at desc
+  limit 1;
+
+  if target_user_id is null then
+    raise exception 'User not found for role % and phone %', p_target_role, p_phone;
+  end if;
+
+  perform public.notify_user(
+    target_user_id,
+    null,
+    'admin_message',
+    'Admin შეტყობინება',
+    message_text
+  );
+
+  insert into public.audit_logs (actor_id, action, entity_type, entity_id, metadata_json)
+  values (
+    actor,
+    'admin_message_sent',
+    'user',
+    target_user_id,
+    jsonb_build_object(
+      'summary', message_text,
+      'role', p_target_role,
+      'phone', p_phone
+    )
+  );
+
+  return public.get_admin_launch_state();
+end;
+$$;
+
+create or replace function public.admin_warn_user(
+  p_target_role text,
+  p_phone text,
+  p_message text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor uuid := public.current_app_user_id();
+  target_user_id uuid;
+  target_role public.user_role;
+  normalized_phone text := regexp_replace(coalesce(p_phone, ''), '\D', '', 'g');
+  message_text text := nullif(trim(coalesce(p_message, '')), '');
+begin
+  if not public.current_admin_has_permission('users') then
+    raise exception 'Only admins can warn users';
+  end if;
+
+  if p_target_role not in ('client', 'craftsman') then
+    raise exception 'Unsupported account role: %', p_target_role;
+  end if;
+
+  if normalized_phone = '' then
+    raise exception 'Phone is required';
+  end if;
+
+  if message_text is null then
+    raise exception 'Warning message is required';
+  end if;
+
+  target_role := p_target_role::public.user_role;
+
+  select id
+  into target_user_id
+  from public.users
+  where role = target_role
+    and regexp_replace(phone, '\D', '', 'g') = normalized_phone
+  order by case when phone = p_phone then 0 else 1 end, created_at desc
+  limit 1;
+
+  if target_user_id is null then
+    raise exception 'User not found for role % and phone %', p_target_role, p_phone;
+  end if;
+
+  perform public.notify_user(
+    target_user_id,
+    null,
+    'admin_warning',
+    'Admin გაფრთხილება',
+    message_text
+  );
+
+  insert into public.audit_logs (actor_id, action, entity_type, entity_id, metadata_json)
+  values (
+    actor,
+    'admin_warning_sent',
+    'user',
+    target_user_id,
+    jsonb_build_object(
+      'summary', message_text,
+      'role', p_target_role,
+      'phone', p_phone
+    )
+  );
+
+  return public.get_admin_launch_state();
+end;
+$$;
+
+grant execute on function public.admin_send_user_notice(text, text, text)
+to authenticated;
+
+grant execute on function public.admin_warn_user(text, text, text)
+to authenticated;
 
 create or replace function public.admin_update_booking_action(
   p_booking_id uuid,
@@ -740,6 +938,11 @@ begin
     next_payment_status := target_booking.payment_status;
     audit_action := 'payment_status_changed';
     summary := 'Admin-მა ჯავშანი დავაში დატოვა';
+  end if;
+
+  if not public.is_allowed_booking_status_transition(target_booking.status, next_booking_status) then
+    summary := summary || '. ჯავშნის სტატუსი უკვე საბოლოო მდგომარეობაშია და არ შეიცვალა.';
+    next_booking_status := target_booking.status;
   end if;
 
   update public.bookings
@@ -880,13 +1083,6 @@ begin
       coalesce(note_text, 'Admin ამოწმებს დავის დეტალებს.')
     );
 
-  insert into public.messages (booking_id, sender_id, text)
-  values (
-    target_booking.id,
-    actor,
-    'დავა გადავიდა განხილვაში. ' || coalesce(note_text, 'Admin ამოწმებს დეტალებს.')
-  );
-
   insert into public.audit_logs (actor_id, action, entity_type, entity_id, metadata_json)
   values (
     actor,
@@ -965,17 +1161,22 @@ begin
     next_booking_status := 'cancelled'::public.booking_status;
     next_payment_status := 'refunded'::public.payment_status;
     audit_action := 'dispute_refunded';
-    summary := 'დავა დაიხურა კლიენტისთვის თანხის დაბრუნებით';
+    summary := 'დავა დაიხურა და თანხა კლიენტს დაუბრუნდა';
   elsif p_resolution = 'release_worker' then
     next_booking_status := 'closed'::public.booking_status;
     next_payment_status := 'captured'::public.payment_status;
     audit_action := 'dispute_released';
-    summary := 'დავა დაიხურა ხელოსანზე თანხის გაშვებით';
+    summary := 'დავა დაიხურა და თანხა ხელოსანზე გაიშვა';
   else
     next_booking_status := target_booking.status;
     next_payment_status := target_booking.payment_status;
     audit_action := 'dispute_warning';
     summary := 'დავა დაიხურა გაფრთხილებით';
+  end if;
+
+  if not public.is_allowed_booking_status_transition(target_booking.status, next_booking_status) then
+    summary := summary || '. ჯავშნის სტატუსი უკვე საბოლოო მდგომარეობაშია და არ შეიცვალა.';
+    next_booking_status := target_booking.status;
   end if;
 
   update public.disputes
@@ -1024,13 +1225,6 @@ begin
       'დავა დაიხურა',
       summary || '. Admin ჩანაწერი: ' || note_text
     );
-
-  insert into public.messages (booking_id, sender_id, text)
-  values (
-    target_booking.id,
-    actor,
-    summary || '. Admin ჩანაწერი: ' || note_text
-  );
 
   insert into public.audit_logs (actor_id, action, entity_type, entity_id, metadata_json)
   values (
@@ -1435,6 +1629,7 @@ begin
       'status', u.status,
       'rating_avg', u.rating_avg,
       'rating_count', u.rating_count,
+      'warning_count', coalesce(warnings.warning_count, 0),
       'worker_id', w.id,
       'worker_role', coalesce(p.name, 'ხელოსანი'),
       'verification_status', w.verification_status,
@@ -1454,6 +1649,24 @@ begin
     from public.users u
     left join public.workers w on w.user_id = u.id
     left join public.professions p on p.id = w.main_profession_id
+    left join lateral (
+      select count(*)::integer as warning_count
+      from (
+        select a.id
+        from public.audit_logs a
+        where a.entity_type = 'user'
+          and a.entity_id = u.id
+          and a.action = 'admin_warning_sent'
+        union all
+        select a.id
+        from public.audit_logs a
+        join public.disputes d on d.id = a.entity_id
+        join public.bookings b on b.id = d.booking_id
+        where u.role = 'craftsman'::public.user_role
+          and b.worker_id = w.id
+          and a.action = 'dispute_warning'
+      ) warning_events
+    ) warnings on true
     left join lateral (
       select
         count(*)::integer as total,
