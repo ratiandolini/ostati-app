@@ -45,8 +45,6 @@ export const platformSettingNumberFields: Array<{
   key:
     | "bookingFee"
     | "commissionPercent"
-    | "craftsmanMonthlyFee"
-    | "freeTrialDays"
     | "freeCancellationHours"
     | "lateCancellationFeePercent";
   label: string;
@@ -64,18 +62,6 @@ export const platformSettingNumberFields: Array<{
     label: "პლატფორმის საკომისიო",
     suffix: "%",
     hint: "რეალურ გადახდებში გამოიყენება შემოსავლის დასათვლელად.",
-  },
-  {
-    key: "craftsmanMonthlyFee",
-    label: "ხელოსნის თვიური გადასახადი",
-    suffix: "ლარი",
-    hint: "საცდელი პერიოდის შემდეგ აქტიურობის ფასი.",
-  },
-  {
-    key: "freeTrialDays",
-    label: "უფასო საცდელი პერიოდი",
-    suffix: "დღე",
-    hint: "ახალი ხელოსნისთვის უფასო გამოყენების პერიოდი.",
   },
   {
     key: "freeCancellationHours",

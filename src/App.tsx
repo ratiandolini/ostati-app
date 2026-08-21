@@ -424,7 +424,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (restoringSession) return;
     if (!user) {
-      if (location.pathname !== "/login") {
+      if (location.pathname !== "/login" && location.pathname !== "/admin") {
         setBrowserPath("/login", true);
       }
       return;
@@ -542,17 +542,27 @@ const App: React.FC = () => {
     if (!isDemoDataMode) {
       try {
         const nextRole = await loadApiUserIntoApp(phone, role);
+        if (role === "admin" && nextRole !== "admin") {
+          clearSupabaseSession();
+          setUser(null);
+          throw new Error("ამ ანგარიშს Admin პანელზე წვდომა არ აქვს.");
+        }
         setBrowserPath(nextRole === "admin" ? "/admin" : "/", true);
         setScreen("home");
       } catch (error) {
         reportApiError(error, { silentTransient: true });
+        if (role === "admin") {
+          clearSupabaseSession();
+          setUser(null);
+          setBrowserPath("/admin", true);
+          throw error;
+        }
         setUser({
           phone,
           role,
-          name: role === "admin" ? "ადმინისტრატორი" : undefined,
         });
         setApiAccountStatus("active");
-        setBrowserPath(role === "admin" ? "/admin" : "/", true);
+        setBrowserPath("/", true);
         setScreen("home");
       }
       return;
@@ -1226,7 +1236,11 @@ const App: React.FC = () => {
   if (!user) {
     return (
       <div style={{ height: "100%", position: "relative", overflow: "hidden" }}>
-        <LoginScreen onLogin={handleLogin} />
+        <LoginScreen
+          onLogin={handleLogin}
+          adminOnly={location.pathname === "/admin"}
+          onExitAdmin={() => setBrowserPath("/login", true)}
+        />
       </div>
     );
   }

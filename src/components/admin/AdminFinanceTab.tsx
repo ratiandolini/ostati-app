@@ -98,11 +98,6 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                     value: `${platformSettings.lateCancellationFeePercent}%`,
                     hint: "სავარაუდო თანხის დაკავება",
                   },
-                  {
-                    label: "თვიური",
-                    value: money(platformSettings.craftsmanMonthlyFee),
-                    hint: "ხელოსნის პაკეტი",
-                  },
                 ].map((item) => (
                   <div
                     key={item.label}

@@ -82,7 +82,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
 
             <div style={{ ...adminCard, padding: 14, borderColor: "#bfdbfe", background: "#eff6ff" }}>
               <h2 style={{ margin: "0 0 8px", fontSize: 17, color: "var(--text)" }}>
-                ფასები, კომისია და უფასო პერიოდი
+                ფასები და წესები
               </h2>
               <div
                 style={{
@@ -94,8 +94,6 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                 {[
                   ["ჯავშანი", `${settingsDraft.bookingFee} ლარი`],
                   ["საკომისიო", `${settingsDraft.commissionPercent}%`],
-                  ["თვიური", `${settingsDraft.craftsmanMonthlyFee} ლარი`],
-                  ["უფასო", `${settingsDraft.freeTrialDays} დღე`],
                   ["გაუქმება", `${settingsDraft.freeCancellationHours} სთ.`],
                   ["დაკავება", `${settingsDraft.lateCancellationFeePercent}%`],
                 ].map(([label, value]) => (
@@ -120,7 +118,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
               </div>
               <div style={{ marginTop: 9, color: "#1d4ed8", fontSize: 11, fontWeight: 850, lineHeight: 1.45 }}>
                 შესაცვლელი ველები ამავე გვერდზეა ქვემოთ, სათაურებით: ჯავშნის საფასური,
-                პლატფორმის საკომისიო, ხელოსნის თვიური გადასახადი და უფასო გაუქმება.
+                პლატფორმის საკომისიო და უფასო გაუქმება.
               </div>
             </div>
 

@@ -239,7 +239,8 @@ export const verifyPhoneOtp = async (
 export const signInOrSignUpWithEmail = async (
   email: string,
   password: string,
-  role: AuthRole
+  role: AuthRole,
+  allowSignUp = true
 ): Promise<SupabaseAuthSession> => {
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -262,6 +263,9 @@ export const signInOrSignUpWithEmail = async (
       loginError.code !== "invalid_credentials"
     ) {
       throw loginError;
+    }
+    if (!allowSignUp) {
+      throw new Error("Admin-ის მონაცემები ვერ დადასტურდა.");
     }
     // If login fails, try creating the user below.
   }

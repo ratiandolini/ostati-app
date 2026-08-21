@@ -637,8 +637,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const [priceMin, setPriceMin] = useState(String(initialPrice.min));
   const [priceMax, setPriceMax] = useState(String(initialPrice.max || 120));
   const { platformSettings } = usePlatformSettings();
-  const platformMonthlyFee = platformSettings.craftsmanMonthlyFee;
-  const platformFreeTrialDays = platformSettings.freeTrialDays;
   const [verification, setVerification] = useState(() => {
     if (!isDemoDataMode) {
       return {
@@ -665,25 +663,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const [verificationStatus, setVerificationStatus] = useState(() => {
     if (!isDemoDataMode) return "not_submitted";
     return readCraftsmanProfile().verificationStatus || "not_submitted";
-  });
-  const [subscriptionInfo, setSubscriptionInfo] = useState<{
-    status: "trial" | "active" | "past_due" | "cancelled";
-    trialStartedAt: string;
-    trialEndsAt: string;
-    monthlyAmount: number;
-  }>(() => {
-    const trialStartedAt = isDemoDataMode
-      ? dataService.getCraftsmanTrialStart()
-      : new Date().toISOString();
-    const trialEndsAt = new Date(
-      new Date(trialStartedAt).getTime() + platformFreeTrialDays * 86400000
-    ).toISOString();
-    return {
-      status: "trial",
-      trialStartedAt,
-      trialEndsAt,
-      monthlyAmount: platformMonthlyFee,
-    };
   });
   const [profileUploadError, setProfileUploadError] = useState("");
   const [profileSaveError, setProfileSaveError] = useState("");
@@ -783,22 +762,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       : hasAllVerificationDocuments
         ? "დოკუმენტები ატვირთულია და Admin-ის შემოწმებას ელოდება."
         : `აკლია: ${missingVerificationDocuments.join(", ")}`;
-  const trialDaysLeft = Math.max(
-    0,
-    Math.ceil(
-      (new Date(subscriptionInfo.trialEndsAt).getTime() - Date.now()) / 86400000
-    )
-  );
-  const subscriptionActive =
-    subscriptionInfo.status === "trial" || subscriptionInfo.status === "active";
-  const subscriptionStatusText =
-    subscriptionInfo.status === "active"
-      ? "პაკეტი აქტიურია"
-      : subscriptionInfo.status === "trial"
-        ? "უფასო პერიოდი აქტიურია"
-        : subscriptionInfo.status === "past_due"
-          ? "გადახდა საჭიროა"
-          : "პაკეტი გაუქმებულია";
 
   useEffect(() => {
     if (!isDemoDataMode) return;
@@ -896,20 +859,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         if (profile.experience_years != null) {
           setExperienceYears(String(Number(profile.experience_years)));
         }
-        const trialStartedAt =
-          profile.trial_started_at || new Date().toISOString();
-        const trialEndsAt = new Date(
-          new Date(trialStartedAt).getTime() + platformFreeTrialDays * 86400000
-        ).toISOString();
-        setSubscriptionInfo({
-          status:
-            profile.subscription?.status ||
-            profile.subscription_status ||
-            "trial",
-          trialStartedAt,
-          trialEndsAt,
-          monthlyAmount: Number(platformMonthlyFee || 29),
-        });
         if (profile.schedule?.length) {
           const firstSchedule = profile.schedule[0];
           setWorkDays(
@@ -955,16 +904,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       controller.abort();
     };
   }, []);
-
-  useEffect(() => {
-    setSubscriptionInfo((current) => ({
-      ...current,
-      trialEndsAt: new Date(
-        new Date(current.trialStartedAt).getTime() + platformFreeTrialDays * 86400000
-      ).toISOString(),
-      monthlyAmount: Number(platformMonthlyFee || 29),
-    }));
-  }, [platformFreeTrialDays, platformMonthlyFee]);
 
   useEffect(() => {
     if (!isDemoDataMode) return;
@@ -2335,26 +2274,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 </span>
               </div>
             </div>
-          </div>
-
-          <div
-            style={{
-              marginBottom: 16,
-              padding: 14,
-              borderRadius: 16,
-              background: subscriptionActive ? "#eff6ff" : "#fff7ed",
-              border: `1px solid ${subscriptionActive ? "#bfdbfe" : "#fed7aa"}`,
-              color: subscriptionActive ? "#1d4ed8" : "#c2410c",
-              fontSize: 12,
-              lineHeight: 1.55,
-              fontWeight: 850,
-            }}
-          >
-            {subscriptionInfo.status === "active"
-              ? `პაკეტი აქტიურია. თვიური საფასური: ${subscriptionInfo.monthlyAmount} ლარი.`
-              : subscriptionInfo.status === "trial"
-                ? `${subscriptionStatusText}: დარჩა ${trialDaysLeft} დღე. შემდეგ პაკეტი იქნება ${subscriptionInfo.monthlyAmount} ლარი/თვე.`
-                : `${subscriptionStatusText}. პაკეტის გასააქტიურებლად გადასახდელია ${subscriptionInfo.monthlyAmount} ლარი/თვე.`}
           </div>
 
           {bookingActionError && (

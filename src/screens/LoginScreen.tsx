@@ -17,6 +17,8 @@ interface LoginScreenProps {
     phone: string,
     role: "client" | "craftsman" | "admin"
   ) => void | Promise<void>;
+  adminOnly?: boolean;
+  onExitAdmin?: () => void;
 }
 
 type LoginStep = "role" | "phone" | "code";
@@ -25,10 +27,14 @@ type LoginRole = "client" | "craftsman" | "admin";
 const heroImage =
   "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1200&auto=format&fit=crop";
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({
+  onLogin,
+  adminOnly = false,
+  onExitAdmin,
+}) => {
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<LoginStep>("role");
-  const [role, setRole] = useState<LoginRole>("client");
+  const [role, setRole] = useState<LoginRole>(adminOnly ? "admin" : "client");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [generatedCode] = useState("1234");
@@ -76,8 +82,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
     try {
       if (emailAuth) {
-        await signInOrSignUpWithEmail(phone, password, role);
-        onLogin(phone.trim().toLowerCase(), role);
+        await signInOrSignUpWithEmail(phone, password, role, role !== "admin");
+        await onLogin(phone.trim().toLowerCase(), role);
         return;
       }
       if (!isDemoDataMode) {
@@ -136,10 +142,41 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       <div className="auth-content fade-up">
         <div className="auth-brand">
           <div className="auth-logo">🔨</div>
-          <span>მარჯვე</span>
+          <span>რემონტერი</span>
         </div>
 
-        {step === "role" && (
+        {adminOnly ? (
+          <>
+            <h1 className="auth-title">Admin შესვლა</h1>
+            <p className="auth-subtitle">შეიყვანე owner ანგარიშის ელ.ფოსტა და პაროლი</p>
+
+            <label className="auth-label">ელ.ფოსტა</label>
+            <div className={`auth-input-row ${error ? "auth-input-error" : ""}`}>
+              <input
+                type="email"
+                placeholder="name@example.com"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+              />
+            </div>
+            <label className="auth-label" style={{ marginTop: 12 }}>პაროლი</label>
+            <input
+              className={`auth-password-input ${error ? "auth-input-error" : ""}`}
+              type="password"
+              placeholder="მინ. 6 სიმბოლო"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+            {error && <div className="auth-error">{error}</div>}
+            <button className="auth-submit" onClick={handleSendCode} disabled={loading}>
+              {loading ? "მოწმდება..." : "შესვლა"}
+              <span>›</span>
+            </button>
+            <button className="auth-link-button" onClick={onExitAdmin}>
+              დაბრუნება მთავარ შესვლაზე
+            </button>
+          </>
+        ) : step === "role" && (
           <>
             <h1 className="auth-title">
               იპოვე სანდო ხელოსანი შენი სახლისთვის
@@ -162,20 +199,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 <small>ვარ ხელოსანი, ვეძებ კლიენტებს</small>
               </span>
               <span className="auth-role-arrow">›</span>
-            </button>
-
-            <button
-              className="auth-role"
-              onClick={() =>
-                isDemoDataMode ? onLogin("admin", "admin") : chooseRole("admin")
-              }
-            >
-                <span className="auth-role-icon">▣</span>
-                <span className="auth-role-copy">
-                  <strong>Admin პანელი</strong>
-                  <small>ვერიფიკაცია, დავები და კონტროლი</small>
-                </span>
-                <span className="auth-role-arrow">›</span>
             </button>
 
             <p className="auth-footnote">

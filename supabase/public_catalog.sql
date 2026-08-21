@@ -87,7 +87,8 @@ left join public.professions p on p.id = w.main_profession_id
 left join worker_profession_names wpn on wpn.worker_id = w.id
 where w.is_active = true
   and w.verification_status = 'verified'::public.worker_verification_status
-  and w.subscription_status in ('trial', 'active')
   and u.status = 'active';
+
+alter view public.worker_cards set (security_invoker = true);
 
 grant select on public.worker_cards to anon, authenticated;
