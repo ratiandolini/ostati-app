@@ -45,6 +45,10 @@ import {
   canChangeBookingStatus,
 } from "../utils/bookingWorkflow";
 import { usePlatformSettings } from "../hooks/usePlatformSettings";
+import { CraftsmanJobPostsPanel } from "../components/JobPostsPanel";
+import { createCurrentWorkerPortfolioItem, PortfolioItem } from "../services/marketplaceApiService";
+import { createStoragePath, uploadStorageFile } from "../services/supabaseStorageService";
+import { ReferralPanel } from "../components/ReferralPanel";
 
 interface Booking {
   id: string;
@@ -163,6 +167,7 @@ const PROFILE_SECTIONS = [
   { id: "professions", label: "პროფესია" },
   { id: "schedule", label: "სამუშაო დრო" },
   { id: "verification", label: "ვერიფიკაცია" },
+  { id: "portfolio", label: "ნამუშევრები" },
 ] as const;
 const HOURS = [
   "08:00",
@@ -668,6 +673,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const [profileSaveError, setProfileSaveError] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileUploading, setProfileUploading] = useState(false);
+  const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
+  const [portfolioBusy, setPortfolioBusy] = useState(false);
+  const [portfolioError, setPortfolioError] = useState("");
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [notificationError, setNotificationError] = useState("");
   const [bookingActionError, setBookingActionError] = useState("");
@@ -677,6 +685,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     keyof typeof verification | null
   >(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const portfolioInputRef = useRef<HTMLInputElement | null>(null);
   const fullName =
     `${firstName.trim()} ${lastName.trim()}`.trim() || "სახელი გვარი";
   const normalizedProfilePhone = profilePhone.replace(/\D/g, "");
@@ -1533,6 +1542,33 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     });
   };
 
+  const handlePortfolioUpload = async (file?: File) => {
+    if (!file) return;
+    if (portfolioItems.length >= 15) {
+      setPortfolioError("პორტფოლიოში მაქსიმუმ 15 ნამუშევრის დამატება შეიძლება.");
+      return;
+    }
+    setPortfolioBusy(true);
+    setPortfolioError("");
+    try {
+      const uploaded = await uploadStorageFile({
+        bucket: "worker-portfolio",
+        file,
+        path: createStoragePath("portfolio", file, "work"),
+      });
+      const item = await createCurrentWorkerPortfolioItem(
+        uploaded.publicUrl || uploaded.path,
+        professions[0],
+        ""
+      );
+      setPortfolioItems((current) => [item, ...current]);
+    } catch (error) {
+      setPortfolioError(error instanceof Error ? error.message : "ფოტოს ატვირთვა ვერ მოხერხდა.");
+    } finally {
+      setPortfolioBusy(false);
+    }
+  };
+
   const handleSave = async () => {
     setProfileSaveError("");
 
@@ -2321,6 +2357,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             ))}
           </div>
 
+          {isVerified && <CraftsmanJobPostsPanel />}
+
           {(visibleHomeNotifications.length > 0 || notificationError) && (
             <section style={{ marginTop: 22 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -2949,6 +2987,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             </>
           )}
 
+          {profileSection === "edit" && <ReferralPanel roleLabel="ხელოსანი" />}
+
           {profileSection === "professions" && (
           <section style={{ marginTop: 24 }}>
             <h2 style={{ margin: "0 0 12px", fontSize: 19, fontWeight: 900, color: "var(--text)" }}>
@@ -3147,6 +3187,22 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               </div>
             </div>
           </section>
+          )}
+
+          {profileSection === "portfolio" && (
+            <section style={{ marginTop: 24 }}>
+              <h2 style={{ margin: "0 0 8px", fontSize: 19, fontWeight: 900, color: "var(--text)" }}>ნამუშევრები</h2>
+              <p style={{ margin: "0 0 14px", color: "var(--text2)", fontSize: 12, lineHeight: 1.45, fontWeight: 700 }}>
+                ატვირთე რეალური შესრულებული სამუშაო. კლიენტი პროფესიისა და აღწერის მიხედვით ნახავს შენს გამოცდილებას.
+              </p>
+              <input ref={portfolioInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={(event) => { void handlePortfolioUpload(event.target.files?.[0]); event.currentTarget.value = ""; }} />
+              <button type="button" disabled={portfolioBusy} onClick={() => portfolioInputRef.current?.click()} style={{ width: "100%", minHeight: 48, borderRadius: 12, background: "var(--primary)", color: "white", fontSize: 14, fontWeight: 900, opacity: portfolioBusy ? .55 : 1 }}>
+                {portfolioBusy ? "ფოტო იტვირთება..." : "ნამუშევრის ფოტოს დამატება"}
+              </button>
+              {portfolioError && <p style={{ margin: "10px 0 0", color: "#b91c1c", fontSize: 12, fontWeight: 800, lineHeight: 1.4 }}>{portfolioError}</p>}
+              {portfolioItems.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>{portfolioItems.map((item) => <img key={item.id} src={item.image_url} alt="ნამუშევარი" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 12, border: "1px solid var(--border)" }} />)}</div>}
+              {!portfolioItems.length && <p style={{ margin: "14px 0 0", color: "var(--text2)", fontSize: 12, fontWeight: 700 }}>ჯერ ფოტო არ დაგიმატებია. მაქსიმუმ 15 ნამუშევარი შეგიძლია აჩვენო.</p>}
+            </section>
           )}
 
           {profileSection === "verification" && (

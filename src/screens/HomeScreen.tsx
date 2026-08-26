@@ -1,6 +1,7 @@
 import React from "react";
 import {
   categories,
+  categoryGroups,
   categoryLabels,
   categoryIcons,
   categoryImages,
@@ -10,6 +11,7 @@ import { Worker } from "../types";
 import { useWorkerCatalog } from "../hooks/useWorkerCatalog";
 import { EmptyState } from "../components/EmptyState";
 import { WorkerCardSkeletonList } from "../components/Skeletons";
+import { ClientJobPostsPanel } from "../components/JobPostsPanel";
 
 interface HomeScreenProps {
   onWorkerSelect: (w: Worker) => void;
@@ -29,9 +31,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     .slice(0, 3);
   const allWorkers = [...workers]
     .sort((a, b) => b.rating - a.rating);
-  const visibleCategories = categories
-    .filter((cat) => cat !== "all")
-    .slice(0, 8);
+  const visibleCategories = categoryGroups;
 
   return (
     <div className="home-page">
@@ -50,15 +50,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <h2>კატეგორიები</h2>
         <div className="home-categories">
           {visibleCategories.map((cat) => (
-            <button key={cat} onClick={() => onCategorySelect(cat)}>
+            <button key={cat.id} onClick={() => onCategorySelect(cat.professions[0])}>
               <span>
-                {categoryImages[cat] ? (
-                  <img src={categoryImages[cat]} alt="" />
+                {cat.image ? (
+                  <img src={cat.image} alt="" />
                 ) : (
-                  categoryIcons[cat]
+                  cat.icon
                 )}
               </span>
-              <small>{categoryLabels[cat]}</small>
+              <small>{cat.label}</small>
             </button>
           ))}
           <button onClick={() => onCategorySelect("all")}>
@@ -69,6 +69,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </button>
         </div>
       </section>
+
+      <ClientJobPostsPanel />
 
       <section className="home-section">
         <div className="home-section-title-row">

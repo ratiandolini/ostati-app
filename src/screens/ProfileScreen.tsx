@@ -4,6 +4,7 @@ import { dataService } from "../services/dataService";
 import { getBookingQuestionFields } from "../services/professionQuestions";
 import { bookingDetailsSchema, getValidationMessage } from "../services/validation";
 import { usePlatformSettings } from "../hooks/usePlatformSettings";
+import { loadWorkerPortfolio, PortfolioItem } from "../services/marketplaceApiService";
 
 interface ProfileScreenProps {
   worker: Worker;
@@ -128,11 +129,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   hasBooked,
   onOpenMessages,
 }) => {
+  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
   const today = startOfDay(new Date());
   const [visibleMonth, setVisibleMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1)
   );
   const [selectedDate, setSelectedDate] = useState<Date>(today);
+
+  useEffect(() => {
+    if (!worker.backendId) { setPortfolio([]); return; }
+    const controller = new AbortController();
+    loadWorkerPortfolio(worker.backendId, controller.signal).then(setPortfolio).catch(() => setPortfolio([]));
+    return () => controller.abort();
+  }, [worker.backendId]);
   const [selectedTime, setSelectedTime] = useState("");
   const [showBookingConfirm, setShowBookingConfirm] = useState(false);
   const [showBookingRules, setShowBookingRules] = useState(false);
@@ -406,6 +415,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <p>{worker.about}</p>
           <div className="profile-meta">⌖ {worker.city}</div>
         </section>
+
+        {portfolio.length > 0 && <section className="profile-section">
+          <h2>ნამუშევრები</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
+            {portfolio.map((item) => <figure key={item.id} style={{ margin: 0 }}>
+              <img src={item.image_url} alt={item.profession_name || "შესრულებული სამუშაო"} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 12, border: "1px solid var(--border)" }} />
+              {item.profession_name && <figcaption style={{ marginTop: 5, fontSize: 11, color: "var(--text2)", fontWeight: 800 }}>{item.profession_name}</figcaption>}
+            </figure>)}
+          </div>
+        </section>}
 
         <section className="profile-section">
           <h2>შეფასებები</h2>

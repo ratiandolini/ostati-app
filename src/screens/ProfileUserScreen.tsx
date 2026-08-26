@@ -11,6 +11,7 @@ import { loadMyClientPoints } from "../services/reviewApiService";
 import { mergeClientPointsWithLocalAwards } from "../services/clientPointsCache";
 import { clientProfileSchema, getValidationMessage } from "../services/validation";
 import { reportApiError } from "../services/apiErrorUtils";
+import { ReferralPanel } from "../components/ReferralPanel";
 
 interface ProfileUserScreenProps {
   user: User;
@@ -643,6 +644,8 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
           </div>
         )}
       </section>
+
+      <ReferralPanel roleLabel="მეგობარი" />
 
       <button
         onClick={onLogout}

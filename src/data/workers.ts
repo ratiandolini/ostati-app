@@ -230,6 +230,71 @@ export const categories = [
   "ხის იატაკი",
 ] as const;
 
+export interface CategoryGroup {
+  id: string;
+  label: string;
+  icon: string;
+  image: string;
+  professions: readonly string[];
+}
+
+// The catalogue intentionally stays focused on home repair. Consumer electronics,
+// IT and vehicle services belong in a different product, not in Remonter search.
+export const categoryGroups: readonly CategoryGroup[] = [
+  {
+    id: "electric",
+    label: "ელექტრო და ტექნიკა",
+    icon: "⚡",
+    image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=480&auto=format&fit=crop",
+    professions: ["ელექტრიკოსი", "გათბობა-გაგრილება", "მონტაჟი"],
+  },
+  {
+    id: "water",
+    label: "სანტექნიკა",
+    icon: "◌",
+    image: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=480&auto=format&fit=crop",
+    professions: ["სანტექნიკოსი"],
+  },
+  {
+    id: "finish",
+    label: "შიდა რემონტი",
+    icon: "▦",
+    image: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=480&auto=format&fit=crop",
+    professions: ["მალიარი", "შპალერი", "გიფსოკარდონი", "თაბაშირ-მუყაო", "კაფელები", "იატაკის დაგება", "ხის იატაკი", "ჭერის ხელოსანი", "მოსაპირკეთებელი სამუშაოები"],
+  },
+  {
+    id: "carpentry",
+    label: "ავეჯი და ხე",
+    icon: "▤",
+    image: "https://images.unsplash.com/photo-1581539250439-c96689b516dd?w=480&auto=format&fit=crop",
+    professions: ["ავეჯის ხელოსანი", "დურგალი"],
+  },
+  {
+    id: "windows",
+    label: "კარი, ფანჯარა, მინა",
+    icon: "▧",
+    image: "https://images.unsplash.com/photo-1494526585095-c41746248156?w=480&auto=format&fit=crop",
+    professions: ["ალუმინის კარ-ფანჯარა", "კარ-ფანჯრის მონტაჟი", "მინების ხელოსანი", "მეტალის კონსტრუქციები"],
+  },
+  {
+    id: "construction",
+    label: "გარე სამუშაოები",
+    icon: "⌂",
+    image: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=480&auto=format&fit=crop",
+    professions: ["ბეტონის სამუშაოები", "იზოლაცია", "სახურავი", "დემონტაჟი", "სარემონტო ბრიგადა"],
+  },
+  {
+    id: "design",
+    label: "დიზაინი და დაგეგმვა",
+    icon: "◱",
+    image: "https://images.unsplash.com/photo-1616046229478-9901c5536a45?w=480&auto=format&fit=crop",
+    professions: ["დიზაინერი"],
+  },
+] as const;
+
+export const getCategoryGroupForProfession = (profession: string) =>
+  categoryGroups.find((group) => group.professions.includes(profession));
+
 export const categoryLabels: Record<string, string> = {
   all: "ყველა",
   "ავეჯის ხელოსანი": "ავეჯის ხელოსანი",
