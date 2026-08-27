@@ -1,5 +1,6 @@
 import type { BookingStatus } from "../../types";
 import type { Booking } from "../../screens/BookingsScreen";
+import { formatGeorgianDate, formatGeorgianTime } from "../../utils/georgianDate";
 import type {
   BookingDispute,
   CraftsmanProfile,
@@ -17,12 +18,7 @@ export const deriveVerificationStatus = (profile: CraftsmanProfile) => {
 
 export const formatDate = (value?: string) => {
   if (!value) return "";
-  return new Date(value).toLocaleDateString("ka-GE", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return `${formatGeorgianDate(value, { shortMonth: true })} · ${formatGeorgianTime(value)}`;
 };
 
 export const money = (value: number) =>

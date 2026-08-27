@@ -29,6 +29,7 @@
 20. `supabase/public_catalog.sql`
 21. `supabase/admin_launch_actions.sql`
 22. `supabase/storage.sql`
+23. `supabase/marketplace_growth.sql`
 
 შემდეგ შედი აპში Admin ანგარიშით და გაუშვი Supabase preflight.
 
@@ -43,6 +44,20 @@
 
 Fresh setup-ზე ეს ფაილი ჩვეულებრივ საჭირო არ არის, რადგან ძირითადი SQL-ები უკვე
 ფარავს იმავე ლოგიკას.
+
+## Current Repair Set
+
+არსებულ პროექტზე, ხელოსნის ნომრის, დოკუმენტის ატვირთვის, მოთხოვნის რამდენიმე
+ფოტოსა და ჩატის თბილისის დროის გასასწორებლად გაუშვი ამ რიგით:
+
+1. `supabase/profile_actions.sql`
+2. `supabase/storage_profile_hotfix.sql`
+3. `supabase/marketplace_job_post_hotfix.sql`
+4. `supabase/message_time_hotfix.sql`
+
+ამის შემდეგ ერთხელ გამოდი ანგარიშიდან, თავიდან შედი და ატვირთე სატესტო
+არაპირადი JPG/PNG ფაილი. მხოლოდ ამ ცოცხალი ატვირთვის შემდეგ ჩაითვალოს Storage
+შემოწმება დასრულებულად.
 
 ## Notification Repair
 

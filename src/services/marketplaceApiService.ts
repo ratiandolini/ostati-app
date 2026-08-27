@@ -7,6 +7,8 @@ export interface JobPost {
   city: string;
   area_label?: string | null;
   description: string;
+  photo_url?: string | null;
+  photo_urls?: string[] | null;
   budget_min?: number | null;
   budget_max?: number | null;
   preferred_date?: string | null;
@@ -49,16 +51,30 @@ export const createJobPost = (input: {
   budgetMin?: number | null;
   budgetMax?: number | null;
   preferredDate?: string | null;
-}) => createSupabaseRestClient().rpc<JobPost>("create_job_post", {
-  p_title: input.title,
-  p_profession_name: input.professionName,
-  p_city: input.city,
-  p_area_label: input.areaLabel || null,
-  p_description: input.description,
-  p_budget_min: input.budgetMin || null,
-  p_budget_max: input.budgetMax || null,
-  p_preferred_date: input.preferredDate || null,
-});
+  photoUrls?: string[];
+}) => {
+  const client = createSupabaseRestClient();
+  return client.rpc<JobPost>("create_job_post", {
+    p_title: input.title,
+    p_profession_name: input.professionName,
+    p_city: input.city,
+    p_area_label: input.areaLabel || null,
+    p_description: input.description,
+    p_budget_min: input.budgetMin || null,
+    p_budget_max: input.budgetMax || null,
+    p_preferred_date: input.preferredDate || null,
+  }).then(async (post) => {
+    if (!input.photoUrls?.length) return post;
+    const updated = await client.update<JobPost>("job_posts", {
+      photo_url: input.photoUrls[0],
+      photo_urls: input.photoUrls,
+    }, { id: `eq.${post.id}` });
+    return updated[0] || { ...post, photo_url: input.photoUrls[0], photo_urls: input.photoUrls };
+  });
+};
+
+export const cancelMyJobPost = (jobPostId: string) =>
+  createSupabaseRestClient().rpc<JobPost>("cancel_my_job_post", { p_job_post_id: jobPostId });
 
 export const expressInterest = (jobPostId: string, message: string, estimateMin?: number) =>
   createSupabaseRestClient().rpc("express_interest_in_job_post", {

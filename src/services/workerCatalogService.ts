@@ -155,12 +155,22 @@ export const loadWorkerCatalog = async (
   if (isDemoDataMode) return getDemoWorkerCatalog();
 
   const client = createSupabaseRestClient();
-  const rows = await client.select<SupabaseWorkerCard>("worker_cards", {
-    select: "*",
-    order: "rating_avg.desc.nullslast,rating_count.desc",
-  }, { signal });
+  let rows: SupabaseWorkerCard[];
+  try {
+    rows = await client.rpc<SupabaseWorkerCard[]>(
+      "get_public_worker_cards",
+      {},
+      { signal }
+    );
+  } catch {
+    rows = await client.select<SupabaseWorkerCard>("worker_cards", {
+      select: "*",
+      order: "rating_avg.desc.nullslast,rating_count.desc",
+    }, { signal });
+  }
 
   return rows
     .filter((row) => row.verification_status === "verified")
+    .sort((a, b) => Number(b.rating_avg || 0) - Number(a.rating_avg || 0))
     .map(mapSupabaseWorker);
 };

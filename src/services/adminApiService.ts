@@ -500,7 +500,17 @@ export const loadAdminBookings = async () => {
 export const loadAdminDisputes = async () => {
   const client = createSupabaseRestClient();
   const rows = await client.rpc<ApiAdminDisputeRow[]>("list_admin_disputes", {});
-  return rows.map(mapAdminDispute);
+  // Keep the Admin queue stable even if older test data contains multiple open
+  // disputes for the same booking. Historical resolved disputes stay visible.
+  const seen = new Set<string>();
+  return rows
+    .map(mapAdminDispute)
+    .filter((dispute) => {
+      const key = dispute.status === "resolved" ? dispute.id : dispute.bookingId;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 };
 
 export const loadAdminUsers = async () => {

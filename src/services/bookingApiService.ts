@@ -510,6 +510,27 @@ export const cancelBookingRequest = (
   return updateBookingStatus(bookingId, "cancelled", cancellationReason);
 };
 
+export const changeBookingWorkerRequest = (
+  bookingId: string,
+  worker: Worker,
+  reason?: string
+) => {
+  if (!worker.backendId) {
+    throw new Error("არჩეული ხელოსნის მონაცემები სრულად არ არის ჩატვირთული");
+  }
+
+  const client = createSupabaseRestClient();
+  return client.rpc<{
+    old_booking_id: string;
+    new_booking_id: string;
+    status: "pending";
+  }>("change_my_booking_worker", {
+    p_booking_id: bookingId,
+    p_new_worker_id: worker.backendId,
+    p_reason: reason || null,
+  });
+};
+
 export const confirmBookingCompletion = (bookingId: string) => {
   return updateBookingStatus(bookingId, "client_confirmed");
 };

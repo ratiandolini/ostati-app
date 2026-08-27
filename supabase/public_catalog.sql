@@ -1,3 +1,4 @@
+drop function if exists public.get_public_worker_cards();
 drop view if exists public.worker_cards;
 
 create or replace view public.worker_cards as
@@ -92,3 +93,13 @@ where w.is_active = true
 alter view public.worker_cards set (security_invoker = true);
 
 grant select on public.worker_cards to anon, authenticated;
+
+create or replace function public.get_public_worker_cards()
+returns setof public.worker_cards
+language sql stable security definer set search_path = public as $$
+  select * from public.worker_cards
+  order by rating_avg desc nulls last, rating_count desc, created_at desc;
+$$;
+
+revoke all on function public.get_public_worker_cards() from public;
+grant execute on function public.get_public_worker_cards() to anon, authenticated;

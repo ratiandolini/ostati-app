@@ -108,6 +108,8 @@ path-ებს:
 supabase/profile_actions.sql
 ```
 
+თუ ხელოსნის ნომერი არ ინახება, ეს ფაილი ხელახლა გაუშვი და შემდეგ გვერდი განაახლე.
+
 შეფასებების official action-ისთვის გაუშვი:
 
 ```text
@@ -160,6 +162,24 @@ Storage bucket-ებისთვის გაუშვი:
 
 ```text
 supabase/storage.sql
+```
+
+თუ profile photo ან პირადობის ატვირთვა ისევ `Unauthorized` / `RLS` შეცდომით წყდება, დამატებით გაუშვი:
+
+```text
+supabase/storage_profile_hotfix.sql
+```
+
+კლიენტის მოთხოვნის 1-3 ფოტოსა და მოთხოვნის გაუქმებისთვის გაუშვი:
+
+```text
+supabase/marketplace_job_post_hotfix.sql
+```
+
+თუ ჩატში ჯავშნის საათი UTC-ით, მაგალითად `06:00`-ად ჩანს, გაუშვი:
+
+```text
+supabase/message_time_hotfix.sql
 ```
 
 თუ ძველ Supabase ბაზაზე profile photo, verification documents, Admin settings ან
@@ -221,6 +241,13 @@ status update action კი ამოწმებს, რომ ხელოს�
 კლიენტმა კი მხოლოდ თავისი დასადასტურებელი/გასაუქმებელი მოქმედება გააკეთოს.
 იგივე ფაილი `booking_details` table-ს უმატებს ყველა დამატებით field-ს, რომელსაც
 კლიენტი პროფესიის მიხედვით ავსებს.
+
+`booking_worker_change.sql` ამატებს `change_my_booking_worker` RPC-ს. კლიენტს შეუძლია
+მოლოდინში მყოფ ან ხელოსნის მიერ უარყოფილ მოთხოვნაზე სხვა, იმავე პროფესიის
+ვერიფიცირებული ხელოსანი აირჩიოს. ძველი მოთხოვნა არქივში რჩება, ახალი მოთხოვნა იმავე
+დროითა და დეტალებით იქმნება, ხოლო ჩატის ძველი ისტორია ახალ ხელოსანს არ გადაეცემა.
+RPC ასევე ამოწმებს დროის კონფლიქტს, გადააბამს MVP payment authorization-ს და ორივე
+მხარეს უგზავნის შესაბამის notification-ს.
 
 `profile_actions.sql` ამატებს profile update-ს, ხელოსნის სრული სამუშაო პროფილის
 load/save RPC-ებს და verification document upload RPC-ს. ხელოსნის პროფილის save ერთ

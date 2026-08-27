@@ -9,6 +9,7 @@ create table if not exists public.job_posts (
   city text not null,
   area_label text,
   description text not null check (char_length(trim(description)) between 20 and 2000),
+  photo_url text,
   budget_min numeric(10,2),
   budget_max numeric(10,2),
   preferred_date date,
@@ -19,6 +20,8 @@ create table if not exists public.job_posts (
   updated_at timestamptz not null default now(),
   check (budget_max is null or budget_min is null or budget_max >= budget_min)
 );
+
+alter table public.job_posts add column if not exists photo_url text;
 
 create table if not exists public.job_post_interests (
   id uuid primary key default gen_random_uuid(),
@@ -168,13 +171,17 @@ begin
 end $$;
 
 create or replace function public.get_or_create_referral_code()
-returns text language plpgsql security invoker set search_path = public as $$
-declare result text;
+returns text language plpgsql security definer set search_path = public as $$
+declare v_user uuid; result text;
 begin
-  select code into result from public.referral_codes where owner_user_id=public.current_app_user_id();
+  v_user := public.current_app_user_id();
+  if v_user is null then raise exception 'Authentication required'; end if;
+  select code into result from public.referral_codes where owner_user_id=v_user;
   if result is null then
-    result := upper(substr(replace(public.current_app_user_id()::text,'-',''),1,8));
-    insert into public.referral_codes(owner_user_id,code) values(public.current_app_user_id(),result);
+    result := upper(substr(replace(v_user::text,'-',''),1,8));
+    insert into public.referral_codes(owner_user_id,code) values(v_user,result)
+    on conflict (owner_user_id) do update set owner_user_id=excluded.owner_user_id
+    returning code into result;
   end if;
   return result;
 end $$;
@@ -193,15 +200,18 @@ begin
 end $$;
 
 create or replace function public.apply_referral_code(p_code text)
-returns jsonb language plpgsql security invoker set search_path = public as $$
-declare v_referrer uuid; v_role public.user_role;
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_user uuid; v_referrer uuid; v_role public.user_role;
 begin
+  v_user := public.current_app_user_id();
+  if v_user is null then raise exception 'Authentication required'; end if;
   select owner_user_id into v_referrer from public.referral_codes where code=upper(trim(p_code));
   if v_referrer is null then raise exception 'Referral code was not found'; end if;
-  if v_referrer=public.current_app_user_id() then raise exception 'You cannot use your own code'; end if;
-  select role into v_role from public.users where id=public.current_app_user_id();
+  if v_referrer=v_user then raise exception 'You cannot use your own code'; end if;
+  select role into v_role from public.users where id=v_user and status='active';
+  if v_role is null then raise exception 'Active application profile is required'; end if;
   insert into public.referrals(referrer_user_id,referred_user_id,source_role)
-  values(v_referrer,public.current_app_user_id(),v_role)
+  values(v_referrer,v_user,v_role)
   on conflict(referred_user_id) do nothing;
   return jsonb_build_object('ok',true,'message','რეფერალი დაემატა. ბონუსი ჩაირიცხება კვალიფიცირებული აქტივობის შემდეგ.');
 end $$;
@@ -212,6 +222,43 @@ grant execute on function public.select_job_post_worker(uuid,uuid) to authentica
 grant execute on function public.get_or_create_referral_code() to authenticated;
 grant execute on function public.apply_referral_code(text) to authenticated;
 grant execute on function public.add_current_worker_portfolio_item(text,text,text) to authenticated;
+
+-- Safe catalogue RPC: only the already-sanitized worker_cards columns leave the
+-- database. This keeps the view security-invoker while avoiding empty catalogues
+-- caused by RLS on its source tables.
+create or replace function public.get_public_worker_cards()
+returns setof public.worker_cards
+language sql stable security definer set search_path = public as $$
+  select * from public.worker_cards
+  order by rating_avg desc nulls last, rating_count desc, created_at desc;
+$$;
+
+revoke all on function public.get_public_worker_cards() from public;
+grant execute on function public.get_public_worker_cards() to anon, authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('job-post-photos', 'job-post-photos', true, 10485760, array['image/jpeg','image/png','image/webp'])
+on conflict (id) do update set
+  public=excluded.public,
+  file_size_limit=excluded.file_size_limit,
+  allowed_mime_types=excluded.allowed_mime_types;
+
+drop policy if exists "public can read job post photos" on storage.objects;
+create policy "public can read job post photos" on storage.objects for select
+using (bucket_id='job-post-photos');
+
+drop policy if exists "users can upload own job post photos" on storage.objects;
+create policy "users can upload own job post photos" on storage.objects for insert
+with check (bucket_id='job-post-photos' and auth.role()='authenticated' and (storage.foldername(name))[1]=auth.uid()::text);
+
+drop policy if exists "users can update own job post photos" on storage.objects;
+create policy "users can update own job post photos" on storage.objects for update
+using (bucket_id='job-post-photos' and auth.role()='authenticated' and (storage.foldername(name))[1]=auth.uid()::text)
+with check (bucket_id='job-post-photos' and auth.role()='authenticated' and (storage.foldername(name))[1]=auth.uid()::text);
+
+drop policy if exists "users can delete own job post photos" on storage.objects;
+create policy "users can delete own job post photos" on storage.objects for delete
+using (bucket_id='job-post-photos' and auth.role()='authenticated' and (storage.foldername(name))[1]=auth.uid()::text);
 
 -- Portfolio uploads share the worker's auth folder and are public only after a visible item exists.
 drop policy if exists "workers can upload own portfolio files" on storage.objects;

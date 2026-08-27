@@ -9,6 +9,7 @@ export type StorageBucket =
   | "profile-photos"
   | "verification-documents"
   | "booking-photos"
+  | "job-post-photos"
   | "worker-portfolio"
   | "chat-attachments";
 
@@ -141,6 +142,19 @@ export const uploadStorageFile = async ({
     throw new Error("Supabase session is required before uploading files.");
   }
 
+  const allowedTypes = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "application/pdf",
+  ]);
+  if (!allowedTypes.has(file.type)) {
+    throw new Error("ატვირთე JPG, PNG, WebP ან PDF ფაილი.");
+  }
+  if (file.type === "application/pdf" && file.size > 4_500_000) {
+    throw new Error("PDF ფაილი 4.5 მბ-ზე ნაკლები უნდა იყოს.");
+  }
+
   const uploadFile = await compressImageFile(file, {
     maxSide: bucket === "profile-photos" ? 900 : 1400,
     maxBytes: bucket === "profile-photos" ? 900_000 : 1_800_000,
@@ -174,6 +188,7 @@ export const uploadStorageFile = async ({
     path: cleanPath,
     publicUrl:
       bucket === "profile-photos" ||
+      bucket === "job-post-photos" ||
       bucket === "worker-portfolio"
         ? getPublicStorageUrl(bucket, cleanPath)
         : null,

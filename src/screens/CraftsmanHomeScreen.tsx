@@ -116,6 +116,18 @@ interface CraftsmanHomeScreenProps {
   onOpenMessagesForBooking?: (bookingId: string) => void;
 }
 
+const uploadErrorMessage = (error: unknown, label: "ფოტოს" | "დოკუმენტის" = "ფოტოს") => {
+  const message = error instanceof Error ? error.message : "";
+  if (/EntityTooLarge|size/i.test(message)) {
+    return `${label} ფაილი ძალიან დიდია. ატვირთე 4.5 მბ-მდე JPG, PNG, WebP ან PDF.`;
+  }
+  if (/Unauthorized|RLS|permission|session/i.test(message)) {
+    return `${label} ატვირთვა დროებით ვერ მოხერხდა. გადაამოწმე კავშირი და სცადე თავიდან; თუ განმეორდა, მხარდაჭერას მიმართე.`;
+  }
+  if (/JPG, PNG, WebP|PDF/i.test(message)) return message;
+  return `${label} ატვირთვა ვერ მოხერხდა. სცადე სხვა JPG, PNG, WebP ან PDF ფაილი.`;
+};
+
 // Polling responses are new arrays even when the server data is unchanged.
 // Preserving the old reference prevents visual resets during background sync.
 const keepEqualSnapshot = <T,>(current: T[], next: T[]) =>
@@ -498,7 +510,7 @@ const getWorkerDisputeMeta = (booking: Booking) => {
   if (booking.disputeStatus === "reviewing") {
     return {
       label: "დავა განხილვაშია",
-      detail: "Admin ამოწმებს კლიენტის აღწერას, ფოტოებს და მიმოწერას.",
+      detail: "Admin ამოწმებს კლიენტის აღწერას, ფოტოებს და მიმოწერას. პირველ პასუხს მაქსიმუმ 48 საათში მიიღებ.",
       color: "#c2410c",
       bg: "#fff7ed",
       border: "#fed7aa",
@@ -506,7 +518,7 @@ const getWorkerDisputeMeta = (booking: Booking) => {
   }
   return {
     label: "დავა გახსნილია",
-    detail: "კლიენტმა პრობლემა გახსნა. თანხა დროებით შეჩერებულია.",
+    detail: "პრობლემა მიღებულია. Admin მას 48 საათში გადაიყვანს განხილვაში ან მოგწერს დამატებით დეტალებს.",
     color: "#b45309",
     bg: "#fffbeb",
     border: "#fde68a",
@@ -696,20 +708,22 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       : "ნომერი დასამატებელია";
   const mainProfession = professions[0] || "პროფესია ასარჩევია";
   const professionText = professions.length ? professions.join(" · ") : "პროფესია ასარჩევია";
-  const normalizedPriceMin = Number(priceMin) || 0;
-  const normalizedPriceMax = Number(priceMax) || normalizedPriceMin;
+  const priceMinText = priceMin.trim();
+  const priceMaxText = priceMax.trim();
+  const normalizedPriceMin = priceMinText ? Number(priceMinText) : null;
+  const normalizedPriceMax = priceMaxText ? Number(priceMaxText) : null;
   const normalizedExperienceYears = Math.max(0, Number(experienceYears) || 0);
   const priceValidationError =
-    normalizedPriceMin <= 0
-      ? "საფასურში მინიმუმ 1 ლარი მიუთითე."
-      : priceType === "range" && normalizedPriceMax < normalizedPriceMin
-        ? "მაქსიმუმი მინიმუმზე ნაკლები ვერ იქნება."
-        : "";
-  const profilePrice = formatProfilePrice(
-    priceType,
-    normalizedPriceMin || 80,
-    normalizedPriceMax || 120
-  );
+    priceMinText && (!Number.isFinite(normalizedPriceMin) || (normalizedPriceMin || 0) <= 0)
+      ? "ფასი რიცხვით მიუთითე ან ველი დატოვე ცარიელი."
+      : priceType === "range" && priceMaxText && (!Number.isFinite(normalizedPriceMax) || (normalizedPriceMax || 0) <= 0)
+        ? "მაქსიმალური ფასი რიცხვით მიუთითე ან ველი დატოვე ცარიელი."
+        : priceType === "range" && normalizedPriceMin != null && normalizedPriceMax != null && normalizedPriceMax < normalizedPriceMin
+          ? "მაქსიმუმი მინიმუმზე ნაკლები ვერ იქნება."
+          : "";
+  const profilePrice = normalizedPriceMin == null
+    ? "ფასი შეთანხმებით"
+    : formatProfilePrice(priceType, normalizedPriceMin, normalizedPriceMax || normalizedPriceMin);
   const profileSnapshot = JSON.stringify({
     firstName,
     lastName,
@@ -734,13 +748,13 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const verificationItems = [
     {
       key: "idFront" as const,
-      title: "პირადობის წინა მხარე",
-      desc: "ატვირთეთ პირადობის პირველი გვერდი",
+      title: "პირადობა ან პასპორტი - პირველი გვერდი",
+      desc: "ატვირთე პირადობის ან პასპორტის პირველი გვერდი",
     },
     {
       key: "idBack" as const,
-      title: "პირადობის უკანა მხარე",
-      desc: "ატვირთეთ პირადობის მეორე გვერდი",
+      title: "პირადობა ან პასპორტი - მეორე გვერდი",
+      desc: "ატვირთე პირადობის ან პასპორტის მეორე გვერდი",
     },
     {
       key: "bankAccount" as const,
@@ -838,6 +852,28 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         const nextFirstName = profile.first_name || displayFirst;
         const nextLastName = profile.last_name || displayLastParts.join(" ");
         const nextPhone = profile.contact_phone || "";
+        const nextProfessions = profile.professions?.length
+          ? profile.professions
+          : professions;
+        const nextPriceType = profile.price_type || priceType;
+        const nextPriceMin = profile.price_min != null
+          ? Number(profile.price_min)
+          : normalizedPriceMin;
+        const nextPriceMax = profile.price_max != null
+          ? Number(profile.price_max)
+          : normalizedPriceMax;
+        const nextWorkDays = profile.schedule?.length
+          ? profile.schedule
+              .map((item) => WEEKDAY_TO_DAY[item.weekday])
+              .filter(Boolean)
+          : workDays;
+        const nextWorkStart = profile.schedule?.length
+          ? profile.schedule[0].start_time.slice(0, 5)
+          : workStart;
+        const nextWorkEnd = profile.schedule?.length
+          ? profile.schedule[0].end_time.slice(0, 5)
+          : workEnd;
+        const nextUnavailableRanges = profile.unavailable_ranges || unavailableRanges;
         if (nextFirstName) setFirstName(nextFirstName);
         if (nextLastName) setLastName(nextLastName);
         setProfilePhone(nextPhone);
@@ -861,26 +897,17 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             ? "not_submitted"
             : profile.verification_status || "not_submitted"
         );
-        if (profile.professions?.length) setProfessions(profile.professions);
-        if (profile.price_type) setPriceType(profile.price_type);
-        setPriceMin(profile.price_min != null ? String(Number(profile.price_min)) : "");
-        setPriceMax(profile.price_max != null ? String(Number(profile.price_max)) : "");
+        setProfessions(nextProfessions);
+        setPriceType(nextPriceType);
+        setPriceMin(nextPriceMin != null ? String(nextPriceMin) : "");
+        setPriceMax(nextPriceMax != null ? String(nextPriceMax) : "");
         if (profile.experience_years != null) {
           setExperienceYears(String(Number(profile.experience_years)));
         }
-        if (profile.schedule?.length) {
-          const firstSchedule = profile.schedule[0];
-          setWorkDays(
-            profile.schedule
-              .map((item) => WEEKDAY_TO_DAY[item.weekday])
-              .filter(Boolean)
-          );
-          setWorkStart(firstSchedule.start_time.slice(0, 5));
-          setWorkEnd(firstSchedule.end_time.slice(0, 5));
-        }
-        if (profile.unavailable_ranges) {
-          setUnavailableRanges(profile.unavailable_ranges);
-        }
+        setWorkDays(nextWorkDays);
+        setWorkStart(nextWorkStart);
+        setWorkEnd(nextWorkEnd);
+        setUnavailableRanges(nextUnavailableRanges);
         setSavedProfileSnapshot(
           JSON.stringify({
             firstName: nextFirstName,
@@ -890,16 +917,14 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             profileCity: profile.city || "თბილისი",
             experienceYears: Math.max(0, Number(profile.experience_years) || 0),
             extraWorkComment: profile.about || "",
-            professions: profile.professions?.length ? profile.professions : professions,
-            priceType: profile.price_type || priceType,
-            priceMin:
-              profile.price_min != null ? Number(profile.price_min) : normalizedPriceMin,
-            priceMax:
-              profile.price_max != null ? Number(profile.price_max) : normalizedPriceMax,
-            workDays,
-            workStart,
-            workEnd,
-            unavailableRanges: profile.unavailable_ranges || unavailableRanges,
+            professions: nextProfessions,
+            priceType: nextPriceType,
+            priceMin: nextPriceMin,
+            priceMax: nextPriceMax,
+            workDays: nextWorkDays,
+            workStart: nextWorkStart,
+            workEnd: nextWorkEnd,
+            unavailableRanges: nextUnavailableRanges,
           })
         );
       })
@@ -1590,7 +1615,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     if (!validation.success || priceValidationError) {
       setProfileSaveError(
         priceValidationError ||
-          getValidationMessage(validation.success ? null : validation.error, "პროფილის მონაცემები გადაამოწმეთ")
+          `${getValidationMessage(validation.success ? null : validation.error, "პროფილის მონაცემები გადაამოწმეთ")}. საჭირო ველები პროფილის მონაცემებსა და პროფესიის არჩევაშია.`
       );
       return;
     }
@@ -1608,8 +1633,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           professions,
           experienceYears: normalizedExperienceYears,
           priceType,
-          priceMin: normalizedPriceMin || null,
-          priceMax: priceType === "range" ? normalizedPriceMax || null : null,
+          priceMin: normalizedPriceMin,
+          priceMax: priceType === "range" ? normalizedPriceMax : null,
           schedule: workDays.map((day) => ({
             weekday: DAY_TO_WEEKDAY[day],
             startTime: workStart,
@@ -1634,8 +1659,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       } catch (error) {
         setProfileSaveError(
           error instanceof Error
-            ? error.message
-            : "პროფილის შენახვა ვერ მოხერხდა"
+            ? `შენახვა ვერ მოხერხდა: ${error.message}`
+            : "პროფილის შენახვა ვერ მოხერხდა. გადაამოწმე მონიშნული ველები."
         );
       } finally {
         setProfileSaving(false);
@@ -1667,6 +1692,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    // The user can choose the same corrected photo after an upload error.
+    event.currentTarget.value = "";
     if (!file) return;
 
     setProfileUploadError("");
@@ -1686,8 +1713,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           professions,
           experienceYears: normalizedExperienceYears,
           priceType,
-          priceMin: normalizedPriceMin || null,
-          priceMax: priceType === "range" ? normalizedPriceMax || null : null,
+          priceMin: normalizedPriceMin,
+          priceMax: priceType === "range" ? normalizedPriceMax : null,
           schedule: workDays.map((day) => ({
             weekday: DAY_TO_WEEKDAY[day],
             startTime: workStart,
@@ -1703,9 +1730,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           })
         );
       } catch (error) {
-        setProfileUploadError(
-          error instanceof Error ? error.message : "ფოტოს ატვირთვა ვერ მოხერხდა"
-        );
+        setProfileUploadError(uploadErrorMessage(error));
       } finally {
         setProfileUploading(false);
       }
@@ -1724,6 +1749,21 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     file: File
   ) => {
     setVerificationUploadError("");
+
+    const allowedTypes = new Set([
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ]);
+    if (!allowedTypes.has(file.type)) {
+      setVerificationUploadError("ატვირთე მხოლოდ JPG, PNG, WebP ან PDF დოკუმენტი.");
+      return;
+    }
+    if (file.type === "application/pdf" && file.size > 4_500_000) {
+      setVerificationUploadError("PDF ფაილი 4.5 მბ-ზე ნაკლები უნდა იყოს.");
+      return;
+    }
 
     if (!isDemoDataMode) {
       if (key === "bankAccount") return;
@@ -1750,11 +1790,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           return next;
         });
       } catch (error) {
-        setVerificationUploadError(
-          error instanceof Error
-            ? error.message
-            : "დოკუმენტის ატვირთვა ვერ მოხერხდა"
-        );
+        setVerificationUploadError(uploadErrorMessage(error, "დოკუმენტის"));
       } finally {
         setUploadingVerification(null);
       }
@@ -3092,8 +3128,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                   fontWeight: 750,
                 }}
               >
-                აირჩიე როგორ გინდა გამოჩნდეს ფასი კლიენტისთვის: ზუსტი თანხა,
-                საწყისი ფასი ან შუალედი.
+                მომსახურების ფასი არჩევითია. თუ ჯერ არ გინდა მითითება, ორივე
+                ველი ცარიელი დატოვე და კლიენტს "ფასი შეთანხმებით" გამოუჩნდება.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                 {[
@@ -3130,7 +3166,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 }}
               >
                 <label style={{ color: "var(--text2)", fontSize: 11, fontWeight: 900 }}>
-                  {priceType === "range" ? "მინიმუმი" : "ფასი"}
+                  {priceType === "range" ? "მინიმუმი (არასავალდებულო)" : "ფასი (არასავალდებულო)"}
                   <input
                     type="number"
                     min="0"
@@ -3152,7 +3188,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 </label>
                 {priceType === "range" && (
                   <label style={{ color: "var(--text2)", fontSize: 11, fontWeight: 900 }}>
-                    მაქსიმუმი
+                    მაქსიმუმი (არასავალდებულო)
                     <input
                       type="number"
                       min="0"
@@ -3344,11 +3380,12 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                     >
                       <input
                         type="file"
-                        accept="image/*,.pdf"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
                         onChange={(event) => {
                           const file = event.target.files?.[0];
-                          if (!file) return;
-                          handleVerificationUpload(item.key, file);
+                          if (file) handleVerificationUpload(item.key, file);
+                          // The same corrected file can be selected again after an error.
+                          event.currentTarget.value = "";
                         }}
                         style={{ display: "none" }}
                       />
@@ -3366,6 +3403,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                       </div>
                       <div style={{ marginTop: 6, color: "var(--text2)", fontSize: 12, lineHeight: 1.5 }}>
                         {item.desc}
+                      </div>
+                      <div style={{ marginTop: 8, color: "var(--text3)", fontSize: 11, lineHeight: 1.45, fontWeight: 750 }}>
+                        დოკუმენტი მკაფიოდ უნდა ჩანდეს. მიიღება JPG, PNG, WebP ან PDF; საბოლოოდ მას Admin ამოწმებს.
                       </div>
                     </label>
                   );
@@ -3528,8 +3568,11 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 fontWeight: 900,
               }}
             >
-              პერიოდის მონიშვნა
+              პერიოდის დამატება
             </button>
+            <p style={{ margin: "8px 0 0", color: "var(--text2)", fontSize: 11, fontWeight: 700, lineHeight: 1.4 }}>
+              პერიოდის დამატების შემდეგ ქვემოთ დააჭირე „შენახვას“, რათა ხელოსნის კალენდარიც განახლდეს.
+            </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
               {unavailableRanges.map((range, index) => (
                 <div

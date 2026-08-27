@@ -33,6 +33,7 @@ import {
   normalizeGeorgianDateLabel,
 } from "../utils/georgianDate";
 import { usePlatformSettings } from "../hooks/usePlatformSettings";
+import { useWorkerCatalog } from "../hooks/useWorkerCatalog";
 
 const keepEqualSnapshot = <T,>(current: T[], next: T[]) =>
   JSON.stringify(current) === JSON.stringify(next) ? current : next;
@@ -67,7 +68,9 @@ export interface Booking {
 
 interface BookingsScreenProps {
   bookings: Booking[];
+  isLoading?: boolean;
   onCancelBooking: (id: string, reason: string) => Promise<void> | void;
+  onChangeWorker: (id: string, worker: Worker) => Promise<void> | void;
   onReviewBooking: (id: string) => Promise<void> | void;
   onWorkerSelect: (w: Worker) => void;
   onProblemOpened?: (
@@ -100,6 +103,9 @@ const canCancelBooking = (status?: BookingStatus) =>
   status === "confirmed" ||
   status === "en_route" ||
   status === "started";
+
+const canChangeAssignedWorker = (status?: BookingStatus) =>
+  status === "pending" || status === "declined";
 
 const paymentMessage = (
   booking: Booking,
@@ -230,7 +236,7 @@ const disputeMeta = (
   if (status === "reviewing") {
     return {
       label: "დავა განხილვაშია",
-      detail: "Admin ამოწმებს დეტალებს, ფოტოებს და ჩატის ისტორიას.",
+      detail: "Admin ამოწმებს დეტალებს, ფოტოებს და ჩატის ისტორიას. პირველ პასუხს მაქსიმუმ 48 საათში მიიღებ.",
       step: 1,
       color: "#c2410c",
       bg: "#fff7ed",
@@ -239,7 +245,7 @@ const disputeMeta = (
   }
   return {
     label: "დავა გახსნილია",
-    detail: "დავა მიღებულია და ელოდება Admin-ის გადამოწმებას.",
+    detail: "დავა მიღებულია. Admin მას 48 საათში გადაიყვანს განხილვაში ან მოგწერს დამატებით დეტალებს.",
     step: 0,
     color: "#b45309",
     bg: "#fffbeb",
@@ -257,7 +263,9 @@ const hoursUntilBooking = (booking?: Booking | null) => {
 
 export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   bookings,
+  isLoading = false,
   onCancelBooking,
+  onChangeWorker,
   onReviewBooking,
   onWorkerSelect,
   onProblemOpened,
@@ -265,6 +273,12 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   const [cancelBooking, setCancelBooking] = useState<Booking | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelError, setCancelError] = useState("");
+  const [workerChangeBooking, setWorkerChangeBooking] = useState<Booking | null>(null);
+  const [workerChangeQuery, setWorkerChangeQuery] = useState("");
+  const [workerChangeError, setWorkerChangeError] = useState("");
+  const [workerChangeSubmittingId, setWorkerChangeSubmittingId] = useState<
+    number | null
+  >(null);
   const [problemBooking, setProblemBooking] = useState<Booking | null>(null);
   const [problemReason, setProblemReason] = useState("");
   const [problemDetails, setProblemDetails] = useState("");
@@ -319,6 +333,43 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [bookingView, setBookingView] = useState<"active" | "archive">("active");
   const { platformSettings, legalSettings } = usePlatformSettings();
+  const {
+    workers: workerCatalog,
+    loading: workerCatalogLoading,
+    error: workerCatalogError,
+  } = useWorkerCatalog();
+  const replacementWorkers = useMemo(() => {
+    if (!workerChangeBooking) return [];
+
+    const profession = workerChangeBooking.worker.role.trim().toLocaleLowerCase("ka-GE");
+    const query = workerChangeQuery.trim().toLocaleLowerCase("ka-GE");
+    const scheduledAt = workerChangeBooking.details.scheduledAt;
+    const scheduledTime = scheduledAt ? new Date(scheduledAt).getTime() : null;
+
+    return workerCatalog
+      .filter((worker) => {
+        const isCurrentWorker = worker.backendId && workerChangeBooking.worker.backendId
+          ? worker.backendId === workerChangeBooking.worker.backendId
+          : worker.id === workerChangeBooking.worker.id;
+        if (isCurrentWorker || worker.verificationStatus !== "verified") return false;
+
+        const professions = [worker.role, ...worker.skills]
+          .map((value) => value.trim().toLocaleLowerCase("ka-GE"));
+        if (!professions.includes(profession)) return false;
+
+        if (
+          scheduledTime !== null &&
+          worker.bookedSlots?.some((slot) => new Date(slot).getTime() === scheduledTime)
+        ) {
+          return false;
+        }
+
+        if (!query) return true;
+        return [worker.name, worker.role, worker.city, ...worker.skills]
+          .some((value) => value.toLocaleLowerCase("ka-GE").includes(query));
+      })
+      .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
+  }, [workerCatalog, workerChangeBooking, workerChangeQuery]);
   const bookingIds = useMemo(() => new Set(bookings.map((booking) => booking.id)), [bookings]);
   const reviewedBookingIds = useMemo(() => new Set(reviewedIds), [reviewedIds]);
   const archivedBookings = useMemo(
@@ -564,6 +615,24 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
       setCancelError(
         error instanceof Error ? error.message : "გაუქმება ვერ მოხერხდა"
       );
+    }
+  };
+
+  const submitWorkerChange = async (worker: Worker) => {
+    if (!workerChangeBooking || workerChangeSubmittingId !== null) return;
+
+    setWorkerChangeSubmittingId(worker.id);
+    setWorkerChangeError("");
+    try {
+      await onChangeWorker(workerChangeBooking.id, worker);
+      setWorkerChangeBooking(null);
+      setWorkerChangeQuery("");
+    } catch (error) {
+      setWorkerChangeError(
+        error instanceof Error ? error.message : "ხელოსნის შეცვლა ვერ მოხერხდა"
+      );
+    } finally {
+      setWorkerChangeSubmittingId(null);
     }
   };
 
@@ -1040,7 +1109,13 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
             })}
           </div>
         )}
-        {bookings.length === 0 ? (
+        {isLoading ? (
+          <EmptyState
+            compact
+            title="ჯავშნები იტვირთება"
+            description="მიმდინარეობს შენი მოთხოვნების შემოწმება."
+          />
+        ) : bookings.length === 0 ? (
           <EmptyState
             title="ჯავშნები არ გაქვს"
             description="აირჩიე ხელოსანი, მიუთითე მისამართი და დაჯავშნე დრო."
@@ -1649,6 +1724,29 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                     >
                       პროფილი
                     </button>
+                    {canChangeAssignedWorker(b.status) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWorkerChangeBooking(b);
+                          setWorkerChangeQuery("");
+                          setWorkerChangeError("");
+                        }}
+                        style={{
+                          flex: 1,
+                          minWidth: 118,
+                          padding: "9px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          background: "#eff6ff",
+                          color: "#1d4ed8",
+                          border: "1px solid #bfdbfe",
+                          borderRadius: 10,
+                        }}
+                      >
+                        ხელოსნის შეცვლა
+                      </button>
+                    )}
                     {canCancelBooking(b.status) && (
                       <button
                         onClick={() => {
@@ -1702,6 +1800,249 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
           </div>
         )}
       </div>
+      {workerChangeBooking && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="ხელოსნის შეცვლა"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 125,
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            background: "rgba(15,23,42,0.42)",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 430,
+              maxHeight: "88%",
+              overflowY: "auto",
+              padding: "18px 18px calc(18px + env(safe-area-inset-bottom))",
+              borderRadius: "18px 18px 0 0",
+              background: "white",
+              boxShadow: "0 -16px 40px rgba(15,23,42,0.18)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 12,
+                marginBottom: 14,
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <h3 style={{ margin: 0, fontSize: 20 }}>ხელოსნის შეცვლა</h3>
+                <p
+                  style={{
+                    margin: "5px 0 0",
+                    color: "var(--text2)",
+                    fontSize: 12,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  აირჩიეთ სხვა {workerChangeBooking.worker.role}. თარიღი, დრო,
+                  მისამართი და სამუშაოს დეტალები უცვლელი დარჩება.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="დახურვა"
+                onClick={() => {
+                  if (workerChangeSubmittingId !== null) return;
+                  setWorkerChangeBooking(null);
+                  setWorkerChangeQuery("");
+                  setWorkerChangeError("");
+                }}
+                style={{
+                  width: 38,
+                  height: 38,
+                  flex: "0 0 38px",
+                  borderRadius: 10,
+                  background: "#f1f5f9",
+                  color: "var(--text)",
+                  fontSize: 20,
+                  fontWeight: 800,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                marginBottom: 12,
+                padding: 11,
+                borderRadius: 12,
+                background: "#eff6ff",
+                border: "1px solid #bfdbfe",
+                color: "#1e40af",
+                fontSize: 12,
+                fontWeight: 800,
+                lineHeight: 1.45,
+              }}
+            >
+              ახალი ხელოსანი მოთხოვნას თავიდან დაადასტურებს. ძველი საუბარი მას არ
+              გამოუჩნდება.
+            </div>
+
+            <input
+              value={workerChangeQuery}
+              onChange={(event) => setWorkerChangeQuery(event.target.value)}
+              placeholder="ძებნა სახელით ან ქალაქით"
+              aria-label="ხელოსნის ძებნა"
+              style={{
+                width: "100%",
+                minHeight: 46,
+                marginBottom: 12,
+                padding: "0 13px",
+                borderRadius: 12,
+                border: "1px solid var(--border)",
+                background: "white",
+                color: "var(--text)",
+                fontSize: 14,
+              }}
+            />
+
+            {(workerChangeError || workerCatalogError) && (
+              <div
+                style={{
+                  marginBottom: 12,
+                  padding: 10,
+                  borderRadius: 10,
+                  background: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  color: "#b91c1c",
+                  fontSize: 12,
+                  fontWeight: 800,
+                }}
+              >
+                {workerChangeError || workerCatalogError}
+              </div>
+            )}
+
+            {workerCatalogLoading ? (
+              <div style={{ padding: 28, textAlign: "center", color: "var(--text2)" }}>
+                ხელოსნები იტვირთება...
+              </div>
+            ) : replacementWorkers.length === 0 ? (
+              <EmptyState
+                compact
+                title="სხვა თავისუფალი ხელოსანი ვერ მოიძებნა"
+                description="შეცვალეთ ძებნა ან სცადეთ მოგვიანებით. მიმდინარე ჯავშანი უცვლელი რჩება."
+              />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {replacementWorkers.map((worker) => {
+                  const submitting = workerChangeSubmittingId === worker.id;
+                  const avatarIsImage =
+                    worker.avatar.startsWith("http") || worker.avatar.startsWith("data:");
+                  return (
+                    <div
+                      key={worker.backendId || worker.id}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "48px minmax(0, 1fr) auto",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: 11,
+                        borderRadius: 12,
+                        border: "1px solid var(--border)",
+                        background: "white",
+                      }}
+                    >
+                      {avatarIsImage ? (
+                        <img
+                          src={worker.avatar}
+                          alt=""
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          aria-hidden="true"
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: "50%",
+                            display: "grid",
+                            placeItems: "center",
+                            background: worker.avatarColor,
+                            color: "white",
+                            fontWeight: 900,
+                          }}
+                        >
+                          {worker.avatar}
+                        </div>
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            color: "var(--text)",
+                            fontSize: 14,
+                            fontWeight: 900,
+                            overflowWrap: "anywhere",
+                          }}
+                        >
+                          {worker.name}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 2,
+                            color: "var(--text2)",
+                            fontSize: 11,
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          ★ {worker.rating.toFixed(1)} ({worker.reviewCount}) · {worker.city}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 3,
+                            color: "var(--text2)",
+                            fontSize: 11,
+                            fontWeight: 800,
+                          }}
+                        >
+                          {worker.price}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={workerChangeSubmittingId !== null}
+                        onClick={() => submitWorkerChange(worker)}
+                        style={{
+                          minWidth: 68,
+                          minHeight: 38,
+                          padding: "0 11px",
+                          borderRadius: 10,
+                          background: submitting ? "#94a3b8" : "#17243a",
+                          color: "white",
+                          fontSize: 11,
+                          fontWeight: 900,
+                          opacity:
+                            workerChangeSubmittingId !== null && !submitting ? 0.55 : 1,
+                        }}
+                      >
+                        {submitting ? "იცვლება..." : "არჩევა"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {cancelBooking && (
         <div
           style={{
@@ -1875,7 +2216,8 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
               }}
             >
               აირჩიეთ მიზეზი. დაჯავშნის საფასური დროებით შეჩერდება, სანამ
-              საკითხი გაირკვევა.
+              საკითხი გაირკვევა. Admin პირველ პასუხს მაქსიმუმ 48 საათში
+              მოგწერთ; სტატუსს ამავე ჯავშანში ნახავთ.
             </p>
             {problemError && (
               <div

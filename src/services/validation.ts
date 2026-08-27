@@ -58,8 +58,10 @@ export const craftsmanProfileSchema = z
       .min(0, "სტაჟი უარყოფითი ვერ იქნება")
       .max(60, "სტაჟი გადაამოწმეთ"),
     priceType: z.enum(["fixed", "from", "range"]),
-    priceMin: z.number().min(1, "საფასურში მინიმუმ 1 ლარი მიუთითეთ"),
-    priceMax: z.number().nullable(),
+    // მომსახურების ფასი პროფილზე არჩევითია: ხელოსანს შეუძლია კლიენტთან
+    // ინდივიდუალურად შეათანხმოს თანხა.
+    priceMin: z.number().positive("ფასი 1 ლარზე მეტი უნდა იყოს").nullable(),
+    priceMax: z.number().positive("ფასი 1 ლარზე მეტი უნდა იყოს").nullable(),
     workDays: z.array(z.string()).min(1, "მინიმუმ ერთი სამუშაო დღე მონიშნეთ"),
     workStart: z.string().regex(/^\d{2}:\d{2}$/, "სამუშაოს დაწყების დრო გადაამოწმეთ"),
     workEnd: z.string().regex(/^\d{2}:\d{2}$/, "სამუშაოს დასრულების დრო გადაამოწმეთ"),
@@ -67,6 +69,8 @@ export const craftsmanProfileSchema = z
   .refine(
     (profile) =>
       profile.priceType !== "range" ||
+      profile.priceMax == null ||
+      profile.priceMin == null ||
       profile.priceMax == null ||
       profile.priceMax >= profile.priceMin,
     {

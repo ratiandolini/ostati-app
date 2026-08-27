@@ -538,19 +538,23 @@ body {
 .home-categories {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 64px;
-  gap: 18px;
+  grid-auto-columns: 92px;
+  gap: 12px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 2px 1px 8px;
+  scroll-snap-type: x proximity;
 }
 
 .home-categories button {
+  width: 92px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
   background: transparent;
   color: var(--text);
+  scroll-snap-align: start;
 }
 
 .home-categories span {
@@ -574,12 +578,25 @@ body {
 }
 
 .home-categories small {
-  max-width: 74px;
+  width: 100%;
+  min-height: 42px;
   color: var(--text);
   font-size: 11px;
-  line-height: 1.25;
+  line-height: 1.4;
   font-weight: 750;
   text-align: center;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
+.home-request-panel {
+  margin: 0 0 30px;
+}
+
+.home-request-panel > section {
+  margin-top: 0 !important;
 }
 
 .home-workers {

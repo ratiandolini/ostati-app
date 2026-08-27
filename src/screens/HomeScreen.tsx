@@ -1,9 +1,6 @@
 import React from "react";
 import {
-  categories,
   categoryGroups,
-  categoryLabels,
-  categoryIcons,
   categoryImages,
 } from "../data/workers";
 import { WorkerCard } from "../components/WorkerCard";
@@ -70,7 +67,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       </section>
 
-      <ClientJobPostsPanel />
+      <div className="home-request-panel">
+        <ClientJobPostsPanel />
+      </div>
 
       <section className="home-section">
         <div className="home-section-title-row">

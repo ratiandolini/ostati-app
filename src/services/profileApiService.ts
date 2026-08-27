@@ -190,6 +190,9 @@ export const saveCurrentWorkerProfile = async (
     if (!/PGRST202|PGRST203|schema cache|Could not find the function|Could not choose the best candidate/i.test(message)) {
       throw error;
     }
+    if (profile.contactPhone?.trim()) {
+      throw new Error("პროფილის შენახვის სერვერი განახლებას საჭიროებს. ადმინმა Supabase-ში უნდა გაუშვას profile_actions.sql.");
+    }
     return client.rpc("save_current_worker_profile", {
       p_first_name: profile.firstName || null,
       p_last_name: profile.lastName || null,

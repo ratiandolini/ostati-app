@@ -21,6 +21,13 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
     array['image/jpeg', 'image/png', 'image/webp']
   ),
   (
+    'job-post-photos',
+    'job-post-photos',
+    true,
+    10485760,
+    array['image/jpeg', 'image/png', 'image/webp']
+  ),
+  (
     'worker-portfolio',
     'worker-portfolio',
     true,
@@ -44,7 +51,34 @@ on storage.objects;
 
 create policy "public can read public profile and portfolio files"
 on storage.objects for select
-using (bucket_id in ('profile-photos', 'worker-portfolio'));
+using (bucket_id in ('profile-photos', 'worker-portfolio', 'job-post-photos'));
+
+drop policy if exists "authenticated users can upload job post photos"
+on storage.objects;
+
+create policy "authenticated users can upload job post photos"
+on storage.objects for insert
+with check (
+  bucket_id = 'job-post-photos'
+  and auth.role() = 'authenticated'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "authenticated users can update own job post photos"
+on storage.objects;
+
+create policy "authenticated users can update own job post photos"
+on storage.objects for update
+using (
+  bucket_id = 'job-post-photos'
+  and auth.role() = 'authenticated'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'job-post-photos'
+  and auth.role() = 'authenticated'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
 
 drop policy if exists "authenticated users can upload profile photos"
 on storage.objects;

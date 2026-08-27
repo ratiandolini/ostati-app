@@ -647,6 +647,16 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
 
       <ReferralPanel roleLabel="მეგობარი" />
 
+      <section style={{ marginTop: 22, padding: 16, borderRadius: 14, border: "1px solid var(--border)", background: "white" }}>
+        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>გადახდის მეთოდი</h3>
+        <p style={{ margin: "7px 0 0", color: "var(--text2)", fontSize: 12, lineHeight: 1.5, fontWeight: 700 }}>
+          ბარათის მონაცემები აქ არ ინახება. გადახდების ჩართვისას ბარათი ბანკის დაცულ გვერდზე მიებმება.
+        </p>
+        <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: "#f8fafc", color: "var(--text2)", fontSize: 12, fontWeight: 850 }}>
+          ბარათი ჯერ არ არის მიბმული
+        </div>
+      </section>
+
       <button
         onClick={onLogout}
         style={{

@@ -214,8 +214,8 @@ begin
         concat_ws(
           ' · ',
           coalesce(p.name, 'სამუშაო'),
-          to_char(b.scheduled_at, 'DD.MM.YYYY'),
-          to_char(b.scheduled_at, 'HH24:MI')
+          to_char(b.scheduled_at at time zone 'Asia/Tbilisi', 'DD.MM.YYYY'),
+          to_char(b.scheduled_at at time zone 'Asia/Tbilisi', 'HH24:MI')
         ),
       'status', b.status,
       'last_text', coalesce(last_message.text, 'ჯერ მიმოწერა არ არის'),

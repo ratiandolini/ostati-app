@@ -13,6 +13,7 @@ import { useWorkerCatalog } from "../hooks/useWorkerCatalog";
 
 interface SearchScreenProps {
   onWorkerSelect: (w: Worker) => void;
+  onBack: () => void;
   initialCategory?: string;
 }
 
@@ -32,6 +33,7 @@ const isSearchSort = (value: string): value is SearchSort =>
 
 export const SearchScreen: React.FC<SearchScreenProps> = ({
   onWorkerSelect,
+  onBack,
   initialCategory = "all",
 }) => {
   const [query, setQuery] = useState("");
@@ -106,7 +108,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
           }}
         >
           <button
-            onClick={() => setActiveCategory("all")}
+            onClick={onBack}
             style={{
               width: 40,
               height: 40,

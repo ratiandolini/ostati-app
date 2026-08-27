@@ -18,6 +18,7 @@ import { isAbortError, reportApiError } from "./services/apiErrorUtils";
 import {
   cancelBookingRequest,
   captureBookingPayment,
+  changeBookingWorkerRequest,
   confirmBookingCompletion,
   createBookingRequest,
   refundBookingPayment,
@@ -279,6 +280,9 @@ const App: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>(() => {
     return isDemoDataMode ? dataService.getClientBookings() : [];
   });
+  const [clientBookingsHydrated, setClientBookingsHydrated] = useState(
+    isDemoDataMode
+  );
   const [craftsmanBookings, setCraftsmanBookings] = useState<
     CraftsmanBookingRequest[]
   >([]);
@@ -339,11 +343,16 @@ const App: React.FC = () => {
     setApiWorkerVerificationStatus(null);
 
     if (nextRole === "client") {
+      setClientBookingsHydrated(false);
       loadClientBookings()
-        .then(setBookings)
+        .then((nextBookings) => {
+          setBookings(nextBookings);
+          setClientBookingsHydrated(true);
+        })
         .catch((error) => {
           reportApiError(error, { silentTransient: true });
           setBookings([]);
+          setClientBookingsHydrated(true);
         });
     } else if (nextRole === "craftsman") {
       loadWorkerBookings()
@@ -353,9 +362,11 @@ const App: React.FC = () => {
           setCraftsmanBookings([]);
         });
       setBookings([]);
+      setClientBookingsHydrated(false);
     } else {
       setBookings([]);
       setCraftsmanBookings([]);
+      setClientBookingsHydrated(false);
     }
 
     if (nextRole === "craftsman") {
@@ -476,6 +487,7 @@ const App: React.FC = () => {
           const nextBookings = await loadClientBookings(controller.signal);
           if (!cancelled) {
             setBookings((current) => keepEqualSnapshot(current, nextBookings));
+            setClientBookingsHydrated(true);
           }
           return;
         }
@@ -488,6 +500,9 @@ const App: React.FC = () => {
           }
         }
       } catch (error) {
+        if (!cancelled && user.role === "client") {
+          setClientBookingsHydrated(true);
+        }
         reportApiError(error, { silentTransient: true });
       }
     };
@@ -780,7 +795,7 @@ const App: React.FC = () => {
     }
     setPrevScreen(screen);
     setSelectedWorker(w);
-    setScreen("profile");
+    showScreen("profile");
   };
 
   const goToCategory = (cat: string) => {
@@ -1049,6 +1064,144 @@ const App: React.FC = () => {
         }
       }
       return next;
+    });
+  };
+
+  const handleChangeBookingWorker = async (id: string, worker: Worker) => {
+    const targetBooking = bookings.find((booking) => booking.id === id);
+    if (!targetBooking) {
+      throw new Error("ჯავშანი ვერ მოიძებნა");
+    }
+    if (targetBooking.status !== "pending" && targetBooking.status !== "declined") {
+      throw new Error(
+        "ხელოსნის შეცვლა შესაძლებელია მხოლოდ მოლოდინში ან უარყოფილ ჯავშანზე"
+      );
+    }
+    if (targetBooking.worker.id === worker.id) {
+      throw new Error("აირჩიეთ სხვა ხელოსანი");
+    }
+
+    if (!isDemoDataMode) {
+      setBookingActionError("");
+      try {
+        await changeBookingWorkerRequest(
+          id,
+          worker,
+          "კლიენტმა სხვა ხელოსანი აირჩია"
+        );
+        setBookings(await loadClientBookings());
+        window.dispatchEvent(
+          new CustomEvent("booking-status-updated", {
+            detail: { bookingId: id, status: "cancelled", target: "client" },
+          })
+        );
+        return;
+      } catch (error) {
+        const message = getValidationMessage(error, "ხელოსნის შეცვლა ვერ მოხერხდა");
+        setBookingActionError(message);
+        throw new Error(message);
+      }
+    }
+
+    const newBookingId = `${worker.id}-${targetBooking.day}-${targetBooking.time}-${Date.now()}`;
+    const nextBooking: Booking = {
+      ...targetBooking,
+      id: newBookingId,
+      worker,
+      status: "pending",
+      paymentStatus: "held",
+      cancellationReason: undefined,
+      cancellationPolicy: undefined,
+      cancellationPenaltyAmount: undefined,
+      disputeReason: undefined,
+      disputeDetails: undefined,
+      disputeStatus: undefined,
+      disputeResolution: undefined,
+      disputeEvidence: undefined,
+    };
+
+    setBookings((current) => {
+      const next = [
+        nextBooking,
+        ...current.map((booking) =>
+          booking.id === id
+            ? {
+                ...booking,
+                status:
+                  booking.status === "pending"
+                    ? ("cancelled" as const)
+                    : booking.status,
+                paymentStatus: "refunded" as const,
+                cancellationReason: "კლიენტმა სხვა ხელოსანი აირჩია",
+                cancellationPolicy: "free" as const,
+              }
+            : booking
+        ),
+      ];
+      dataService.saveClientBookings(next);
+      return next;
+    });
+
+    const oldRequest = dataService
+      .getCraftsmanRequests()
+      .find((request) => request.id === id);
+    dataService.updateCraftsmanRequest(id, (request) => ({
+      ...request,
+      status: request.status === "pending" ? "cancelled" : request.status,
+      cancellationReason: "კლიენტმა სხვა ხელოსანი აირჩია",
+    }));
+    dataService.prependCraftsmanRequest({
+      ...(oldRequest || {
+        clientName: getClientShortName(user?.phone || "", user?.name),
+        clientPhone: user?.phone || "",
+        date: targetBooking.dateLabel,
+        time: targetBooking.time,
+        address: targetBooking.details.visitAddress || "მისამართი დასაზუსტებელია",
+        service: worker.role,
+        comment: targetBooking.details.comment,
+        measurements: {
+          area: targetBooking.details.area,
+          height: targetBooking.details.height,
+          length: targetBooking.details.length,
+          rooms: targetBooking.details.rooms,
+          extraMeasurements: targetBooking.details.extraMeasurements,
+          wallCondition: targetBooking.details.wallCondition,
+          targetSurface: targetBooking.details.targetSurface,
+          materialOwner: targetBooking.details.materialOwner,
+          plumbingType: targetBooking.details.plumbingType,
+          floor: targetBooking.details.floor,
+          electricPoints: targetBooking.details.electricPoints,
+          electricPanel: targetBooking.details.electricPanel,
+          isEmergency: targetBooking.details.isEmergency,
+          workScope: targetBooking.details.workScope,
+          surfaceType: targetBooking.details.surfaceType,
+          materialNote: targetBooking.details.materialNote,
+          itemCount: targetBooking.details.itemCount,
+          currentCondition: targetBooking.details.currentCondition,
+          photoNote: targetBooking.details.photoNote,
+          sitePhoto: targetBooking.details.sitePhoto,
+          roofType: targetBooking.details.roofType,
+        },
+      }),
+      id: newBookingId,
+      status: "pending",
+      service: worker.role,
+      cancellationReason: undefined,
+    });
+    dataService.prependCraftsmanNotification({
+      id: `${newBookingId}-replacement-${Date.now()}`,
+      bookingId: newBookingId,
+      type: "confirmed",
+      title: "ახალი ჯავშანი",
+      text: `${nextBooking.dateLabel} · ${nextBooking.time} · ${worker.role}`,
+      readAt: null,
+      createdAt: new Date().toISOString(),
+    });
+    dataService.prependClientNotification({
+      id: `${newBookingId}-replacement-client-${Date.now()}`,
+      bookingId: newBookingId,
+      type: "confirmed",
+      text: "ახალი მოთხოვნა არჩეულ ხელოსანს გაეგზავნა და პასუხს ელოდება.",
     });
   };
 
@@ -1354,9 +1507,10 @@ const App: React.FC = () => {
         />
       )}
       {screen === "search" && (
-        <SearchScreen
-          onWorkerSelect={goToWorker}
-          initialCategory={searchCategory}
+          <SearchScreen
+            onWorkerSelect={goToWorker}
+            onBack={() => showScreen("home")}
+            initialCategory={searchCategory}
         />
       )}
       {screen === "profile" && selectedWorker && (
@@ -1371,7 +1525,9 @@ const App: React.FC = () => {
       {screen === "bookings" && (
         <BookingsScreen
           bookings={bookings}
+          isLoading={user?.role === "client" && !clientBookingsHydrated}
           onCancelBooking={handleCancelBooking}
+          onChangeWorker={handleChangeBookingWorker}
           onReviewBooking={handleReviewBooking}
           onWorkerSelect={goToWorker}
           onProblemOpened={handleProblemOpened}
@@ -1381,6 +1537,7 @@ const App: React.FC = () => {
         <MessagesScreen
           user={user}
           bookings={bookings}
+          craftsmanBookings={craftsmanBookings}
           onUnreadChange={handleUnreadChange}
           accountStatus={accountStatus}
           focusedBookingId={messageTargetBookingId}

@@ -187,6 +187,41 @@ const fallbackThreadsFromCraftsmanBookings = (
       archived: archivedStatuses.includes(booking.status || ""),
     }));
 
+// The booking is the source of truth for who the conversation is with. This
+// keeps a stale RPC label from making two different conversations look alike.
+const attachBookingParticipants = (
+  items: Thread[],
+  role: MessageRole,
+  clientBookings: Booking[],
+  workerBookings: CraftsmanBookingRequest[]
+) => {
+  const bookingThreads =
+    role === "client"
+      ? fallbackThreadsFromClientBookings(clientBookings)
+      : fallbackThreadsFromCraftsmanBookings(workerBookings);
+  const byBookingId = new Map(bookingThreads.map((thread) => [thread.id, thread]));
+  const unique = new Map<string, Thread>();
+
+  items.forEach((thread) => {
+    const booking = byBookingId.get(thread.id);
+    const normalized = booking
+      ? {
+          ...thread,
+          title: booking.title,
+          subtitle: booking.subtitle,
+          status: booking.status,
+          archived: booking.archived,
+        }
+      : thread;
+    const previous = unique.get(normalized.id);
+    if (!previous || normalized.lastAt.localeCompare(previous.lastAt) >= 0) {
+      unique.set(normalized.id, normalized);
+    }
+  });
+
+  return sortThreads(Array.from(unique.values()));
+};
+
 export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   user,
   bookings,
@@ -341,7 +376,12 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
           : await loadWorkerBookings(signal);
         nextThreads = fallbackThreadsFromCraftsmanBookings(workerBookings);
       }
-      nextThreads = sortThreads(nextThreads);
+      nextThreads = attachBookingParticipants(
+        nextThreads,
+        role,
+        bookings,
+        craftsmanBookings
+      );
       setApiThreads(nextThreads);
       onUnreadChange?.(
         nextThreads.reduce((sum, thread) => sum + thread.unreadCount, 0)
@@ -378,6 +418,13 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
       );
     }
   }, [apiThreads.length, bookings, craftsmanBookings, role]);
+
+  useEffect(() => {
+    if (isDemoDataMode) return;
+    setApiThreads((current) =>
+      attachBookingParticipants(current, role, bookings, craftsmanBookings)
+    );
+  }, [role, bookings, craftsmanBookings]);
 
   useEffect(() => {
     if (!threads.length) return;
