@@ -208,6 +208,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     }
     return [];
   });
+  const [expandedProfessionCategoryId, setExpandedProfessionCategoryId] =
+    useState("");
+  const [expandedSupervisorOptions, setExpandedSupervisorOptions] =
+    useState(false);
   const initialPrice = isDemoDataMode
     ? parseStoredPrice(readCraftsmanProfile().price)
     : { type: "range" as const, min: 80, max: 120 };
@@ -2314,29 +2318,41 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               {categoryGroups.map((category) => {
                 const allValue = getAllProfessionValue(category);
                 const allSelected = professions.includes(allValue);
-                return <div key={category.id} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
-                  <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 46, padding: "0 12px", background: "#f8fafc", color: "var(--text)", fontSize: 14, fontWeight: 900, cursor: "pointer" }}>
-                    <span>{category.label}</span>
-                    <span style={{ display: "flex", alignItems: "center", gap: 7, color: "var(--primary)", fontSize: 12 }}><span>ყველაფერს</span><input type="checkbox" checked={allSelected} onChange={() => toggleCategoryAll(category)} style={{ width: 18, height: 18, accentColor: "var(--primary)" }} /></span>
-                  </label>
-                  <div style={{ display: "grid", gap: 7, padding: 10 }}>
+                const selectedCount = professions.filter((value) =>
+                  value.startsWith(`${category.id}::`)
+                ).length;
+                const isExpanded = expandedProfessionCategoryId === category.id;
+                const indicator = allSelected
+                  ? "ყველა სამუშაო"
+                  : selectedCount
+                    ? `${selectedCount} სამუშაო არჩეული`
+                    : "არაფერი არჩეული";
+                return <div key={category.id} style={{ border: `1px solid ${isExpanded || selectedCount || allSelected ? "var(--primary)" : "var(--border)"}`, borderRadius: 12, overflow: "hidden", background: "white" }}>
+                  <button type="button" onClick={() => setExpandedProfessionCategoryId((current) => current === category.id ? "" : category.id)} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 12, width: "100%", minHeight: 54, padding: "10px 12px", background: isExpanded ? "#f0f7ff" : "white", color: "var(--text)", textAlign: "left" }}>
+                    <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: 14, lineHeight: 1.35, fontWeight: 900, overflowWrap: "anywhere" }}>{category.label}</span><span style={{ display: "block", marginTop: 2, color: isExpanded || selectedCount || allSelected ? "var(--primary)" : "var(--text3)", fontSize: 12, lineHeight: 1.3, fontWeight: 800 }}>{indicator}</span></span>
+                    <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1, color: "var(--primary)" }}>{isExpanded ? "⌃" : "⌄"}</span>
+                  </button>
+                  {isExpanded && <div style={{ display: "grid", gap: 8, padding: 12, borderTop: "1px solid var(--border)", background: "#f8fafc" }}>
+                    <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 42, padding: "0 10px", borderRadius: 9, background: allSelected ? "#f0f7ff" : "white", color: allSelected ? "var(--primary)" : "var(--text)", fontSize: 13, lineHeight: 1.35, fontWeight: 900, cursor: "pointer" }}><span style={{ minWidth: 0, overflowWrap: "anywhere" }}>ყველაფერს ვასრულებ</span><input type="checkbox" checked={allSelected} onChange={() => toggleCategoryAll(category)} style={{ flex: "0 0 auto", width: 18, height: 18, accentColor: "var(--primary)" }} /></label>
+                  <div style={{ display: "grid", gap: 7 }}>
                     {category.subcategories.map((subcategory) => {
                       const value = makeServiceSelection(category.id, subcategory.label);
                       const selected = allSelected || professions.includes(value);
-                      return <label key={value} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 38, padding: "0 10px", borderRadius: 9, background: selected ? "#f0f7ff" : "white", color: selected ? "var(--primary)" : "var(--text2)", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
-                        <span>{subcategory.label}</span>
-                        <input type="checkbox" checked={selected} onChange={() => setProfessions((current) => {
+                      return <label key={value} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 42, padding: "8px 10px", borderRadius: 9, background: selected ? "#f0f7ff" : "white", color: selected ? "var(--primary)" : "var(--text2)", fontSize: 13, lineHeight: 1.35, fontWeight: 800, cursor: "pointer" }}>
+                        <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{subcategory.label}</span>
+                        <input type="checkbox" checked={selected} disabled={allSelected} onChange={() => setProfessions((current) => {
                           const withoutAll = current.filter((item) => item !== allValue);
                           return withoutAll.includes(value) ? withoutAll.filter((item) => item !== value) : [...withoutAll, value];
-                        })} style={{ width: 17, height: 17, accentColor: "var(--primary)" }} />
+                        })} style={{ flex: "0 0 auto", width: 17, height: 17, accentColor: "var(--primary)" }} />
                       </label>;
                     })}
                   </div>
+                  </div>}
                 </div>;
               })}
-              <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12, display: "grid", gap: 8 }}>
-                <strong style={{ fontSize: 14 }}>სამუშაოთა ხელმძღვანელი (პრარაბი / ბრიგადირი)</strong>
-                {SUPERVISOR_CAPABILITIES.map((capability) => <label key={capability} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 36, color: "var(--text2)", fontSize: 13, fontWeight: 800, cursor: "pointer" }}><span>{capability}</span><input type="checkbox" checked={professions.includes(capability)} onChange={() => toggleProfession(capability)} style={{ width: 17, height: 17, accentColor: "var(--primary)" }} /></label>)}
+              <div style={{ border: `1px solid ${expandedSupervisorOptions || SUPERVISOR_CAPABILITIES.some((capability) => professions.includes(capability)) ? "var(--primary)" : "var(--border)"}`, borderRadius: 12, overflow: "hidden", background: "white" }}>
+                <button type="button" onClick={() => setExpandedSupervisorOptions((current) => !current)} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 12, width: "100%", minHeight: 54, padding: "10px 12px", background: expandedSupervisorOptions ? "#f0f7ff" : "white", color: "var(--text)", textAlign: "left" }}><span style={{ minWidth: 0 }}><strong style={{ display: "block", fontSize: 14, lineHeight: 1.35, overflowWrap: "anywhere" }}>სამუშაოთა ხელმძღვანელი (პრარაბი / ბრიგადირი)</strong><span style={{ display: "block", marginTop: 2, color: expandedSupervisorOptions || SUPERVISOR_CAPABILITIES.some((capability) => professions.includes(capability)) ? "var(--primary)" : "var(--text3)", fontSize: 12, lineHeight: 1.3, fontWeight: 800 }}>{(() => { const count = SUPERVISOR_CAPABILITIES.filter((capability) => professions.includes(capability)).length; return count ? `${count} სამუშაო არჩეული` : "არაფერი არჩეული"; })()}</span></span><span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1, color: "var(--primary)" }}>{expandedSupervisorOptions ? "⌃" : "⌄"}</span></button>
+                {expandedSupervisorOptions && <div style={{ display: "grid", gap: 7, padding: 12, borderTop: "1px solid var(--border)", background: "#f8fafc" }}>{SUPERVISOR_CAPABILITIES.map((capability) => <label key={capability} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 42, padding: "8px 10px", borderRadius: 9, background: professions.includes(capability) ? "#f0f7ff" : "white", color: professions.includes(capability) ? "var(--primary)" : "var(--text2)", fontSize: 13, lineHeight: 1.35, fontWeight: 800, cursor: "pointer" }}><span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{capability}</span><input type="checkbox" checked={professions.includes(capability)} onChange={() => toggleProfession(capability)} style={{ flex: "0 0 auto", width: 17, height: 17, accentColor: "var(--primary)" }} /></label>)}</div>}
               </div>
             </div>
             <label
