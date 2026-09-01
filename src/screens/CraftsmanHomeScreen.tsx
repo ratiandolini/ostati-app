@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BookingStatus, Screen, User } from "../types";
-import { categories, georgiaCities } from "../data/workers";
+import { georgiaCities } from "../data/workers";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   isAbortError,
@@ -36,71 +36,44 @@ import {
   getValidationMessage,
 } from "../services/validation";
 import {
-  formatGeorgianDate,
-  formatGeorgianTime,
-  normalizeGeorgianDateLabel,
-} from "../utils/georgianDate";
-import {
   bookingStatusTransitionError,
   canChangeBookingStatus,
 } from "../utils/bookingWorkflow";
 import { usePlatformSettings } from "../hooks/usePlatformSettings";
+import { JobCard } from "../components/craftsman/JobCard";
 import { CraftsmanJobPostsPanel } from "../components/JobPostsPanel";
 import { createCurrentWorkerPortfolioItem, PortfolioItem } from "../services/marketplaceApiService";
 import { createStoragePath, uploadStorageFile } from "../services/supabaseStorageService";
 import { ReferralPanel } from "../components/ReferralPanel";
-
-interface Booking {
-  id: string;
-  clientName: string;
-  clientPhone?: string;
-  date: string;
-  time: string;
-  scheduledAt?: string;
-  address: string;
-  status: BookingStatus;
-  service: string;
-  comment?: string;
-  cancellationReason?: string;
-  bookingFee?: number;
-  paymentStatus?: "held" | "released" | "refunded" | "disputed";
-  paymentProvider?: string;
-  paymentCurrency?: string;
-  paymentTransactionId?: string;
-  disputeReason?: string;
-  disputeDetails?: string;
-  disputeStatus?: "open" | "reviewing" | "resolved";
-  disputeResolution?: "refund_client" | "release_worker" | "warning" | "none";
-  measurements?: {
-    area?: string;
-    height?: string;
-    length?: string;
-    rooms?: string;
-    extraMeasurements?: string;
-    wallCondition?: string;
-    targetSurface?: string;
-    materialOwner?: string;
-    plumbingType?: string;
-    floor?: string;
-    electricPoints?: string;
-    electricPanel?: string;
-    isEmergency?: string;
-    workScope?: string;
-    surfaceType?: string;
-    materialNote?: string;
-    itemCount?: string;
-    currentCondition?: string;
-    photoNote?: string;
-    sitePhoto?: string;
-    roofType?: string;
-  };
-}
-
-interface ClientRating {
-  communication: number;
-  timeManagement: number;
-  clarity: number;
-}
+import {
+  Booking,
+  ClientRating,
+  uploadErrorMessage,
+  keepEqualSnapshot,
+  DAYS,
+  DAY_TO_WEEKDAY,
+  WEEKDAY_TO_DAY,
+  isBlankDetail,
+  formatDetailValue,
+  formatMaterialOwner,
+  PROFESSION_OPTIONS,
+  PROFILE_SECTIONS,
+  HOURS,
+  readCraftsmanProfile,
+  parseStoredPrice,
+  formatProfilePrice,
+  formatNotificationDate,
+  formatBookingDateTime,
+  formatWorkDateLabel,
+  initialBookings,
+  isRealRequest,
+  activeWorkStatuses,
+  archivedWorkStatuses,
+  money,
+  parseSnapshotRecord,
+  getWorkerPaymentMeta,
+  getWorkerDisputeMeta,
+} from "./craftsman/craftsmanHome.helpers";
 
 interface CraftsmanHomeScreenProps {
   user: User;
@@ -115,415 +88,6 @@ interface CraftsmanHomeScreenProps {
   }) => void;
   onOpenMessagesForBooking?: (bookingId: string) => void;
 }
-
-const uploadErrorMessage = (error: unknown, label: "ფოტოს" | "დოკუმენტის" = "ფოტოს") => {
-  const message = error instanceof Error ? error.message : "";
-  if (/EntityTooLarge|size/i.test(message)) {
-    return `${label} ფაილი ძალიან დიდია. ატვირთე 4.5 მბ-მდე JPG, PNG, WebP ან PDF.`;
-  }
-  if (/Unauthorized|RLS|permission|session/i.test(message)) {
-    return `${label} ატვირთვა დროებით ვერ მოხერხდა. გადაამოწმე კავშირი და სცადე თავიდან; თუ განმეორდა, მხარდაჭერას მიმართე.`;
-  }
-  if (/JPG, PNG, WebP|PDF/i.test(message)) return message;
-  return `${label} ატვირთვა ვერ მოხერხდა. სცადე სხვა JPG, PNG, WebP ან PDF ფაილი.`;
-};
-
-// Polling responses are new arrays even when the server data is unchanged.
-// Preserving the old reference prevents visual resets during background sync.
-const keepEqualSnapshot = <T,>(current: T[], next: T[]) =>
-  JSON.stringify(current) === JSON.stringify(next) ? current : next;
-
-const DAYS = ["ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ", "კვ"];
-const DAY_TO_WEEKDAY: Record<string, number> = {
-  ორშ: 1,
-  სამ: 2,
-  ოთხ: 3,
-  ხუთ: 4,
-  პარ: 5,
-  შაბ: 6,
-  კვ: 7,
-};
-const WEEKDAY_TO_DAY: Record<number, string> = {
-  1: "ორშ",
-  2: "სამ",
-  3: "ოთხ",
-  4: "ხუთ",
-  5: "პარ",
-  6: "შაბ",
-  7: "კვ",
-};
-
-const isBlankDetail = (value?: string) => {
-  const normalized = String(value || "").trim().toLowerCase();
-  return !normalized || normalized === "unknown" || normalized === "null";
-};
-
-const formatDetailValue = (value?: string, unit = "") => {
-  if (isBlankDetail(value)) return "არ არის";
-  return unit ? `${String(value).trim()} ${unit}` : String(value).trim();
-};
-
-const formatMaterialOwner = (value?: string) => {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!normalized || normalized === "unknown") return "";
-  if (normalized === "client") return "კლიენტის";
-  if (normalized === "worker") return "ხელოსნის";
-  return value || "";
-};
-
-const PROFESSION_OPTIONS = categories
-  .filter((category) => category !== "all")
-  .sort((a, b) => a.localeCompare(b, "ka"));
-const PROFILE_SECTIONS = [
-  { id: "edit", label: "რედაქტირება" },
-  { id: "professions", label: "პროფესია" },
-  { id: "schedule", label: "სამუშაო დრო" },
-  { id: "verification", label: "ვერიფიკაცია" },
-  { id: "portfolio", label: "ნამუშევრები" },
-] as const;
-const HOURS = [
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-  "19:00",
-  "20:00",
-];
-
-const readCraftsmanProfile = () => {
-  if (!isDemoDataMode) return {};
-  return dataService.getCraftsmanProfile();
-};
-
-const parseStoredPrice = (price?: string) => {
-  const values = price?.match(/\d+/g)?.map(Number) || [];
-  if (price?.includes("-") && values.length >= 2) {
-    return { type: "range" as const, min: values[0], max: values[1] };
-  }
-  if (price?.includes("ლარიდან") && values.length) {
-    return { type: "from" as const, min: values[0], max: null };
-  }
-  if (values.length) {
-    return { type: "fixed" as const, min: values[0], max: null };
-  }
-  return { type: "range" as const, min: 80, max: 120 };
-};
-
-const formatProfilePrice = (
-  type: "fixed" | "from" | "range",
-  min: number,
-  max: number
-) => {
-  if (type === "fixed") return `${min} ლარი`;
-  if (type === "from") return `${min} ლარიდან`;
-  return `${min}-${max} ლარი`;
-};
-
-const formatNotificationDate = (value?: string) => {
-  if (!value) return "";
-  return formatGeorgianDate(value, { shortMonth: true, year: false });
-};
-
-const formatBookingDateTime = (booking: Booking) => {
-  const scheduledAt = booking.scheduledAt;
-  if (!scheduledAt) return `${normalizeGeorgianDateLabel(booking.date)} · ${booking.time}`;
-  const date = new Date(scheduledAt);
-  if (Number.isNaN(date.getTime())) {
-    return `${normalizeGeorgianDateLabel(booking.date)} · ${booking.time}`;
-  }
-  return `${formatGeorgianDate(date)} · ${formatGeorgianTime(date)}`;
-};
-
-const monthNames = [
-  "იანვარი",
-  "თებერვალი",
-  "მარტი",
-  "აპრილი",
-  "მაისი",
-  "ივნისი",
-  "ივლისი",
-  "აგვისტო",
-  "სექტემბერი",
-  "ოქტომბერი",
-  "ნოემბერი",
-  "დეკემბერი",
-];
-
-const formatWorkDateLabel = (date: Date) =>
-  `${date.getDate()} ${monthNames[date.getMonth()]}`;
-
-const initialBookings: Booking[] = [
-  {
-    id: "1",
-    clientName: "გიორგი მამულაშვილი",
-    date: "15 მაისი",
-    time: "10:00",
-    address: "თბილისი, ვაკე",
-    status: "pending",
-    service: "ოთახის მოხატვა",
-  },
-  {
-    id: "2",
-    clientName: "ნინო კვარაცხელია",
-    date: "17 მაისი",
-    time: "14:00",
-    address: "თბილისი, საბურთალო",
-    status: "confirmed",
-    service: "ფასადის მოხატვა",
-  },
-  {
-    id: "3",
-    clientName: "დავით ბერიძე",
-    date: "20 მაისი",
-    time: "09:00",
-    address: "თბილისი, ისანი",
-    status: "confirmed",
-    service: "სამზარეულოს კედელი",
-  },
-  {
-    id: "4",
-    clientName: "მარიამ გელაშვილი",
-    date: "10 მაისი",
-    time: "11:00",
-    address: "თბილისი, გლდანი",
-    status: "completed",
-    service: "ოთახის მოხატვა",
-  },
-  {
-    id: "5",
-    clientName: "ლუკა მელიქიძე",
-    date: "8 მაისი",
-    time: "15:00",
-    address: "თბილისი, დიდუბე",
-    status: "completed",
-    service: "სარდაფის კედელი",
-  },
-];
-
-const isRealRequest = (booking: Booking) =>
-  Boolean(booking.id) && !/^კლიენტი(\s|$)/.test(booking.clientName || "");
-
-const statusMeta: Record<
-  BookingStatus,
-  { label: string; color: string; bg: string; border: string }
-> = {
-  pending: {
-    label: "მოლოდინში",
-    color: "#f59e0b",
-    bg: "#fff7cc",
-    border: "#f59e0b",
-  },
-  confirmed: {
-    label: "დადასტურებული",
-    color: "#2563eb",
-    bg: "#dbeafe",
-    border: "#2563eb",
-  },
-  en_route: {
-    label: "გზაშია",
-    color: "#7c3aed",
-    bg: "#ede9fe",
-    border: "#7c3aed",
-  },
-  started: {
-    label: "დაიწყო",
-    color: "#0891b2",
-    bg: "#cffafe",
-    border: "#0891b2",
-  },
-  worker_completed: {
-    label: "დასრულდა ხელოსნის მიერ",
-    color: "#0f766e",
-    bg: "#ccfbf1",
-    border: "#0f766e",
-  },
-  client_confirmed: {
-    label: "დადასტურდა კლიენტის მიერ",
-    color: "#16a34a",
-    bg: "#dcfce7",
-    border: "#16a34a",
-  },
-  closed: {
-    label: "დახურული",
-    color: "#17243a",
-    bg: "#f1f5f9",
-    border: "#dbe4ef",
-  },
-  declined: {
-    label: "უარყოფილი",
-    color: "#ef4444",
-    bg: "#fee2e2",
-    border: "#ef4444",
-  },
-  cancelled: {
-    label: "გაუქმებული",
-    color: "#ef4444",
-    bg: "#fee2e2",
-    border: "#ef4444",
-  },
-  disputed: {
-    label: "დავა გახსნილია",
-    color: "#c2410c",
-    bg: "#ffedd5",
-    border: "#fb923c",
-  },
-  completed: {
-    label: "შესრულებული",
-    color: "#17243a",
-    bg: "#f1f5f9",
-    border: "#dbe4ef",
-  },
-};
-
-const activeWorkStatuses: BookingStatus[] = [
-  "pending",
-  "confirmed",
-  "en_route",
-  "started",
-  "worker_completed",
-];
-const archivedWorkStatuses: BookingStatus[] = [
-  "client_confirmed",
-  "closed",
-  "completed",
-  "declined",
-  "cancelled",
-  "disputed",
-];
-
-const getWorkStatusTone = (status: BookingStatus) => {
-  if (status === "pending") {
-    return { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" };
-  }
-  if (status === "declined" || status === "cancelled") {
-    return { bg: "#fef2f2", color: "#b91c1c", border: "#fecaca" };
-  }
-  if (["client_confirmed", "closed", "completed"].includes(status)) {
-    return { bg: "#ecfdf5", color: "#047857", border: "#bbf7d0" };
-  }
-  if (status === "disputed") {
-    return { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" };
-  }
-  return { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" };
-};
-
-const money = (value?: number | string, currency = "GEL") => {
-  const amount = Number(value || 0);
-  return `${amount.toFixed(amount % 1 ? 2 : 0)} ${currency}`;
-};
-
-const parseSnapshotRecord = (snapshot: string): Record<string, unknown> => {
-  try {
-    const parsed: unknown = JSON.parse(snapshot);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return {};
-    }
-    return parsed as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-};
-
-const getWorkerPaymentMeta = (booking: Booking, fallbackBookingFee: number) => {
-  const status = booking.paymentStatus || "held";
-  const amount = booking.bookingFee || fallbackBookingFee;
-  if (status === "released") {
-    return {
-      label: "თანხა დადასტურდა",
-      detail: `დაჯავშნის საფასური ${money(amount, booking.paymentCurrency)} დახურულია.`,
-      color: "#047857",
-      bg: "#ecfdf5",
-      border: "#bbf7d0",
-    };
-  }
-  if (status === "refunded") {
-    return {
-      label: "თანხა დაბრუნდა",
-      detail: "ჯავშნის საფასური კლიენტს დაუბრუნდა.",
-      color: "#b91c1c",
-      bg: "#fef2f2",
-      border: "#fecaca",
-    };
-  }
-  if (status === "disputed" || booking.status === "disputed" || booking.disputeReason) {
-    return {
-      label: "თანხა შეჩერებულია",
-      detail: "დავა/პრობლემა განხილვაშია და თანხა დროებით არ ირიცხება.",
-      color: "#c2410c",
-      bg: "#fff7ed",
-      border: "#fed7aa",
-    };
-  }
-  if (booking.status === "client_confirmed" || booking.status === "closed") {
-    return {
-      label: "გადამოწმება",
-      detail: "კლიენტმა შესრულება დაადასტურა. თანხა გადამოწმების შემდეგ დაიხურება.",
-      color: "#1d4ed8",
-      bg: "#eff6ff",
-      border: "#bfdbfe",
-    };
-  }
-  return {
-    label: "ჯავშნის თანხა",
-    detail: "კლიენტის ჯავშანი აქტიურია. თანხის საბოლოო დადასტურებას სისტემა მართავს.",
-    color: "#1d4ed8",
-    bg: "#eff6ff",
-    border: "#bfdbfe",
-  };
-};
-
-const getWorkerDisputeMeta = (booking: Booking) => {
-  if (booking.disputeStatus === "resolved") {
-    if (booking.disputeResolution === "refund_client") {
-      return {
-        label: "დავა დაიხურა",
-        detail: "Admin-ის გადაწყვეტილებით თანხა კლიენტს დაუბრუნდა.",
-        color: "#b91c1c",
-        bg: "#fef2f2",
-        border: "#fecaca",
-      };
-    }
-    if (booking.disputeResolution === "release_worker") {
-      return {
-        label: "დავა დაიხურა",
-        detail: "Admin-ის გადაწყვეტილებით თანხა ხელოსნის მხარეს დადასტურდა.",
-        color: "#047857",
-        bg: "#ecfdf5",
-        border: "#bbf7d0",
-      };
-    }
-    return {
-      label: "დავა დაიხურა",
-      detail: "Admin-მა საკითხი გაფრთხილებით დახურა.",
-      color: "#047857",
-      bg: "#ecfdf5",
-      border: "#bbf7d0",
-    };
-  }
-  if (booking.disputeStatus === "reviewing") {
-    return {
-      label: "დავა განხილვაშია",
-      detail: "Admin ამოწმებს კლიენტის აღწერას, ფოტოებს და მიმოწერას. პირველ პასუხს მაქსიმუმ 48 საათში მიიღებ.",
-      color: "#c2410c",
-      bg: "#fff7ed",
-      border: "#fed7aa",
-    };
-  }
-  return {
-    label: "დავა გახსნილია",
-    detail: "პრობლემა მიღებულია. Admin მას 48 საათში გადაიყვანს განხილვაში ან მოგწერს დამატებით დეტალებს.",
-    color: "#b45309",
-    bg: "#fffbeb",
-    border: "#fde68a",
-  };
-};
 
 export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   user,
@@ -1900,377 +1464,22 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     </div>
   );
 
-  const JobCard = ({ booking }: { booking: Booking }) => {
-    const meta = statusMeta[booking.status];
-    const tone = getWorkStatusTone(booking.status);
-    const isArchived = archivedWorkStatuses.includes(booking.status);
-    const expanded = !isArchived || expandedArchiveIds.includes(booking.id);
-    const actionLoading = bookingActionId === booking.id;
-    const clientShortName = booking.clientName.replace(
-      /^(\S+)\s+(\S).*/,
-      "$1 $2."
-    );
-        const paymentMeta = getWorkerPaymentMeta(
-          booking,
-          platformSettings.bookingFee
-        );
-    const disputeMeta = getWorkerDisputeMeta(booking);
-
-    if (isArchived && !expanded) {
-      return (
-        <button
-          type="button"
-          className="fade-up"
-          onClick={() =>
-            setExpandedArchiveIds((current) =>
-              current.includes(booking.id) ? current : [...current, booking.id]
-            )
-          }
-          style={{
-            width: "100%",
-            padding: 14,
-            borderRadius: 14,
-            background: "white",
-            border: `1px solid ${tone.border}`,
-            boxShadow: "var(--shadow-sm)",
-            textAlign: "left",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {clientShortName} · {booking.service}
-              </div>
-              <div style={{ marginTop: 4, color: "var(--text2)", fontSize: 12, fontWeight: 750 }}>
-                {formatBookingDateTime(booking)}
-              </div>
-            </div>
-            <span
-              style={{
-                flexShrink: 0,
-                padding: "6px 9px",
-                borderRadius: 999,
-                background: tone.bg,
-                color: tone.color,
-                border: `1px solid ${tone.border}`,
-                fontSize: 11,
-                fontWeight: 950,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {meta.label}
-            </span>
-          </div>
-        </button>
-      );
-    }
-
-    return (
-      <div
-        className="fade-up"
-        style={{
-          background: "white",
-          border: `1px solid ${tone.border}`,
-          borderTop: `3px solid ${tone.color}`,
-          borderRadius: 16,
-          padding: 16,
-          boxShadow: "var(--shadow-sm)",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text)" }}>
-              {clientShortName}
-            </div>
-            <div style={{ marginTop: 3, fontSize: 13, color: "var(--text2)" }}>
-              {booking.service}
-            </div>
-          </div>
-          <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 900, color: meta.color }}>
-              {formatBookingDateTime(booking)}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 10, fontSize: 12, color: "var(--text3)" }}>
-          📍 {booking.address}
-        </div>
-
-        <div
-          style={{
-            display: "inline-flex",
-            marginTop: 12,
-            padding: "6px 11px",
-            borderRadius: 999,
-            background: tone.bg,
-            color: tone.color,
-            border: `1px solid ${tone.border}`,
-            fontSize: 11,
-            fontWeight: 900,
-          }}
-        >
-          {meta.label}
-        </div>
-
-        <div
-          style={{
-            marginTop: 10,
-            padding: 10,
-            borderRadius: 12,
-            background: paymentMeta.bg,
-            border: `1px solid ${paymentMeta.border}`,
-            color: paymentMeta.color,
-            fontSize: 11,
-            fontWeight: 850,
-            lineHeight: 1.45,
-          }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 950 }}>{paymentMeta.label}</div>
-          <div style={{ marginTop: 3 }}>{paymentMeta.detail}</div>
-        </div>
-
-        {booking.cancellationReason && (
-          <div
-            style={{
-              marginTop: 10,
-              padding: 10,
-              borderRadius: 12,
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              color: "#991b1b",
-              fontSize: 12,
-              fontWeight: 850,
-              lineHeight: 1.45,
-            }}
-          >
-            გაუქმების მიზეზი: {booking.cancellationReason}
-          </div>
-        )}
-
-        {booking.disputeReason && (
-          <div
-            style={{
-              marginTop: 10,
-              padding: 10,
-              borderRadius: 12,
-              background: disputeMeta.bg,
-              border: `1px solid ${disputeMeta.border}`,
-              color: disputeMeta.color,
-              fontSize: 12,
-              fontWeight: 850,
-              lineHeight: 1.45,
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 950 }}>{disputeMeta.label}</div>
-            <div style={{ marginTop: 4 }}>{disputeMeta.detail}</div>
-            <div style={{ marginTop: 7, fontWeight: 900 }}>
-              მიზეზი: {booking.disputeReason}
-            </div>
-            {booking.disputeDetails && (
-              <div style={{ marginTop: 5, color: "inherit", fontWeight: 750 }}>
-                {booking.disputeDetails}
-              </div>
-            )}
-          </div>
-        )}
-
-        {booking.status === "pending" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
-            <button
-              type="button"
-              onClick={() => setDetailsBooking(booking)}
-              style={{
-                minHeight: 42,
-                borderRadius: 10,
-                background: "#f8fafc",
-                color: "var(--text)",
-                border: "1px solid var(--border)",
-                fontSize: 13,
-                fontWeight: 900,
-              }}
-            >
-              დეტალები
-            </button>
-            <button
-              type="button"
-              onClick={() => updateStatus(booking.id, "confirmed")}
-              disabled={actionLoading}
-              style={{
-                minHeight: 42,
-                borderRadius: 10,
-                background: actionLoading ? "#94a3b8" : "var(--primary)",
-                color: "white",
-                fontSize: 13,
-                fontWeight: 900,
-              }}
-            >
-              {actionLoading ? "იცვლება..." : "დადასტურება"}
-            </button>
-            <button
-              type="button"
-              onClick={() => openBookingReasonAction(booking, "decline")}
-              disabled={actionLoading}
-              style={{
-                gridColumn: "1 / -1",
-                minHeight: 40,
-                borderRadius: 10,
-                background: actionLoading ? "#f1f5f9" : "#fef2f2",
-                color: "#b91c1c",
-                border: "1px solid #fecaca",
-                fontSize: 13,
-                fontWeight: 900,
-              }}
-            >
-              უარყოფა
-            </button>
-          </div>
-        )}
-        {booking.status === "confirmed" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
-            <button
-              type="button"
-              onClick={() => updateStatus(booking.id, "en_route")}
-              disabled={actionLoading}
-              style={{
-                minHeight: 42,
-                borderRadius: 10,
-                background: actionLoading ? "#94a3b8" : "var(--primary)",
-                color: "white",
-                fontSize: 13,
-                fontWeight: 900,
-              }}
-            >
-              {actionLoading ? "იცვლება..." : "გზაში ვარ"}
-            </button>
-            <button
-              type="button"
-              onClick={() => openBookingReasonAction(booking, "cannot_complete")}
-              disabled={actionLoading}
-              style={{
-                minHeight: 42,
-                borderRadius: 10,
-                background: "#fff7ed",
-                color: "#c2410c",
-                border: "1px solid #fed7aa",
-                fontSize: 12,
-                fontWeight: 900,
-              }}
-            >
-              ვერ ვასრულებ
-            </button>
-          </div>
-        )}
-        {booking.status === "en_route" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
-            <button
-              type="button"
-              onClick={() => updateStatus(booking.id, "started")}
-              disabled={actionLoading}
-              style={{
-                minHeight: 42,
-                borderRadius: 10,
-                background: actionLoading ? "#94a3b8" : "#0891b2",
-                color: "white",
-                fontSize: 13,
-                fontWeight: 900,
-              }}
-            >
-              {actionLoading ? "იცვლება..." : "სამუშაო დაიწყო"}
-            </button>
-            <button
-              type="button"
-              onClick={() => openBookingReasonAction(booking, "cannot_complete")}
-              disabled={actionLoading}
-              style={{
-                minHeight: 42,
-                borderRadius: 10,
-                background: "#fff7ed",
-                color: "#c2410c",
-                border: "1px solid #fed7aa",
-                fontSize: 12,
-                fontWeight: 900,
-              }}
-            >
-              ვერ ვასრულებ
-            </button>
-          </div>
-        )}
-        {booking.status === "started" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
-            <button
-              type="button"
-              onClick={() => askCompleteBooking(booking)}
-              disabled={actionLoading}
-              style={{
-                minHeight: 42,
-                borderRadius: 10,
-                background: actionLoading ? "#94a3b8" : "#10b981",
-                color: "white",
-                fontSize: 13,
-                fontWeight: 900,
-              }}
-            >
-              ჩემი მხრიდან დასრულდა
-            </button>
-            <button
-              type="button"
-              onClick={() => openBookingReasonAction(booking, "cannot_complete")}
-              disabled={actionLoading}
-              style={{
-                minHeight: 42,
-                borderRadius: 10,
-                background: "#fff7ed",
-                color: "#c2410c",
-                border: "1px solid #fed7aa",
-                fontSize: 12,
-                fontWeight: 900,
-              }}
-            >
-              ვერ ვასრულებ
-            </button>
-          </div>
-        )}
-        {isArchived && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
-            <button
-              type="button"
-              onClick={() => setDetailsBooking(booking)}
-              style={{
-                minHeight: 40,
-                borderRadius: 10,
-                background: "#f8fafc",
-                color: "var(--text)",
-                border: "1px solid var(--border)",
-                fontSize: 13,
-                fontWeight: 900,
-              }}
-            >
-              დეტალების ნახვა
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setExpandedArchiveIds((current) =>
-                  current.filter((bookingId) => bookingId !== booking.id)
-                )
-              }
-              style={{
-                minHeight: 40,
-                borderRadius: 10,
-                background: "#eef3f9",
-                color: "var(--text2)",
-                border: "1px solid var(--border)",
-                fontSize: 13,
-                fontWeight: 900,
-              }}
-            >
-              აკეცვა
-            </button>
-          </div>
-        )}
-      </div>
-    );
+  const jobCardProps = {
+    bookingFee: platformSettings.bookingFee,
+    expandedArchiveIds,
+    bookingActionId,
+    onExpand: (bookingId: string) =>
+      setExpandedArchiveIds((current) =>
+        current.includes(bookingId) ? current : [...current, bookingId]
+      ),
+    onCollapse: (bookingId: string) =>
+      setExpandedArchiveIds((current) =>
+        current.filter((id) => id !== bookingId)
+      ),
+    onShowDetails: setDetailsBooking,
+    onUpdateStatus: updateStatus,
+    onOpenReasonAction: openBookingReasonAction,
+    onCompleteBooking: askCompleteBooking,
   };
 
   return (
@@ -2513,7 +1722,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {displayedBookings.slice(0, 3).map((booking) => (
-              <JobCard key={booking.id} booking={booking} />
+              <JobCard key={booking.id} booking={booking} {...jobCardProps} />
             ))}
           </div>
         </div>
@@ -2657,7 +1866,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {visibleWorks.length ? (
               visibleWorks.map((booking) => (
-                <JobCard key={booking.id} booking={booking} />
+                <JobCard key={booking.id} booking={booking} {...jobCardProps} />
               ))
             ) : (
               <div
@@ -2708,7 +1917,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {pending.length ? (
-              pending.map((booking) => <JobCard key={booking.id} booking={booking} />)
+              pending.map((booking) => <JobCard key={booking.id} booking={booking} {...jobCardProps} />)
             ) : (
               <div style={{ padding: 28, textAlign: "center", color: "var(--text3)" }}>
                 ახალი მოთხოვნა არ არის
@@ -2721,7 +1930,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {confirmed.map((booking) => (
-              <JobCard key={booking.id} booking={booking} />
+              <JobCard key={booking.id} booking={booking} {...jobCardProps} />
             ))}
           </div>
 
@@ -2730,7 +1939,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {completed.length ? (
-              completed.map((booking) => <JobCard key={booking.id} booking={booking} />)
+              completed.map((booking) => <JobCard key={booking.id} booking={booking} {...jobCardProps} />)
             ) : (
               <div style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>
                 დახურული საქმეები ჯერ არ არის
@@ -3809,7 +3018,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                     fontWeight: 900,
                   }}
                 >
-                  დარწმუნებული ხართ?
+                  დაასრულე საქმე და შეაფასე კლიენტი
                 </h2>
                 <p
                   style={{
@@ -3819,8 +3028,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                     lineHeight: 1.6,
                   }}
                 >
-                  დასრულებულად მონიშვნის შემდეგ ჯავშანი გადავა დასრულებულ
-                  საქმეებში და კლიენტთან შეფასების შეტყობინება გაიგზავნება.
+                  შემდეგ ეტაპზე შეაფასებ კლიენტს. შეფასების შენახვის შემდეგ
+                  ჯავშანი დასრულებულად მოინიშნება და კლიენტს შეტყობინება გაეგზავნება.
                 </p>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button
@@ -3851,7 +3060,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                       fontWeight: 900,
                     }}
                   >
-                    დიახ
+                    შემდეგი
                   </button>
                 </div>
               </>

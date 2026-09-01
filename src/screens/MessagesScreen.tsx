@@ -482,34 +482,40 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   }, [activeThreadId]);
 
   useEffect(() => {
-    if (!activeThread) return;
+    if (!activeThreadId) return;
     const last = messages
-      .filter((message) => message.bookingId === activeThread.id && isChatMessage(message))
+      .filter((message) => message.bookingId === activeThreadId && isChatMessage(message))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .slice(-1)[0];
     if (!last) return;
     if (isDemoDataMode) {
-      if (dataService.getMessageReads(role)[activeThread.id] === last.createdAt) {
+      if (dataService.getMessageReads(role)[activeThreadId] === last.createdAt) {
         return;
       }
-      dataService.markThreadRead(role, activeThread.id, last.createdAt);
+      dataService.markThreadRead(role, activeThreadId, last.createdAt);
       setReadVersion((version) => version + 1);
       onUnreadChange?.(countUnreadMessages(messages, threads, role));
       return;
     }
-    markBookingMessagesRead(activeThread.id).catch((error) => {
+    markBookingMessagesRead(activeThreadId).catch((error) => {
       reportApiError(error, { silentTransient: true });
     });
     setApiThreads((prev) => {
-      const next = prev.map((thread) =>
-        thread.id === activeThread.id ? { ...thread, unreadCount: 0 } : thread
-      );
+      let changed = false;
+      const next = prev.map((thread) => {
+        if (thread.id !== activeThreadId || thread.unreadCount === 0) {
+          return thread;
+        }
+        changed = true;
+        return { ...thread, unreadCount: 0 };
+      });
+      if (!changed) return prev;
       onUnreadChange?.(
         next.reduce((sum, thread) => sum + thread.unreadCount, 0)
       );
       return next;
     });
-  }, [activeThread, messages, role]);
+  }, [activeThreadId, messages, role]);
 
   const sendMessage = async () => {
     const text = draft.trim();

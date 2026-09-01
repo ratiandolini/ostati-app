@@ -100,7 +100,7 @@ export const loadBookingMessages = async (
   return Promise.all(rows.map(mapMessage));
 };
 
-export const sendBookingMessage = (bookingId: string, text: string) => {
+export const sendBookingMessage = async (bookingId: string, text: string) => {
   const client = createSupabaseRestClient();
   return client.rpc<{ message_id: string; booking_id: string }>(
     "send_booking_message",
@@ -114,7 +114,7 @@ export const sendBookingMessage = (bookingId: string, text: string) => {
   );
 };
 
-export const sendAdminBookingMessage = (bookingId: string, text: string) => {
+export const sendAdminBookingMessage = async (bookingId: string, text: string) => {
   const client = createSupabaseRestClient();
   return client.rpc<{ message_id: string; booking_id: string }>(
     "admin_send_booking_message",

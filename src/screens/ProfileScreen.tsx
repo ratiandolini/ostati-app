@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Worker } from "../types";
-import { dataService } from "../services/dataService";
+import { dataService, isDemoDataMode } from "../services/dataService";
 import { getBookingQuestionFields } from "../services/professionQuestions";
 import { bookingDetailsSchema, getValidationMessage } from "../services/validation";
 import { usePlatformSettings } from "../hooks/usePlatformSettings";
 import { loadWorkerPortfolio, PortfolioItem } from "../services/marketplaceApiService";
+import { loadWorkerPublicReviews, PublicWorkerReview } from "../services/reviewApiService";
 
 interface ProfileScreenProps {
   worker: Worker;
@@ -130,6 +131,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenMessages,
 }) => {
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+  const [workerReviews, setWorkerReviews] = useState<PublicWorkerReview[]>([]);
   const today = startOfDay(new Date());
   const [visibleMonth, setVisibleMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1)
@@ -142,6 +144,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     loadWorkerPortfolio(worker.backendId, controller.signal).then(setPortfolio).catch(() => setPortfolio([]));
     return () => controller.abort();
   }, [worker.backendId]);
+  useEffect(() => {
+    if (isDemoDataMode) {
+      setWorkerReviews(dataService.getWorkerReviews(worker.id));
+      return;
+    }
+    if (!worker.backendId) {
+      setWorkerReviews([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    loadWorkerPublicReviews(worker.backendId, controller.signal)
+      .then(setWorkerReviews)
+      .catch(() => setWorkerReviews([]));
+    return () => controller.abort();
+  }, [worker.backendId, worker.id]);
   const [selectedTime, setSelectedTime] = useState("");
   const [showBookingConfirm, setShowBookingConfirm] = useState(false);
   const [showBookingRules, setShowBookingRules] = useState(false);
@@ -230,10 +248,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       setSelectedTime("");
     }
   }, [availableTimes, selectedTime]);
-  const workerReviews = useMemo(
-    () => dataService.getWorkerReviews(worker.id),
-    [worker.id]
-  );
   const workerProfessionText = worker.skills?.length
     ? worker.skills.join(" · ")
     : worker.role;

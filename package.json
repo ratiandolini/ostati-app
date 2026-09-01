@@ -1,11 +1,12 @@
 {
-  "name": "react-typescript",
+  "name": "ostati-app",
   "version": "1.0.0",
-  "description": "React and TypeScript example starter project",
+  "description": "Ostati (Remonter) — craftsman booking marketplace",
   "keywords": [
-    "typescript",
-    "react",
-    "starter"
+    "ostati",
+    "remonter",
+    "booking",
+    "marketplace"
   ],
   "main": "src/index.tsx",
   "dependencies": {

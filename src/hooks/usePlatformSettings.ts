@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import type { LegalSettings, PlatformSettings } from "../services/dataService";
+import { appStorage } from "../services/appStorage";
 import { loadPublicAppSettings } from "../services/platformSettingsApiService";
 import { isAbortError, reportApiError } from "../services/apiErrorUtils";
 
 export const usePlatformSettings = () => {
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(() =>
-    dataService.getPlatformSettings()
+    appStorage.getPlatformSettings()
   );
   const [legalSettings, setLegalSettings] = useState<LegalSettings>(() =>
-    dataService.getLegalSettings()
+    appStorage.getLegalSettings()
   );
 
   useEffect(() => {
@@ -18,11 +19,11 @@ export const usePlatformSettings = () => {
       legal?: Partial<LegalSettings>
     ) => {
       setPlatformSettings({
-        ...dataService.getPlatformSettings(),
+        ...appStorage.getPlatformSettings(),
         ...(platform || {}),
       });
       setLegalSettings({
-        ...dataService.getLegalSettings(),
+        ...appStorage.getLegalSettings(),
         ...(legal || {}),
       });
     };

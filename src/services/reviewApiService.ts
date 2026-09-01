@@ -10,13 +10,57 @@ interface SubmitBookingReviewPayload {
   comment?: string;
 }
 
+export interface PublicWorkerReview {
+  id: string;
+  overall: number;
+  criteria: {
+    quality: number;
+    punctuality: number;
+    cleanliness: number;
+    deadline: number;
+  };
+  comment?: string;
+  createdAt: string;
+}
+
+type PublicWorkerReviewRow = {
+  id?: string;
+  overall?: number | string;
+  criteria?: Record<string, unknown>;
+  comment?: string | null;
+  createdAt?: string;
+};
+
+const score = (criteria: Record<string, unknown>, key: string) => {
+  const value = Number(criteria[key]);
+  return Number.isFinite(value) && value >= 1 && value <= 5 ? value : 0;
+};
+
+const toPublicWorkerReview = (row: PublicWorkerReviewRow): PublicWorkerReview | null => {
+  if (!row.id || !row.createdAt) return null;
+  const criteria = row.criteria || {};
+
+  return {
+    id: row.id,
+    overall: Number(row.overall || 0),
+    criteria: {
+      quality: score(criteria, "quality"),
+      punctuality: score(criteria, "punctuality"),
+      cleanliness: score(criteria, "cleanliness"),
+      deadline: score(criteria, "deadline"),
+    },
+    comment: row.comment || undefined,
+    createdAt: row.createdAt,
+  };
+};
+
 const averageScore = (criteria: Record<string, number>) => {
   const scores = Object.values(criteria).filter((score) => score > 0);
   if (!scores.length) return 0;
   return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
 };
 
-export const submitBookingReview = ({
+export const submitBookingReview = async ({
   bookingId,
   revieweeRole,
   criteria,
@@ -54,4 +98,20 @@ export const loadReviewedBookingIds = async (
 export const loadMyClientPoints = async (): Promise<ClientPoints> => {
   const client = createSupabaseRestClient();
   return client.rpc<ClientPoints>("get_my_client_points", {});
+};
+
+export const loadWorkerPublicReviews = async (
+  workerId: string,
+  signal?: AbortSignal
+): Promise<PublicWorkerReview[]> => {
+  const client = createSupabaseRestClient();
+  const rows = await client.rpc<PublicWorkerReviewRow[]>(
+    "get_worker_public_reviews",
+    { p_worker_id: workerId },
+    { signal }
+  );
+
+  return Array.isArray(rows)
+    ? rows.map(toPublicWorkerReview).filter((review): review is PublicWorkerReview => Boolean(review))
+    : [];
 };

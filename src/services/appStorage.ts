@@ -631,9 +631,13 @@ export const appStorage = {
   },
 
   getRealCraftsmanRequests(): CraftsmanBookingRequest[] {
-    return this.getCraftsmanRequests().filter((request) =>
-      Boolean(request.id) && !/^კლიენტი(\s|$)/.test(request.clientName || "")
-    );
+    // Previously also excluded any request whose clientName started with
+    // "კლიენტი" (the generic display-name fallback used app-wide for a
+    // client with no profile name set) to weed out placeholder/demo data.
+    // craftsmanBookingRequests has no seeded demo entries, so that check
+    // only ever matched real bookings from clients who hadn't set a name
+    // yet, permanently deleting them via pruneDemoCraftsmanRequests below.
+    return this.getCraftsmanRequests().filter((request) => Boolean(request.id));
   },
 
   pruneDemoCraftsmanRequests() {

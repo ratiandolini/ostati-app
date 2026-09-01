@@ -1,5 +1,6 @@
 declare const process: {
   env: {
+    NODE_ENV?: string;
     REACT_APP_DATA_MODE?: string;
     REACT_APP_AUTH_MODE?: string;
     REACT_APP_SUPABASE_URL?: string;

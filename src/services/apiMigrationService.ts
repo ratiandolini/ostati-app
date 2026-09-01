@@ -63,8 +63,8 @@ export const apiMigrationItems: ApiMigrationItem[] = [
     area: "Reviews",
     label: "შეფასებები",
     status: "connected",
-    detail: "create_booking_review და reviewed ids RPC-ები მზადაა.",
-    nextStep: "QA-ში duplicate review და rating aggregation შემოწმდეს.",
+    detail: "შეფასების ჩაწერა, საშუალო რეიტინგი და ხელოსნის საჯარო, ანონიმური review feed RPC-ებით მუშაობს.",
+    nextStep: "QA-ში duplicate review, rating aggregation და ორივე პროფილზე შეფასებების გამოჩენა შემოწმდეს.",
   },
   {
     id: "disputes",

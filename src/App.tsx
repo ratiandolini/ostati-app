@@ -13,6 +13,7 @@ import { MessagesScreen } from "./screens/MessagesScreen";
 import { AdminScreen } from "./screens/AdminScreen";
 import { BottomNav } from "./components/BottomNav";
 import { dataService, isDemoDataMode } from "./services/dataService";
+import { shouldRefreshForRole } from "./utils/appDataEvents";
 import type { ClientProfile, CraftsmanBookingRequest } from "./services/dataService";
 import { isAbortError, reportApiError } from "./services/apiErrorUtils";
 import {
@@ -266,6 +267,52 @@ const VerificationRequiredScreen: React.FC<{
           გასვლა
         </button>
       </div>
+    </div>
+  </div>
+);
+
+const VerificationLoadingScreen: React.FC<{ onLogout: () => void }> = ({ onLogout }) => (
+  <div
+    style={{
+      height: "100%",
+      padding: "calc(70px + var(--safe-top)) 24px 110px",
+      background: "var(--bg)",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+    }}
+  >
+    <div
+      style={{
+        border: "1px solid var(--border)",
+        borderRadius: 18,
+        background: "white",
+        padding: 22,
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
+      <div style={{ color: "var(--text)", fontSize: 24, fontWeight: 950 }}>
+        ვერიფიკაცია მოწმდება
+      </div>
+      <div style={{ marginTop: 10, color: "var(--text2)", fontSize: 13, lineHeight: 1.6 }}>
+        ვტვირთავთ შენს პროფილის სტატუსს. რამდენიმე წამში სამუშაო ადგილი გაიხსნება.
+      </div>
+      <button
+        type="button"
+        onClick={onLogout}
+        style={{
+          width: "100%",
+          minHeight: 46,
+          marginTop: 18,
+          borderRadius: 12,
+          background: "#f1f5f9",
+          color: "var(--text)",
+          fontSize: 13,
+          fontWeight: 950,
+        }}
+      >
+        გასვლა
+      </button>
     </div>
   </div>
 );
@@ -528,29 +575,46 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!isDemoDataMode || !user) return;
 
-    const refreshDemoState = () => {
-      if (user.role === "client") {
+    // Only react to the event stream for this user's own role. Reacting to
+    // the other role's event here re-reads localStorage before this same
+    // action's own state update has been persisted (e.g. a client booking
+    // a job also writes the mirrored craftsman-side request and a
+    // craftsman-targeted notification, which used to fire this same handler
+    // for the client and overwrite the just-created booking with the stale,
+    // pre-write value from storage).
+    //
+    // "booking-status-updated" carries a `target` telling which side the
+    // change is actually for; a client must ignore a craftsman-targeted
+    // event (and vice versa) for the same reason.
+    if (user.role === "client") {
+      const refreshClientBookings = (event: Event) => {
+        if (!shouldRefreshForRole(event, "client")) return;
         setBookings((current) =>
           keepEqualSnapshot(current, dataService.getClientBookings())
         );
-        return;
-      }
-      if (user.role === "craftsman") {
+      };
+      window.addEventListener("client-bookings-updated", refreshClientBookings);
+      window.addEventListener("booking-status-updated", refreshClientBookings);
+      return () => {
+        window.removeEventListener("client-bookings-updated", refreshClientBookings);
+        window.removeEventListener("booking-status-updated", refreshClientBookings);
+      };
+    }
+
+    if (user.role === "craftsman") {
+      const refreshCraftsmanBookings = (event: Event) => {
+        if (!shouldRefreshForRole(event, "craftsman")) return;
         setCraftsmanBookings((current) =>
           keepEqualSnapshot(current, dataService.getRealCraftsmanRequests())
         );
-      }
-    };
-
-    window.addEventListener("client-bookings-updated", refreshDemoState);
-    window.addEventListener("craftsman-bookings-updated", refreshDemoState);
-    window.addEventListener("booking-status-updated", refreshDemoState);
-
-    return () => {
-      window.removeEventListener("client-bookings-updated", refreshDemoState);
-      window.removeEventListener("craftsman-bookings-updated", refreshDemoState);
-      window.removeEventListener("booking-status-updated", refreshDemoState);
-    };
+      };
+      window.addEventListener("craftsman-bookings-updated", refreshCraftsmanBookings);
+      window.addEventListener("booking-status-updated", refreshCraftsmanBookings);
+      return () => {
+        window.removeEventListener("craftsman-bookings-updated", refreshCraftsmanBookings);
+        window.removeEventListener("booking-status-updated", refreshCraftsmanBookings);
+      };
+    }
   }, [user?.phone, user?.role]);
 
   const handleLogin = async (phone: string, role: UserRole) => {
@@ -1422,6 +1486,13 @@ const App: React.FC = () => {
         ? dataService.getCraftsmanProfile().verificationStatus
         : apiWorkerVerificationStatus) === "verified";
     if (!craftsmanVerified && screen !== "user-profile") {
+      if (!isDemoDataMode && apiWorkerVerificationStatus === null) {
+        return (
+          <div style={{ height: "100%", position: "relative", overflow: "hidden" }}>
+            <VerificationLoadingScreen onLogout={handleLogout} />
+          </div>
+        );
+      }
       return (
         <div style={{ height: "100%", position: "relative", overflow: "hidden" }}>
           <VerificationRequiredScreen

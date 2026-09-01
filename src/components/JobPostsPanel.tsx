@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { categories, georgiaCities } from "../data/workers";
 import { cancelMyJobPost, createJobPost, expressInterest, JobPost, loadMyJobPosts, loadOpenJobPosts } from "../services/marketplaceApiService";
 import { createStoragePath, uploadStorageFile } from "../services/supabaseStorageService";
+import { isDemoDataMode } from "../services/dataService";
 
 const panelStyle: React.CSSProperties = { marginTop: 22, padding: 16, borderRadius: 16, border: "1px solid var(--border)", background: "white", overflow: "hidden" };
 const inputStyle: React.CSSProperties = { width: "100%", minHeight: 44, marginTop: 6, padding: "0 12px", border: "1px solid var(--border)", borderRadius: 10, background: "#fff", color: "var(--text)", font: "inherit", fontWeight: 700 };
@@ -30,6 +31,7 @@ export const ClientJobPostsPanel: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    if (isDemoDataMode) return;
     const controller = new AbortController();
     loadMyJobPosts(controller.signal).then(setPosts).catch(() => undefined);
     return () => controller.abort();
@@ -77,6 +79,15 @@ export const ClientJobPostsPanel: React.FC = () => {
     } catch (error) { setMessage(messageFrom(error)); } finally { setSaving(false); }
   };
 
+  if (isDemoDataMode) {
+    return <section style={panelStyle}>
+      <h2 style={{ margin: 0, fontSize: 18 }}>შენი მოთხოვნები</h2>
+      <p style={{ margin: "6px 0 0", color: "var(--text2)", fontSize: 13, lineHeight: 1.45, fontWeight: 700 }}>
+        განცხადებების გამოქვეყნება ხელმისაწვდომია მხოლოდ Supabase-თან დაკავშირებულ ვერსიაში. ამ demo რეჟიმში შეგიძლია ხელოსანი მოძებნო და პირდაპირ დაჯავშნო.
+      </p>
+    </section>;
+  }
+
   return <section style={panelStyle}>
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12, alignItems: "center" }}>
       <div style={{ minWidth: 0 }}><h2 style={{ margin: 0, fontSize: 18, lineHeight: 1.25 }}>შენი მოთხოვნები</h2><p style={{ margin: "5px 0 0", fontSize: 12, lineHeight: 1.45, color: "var(--text2)", fontWeight: 700 }}>აღწერე სამუშაო და დაინტერესებული ხელოსნებიდან თავად აირჩიე.</p></div>
@@ -113,7 +124,20 @@ export const CraftsmanJobPostsPanel: React.FC = () => {
   const [posts, setPosts] = useState<JobPost[]>([]);
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
-  useEffect(() => { const controller = new AbortController(); loadOpenJobPosts(controller.signal).then(setPosts).catch(() => undefined); return () => controller.abort(); }, []);
+  useEffect(() => {
+    if (isDemoDataMode) return;
+    const controller = new AbortController();
+    loadOpenJobPosts(controller.signal).then(setPosts).catch(() => undefined);
+    return () => controller.abort();
+  }, []);
   const respond = async (id: string) => { setBusyId(id); setMessage(""); try { await expressInterest(id, "ინტერესი მაქვს ამ მოთხოვნაზე."); setPosts((items) => items.filter((item) => item.id !== id)); setMessage("ინტერესი გაიგზავნა. კლიენტი მხოლოდ რამდენიმე კანდიდატს ნახავს და თავად აირჩევს."); } catch (error) { setMessage(messageFrom(error)); } finally { setBusyId(""); } };
+  if (isDemoDataMode) {
+    return <section style={panelStyle}>
+      <h2 style={{ margin: 0, fontSize: 18 }}>ახალი მოთხოვნები</h2>
+      <p style={{ margin: "6px 0 0", color: "var(--text2)", fontSize: 13, lineHeight: 1.45, fontWeight: 700 }}>
+        კლიენტების ახალი განცხადებები გამოჩნდება Supabase-თან დაკავშირებულ ვერსიაში. demo რეჟიმი მხოლოდ ეკრანების გაცნობას ემსახურება.
+      </p>
+    </section>;
+  }
   return <section style={panelStyle}><h2 style={{ margin: 0, fontSize: 18 }}>ახალი მოთხოვნები</h2><p style={{ margin: "4px 0 12px", fontSize: 12, color: "var(--text2)", fontWeight: 700 }}>კლიენტის ნომერი და ზუსტი მისამართი არჩევამდე არ ჩანს.</p>{message && <p style={{ fontSize: 12, color: "var(--text2)", fontWeight: 800 }}>{message}</p>}{posts.length ? posts.slice(0, 5).map((post) => <article key={post.id} style={{ padding: "12px 0", borderTop: "1px solid var(--border)" }}>{(post.photo_urls?.length ? post.photo_urls : post.photo_url ? [post.photo_url] : []).length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7, marginBottom: 10 }}>{(post.photo_urls?.length ? post.photo_urls : [post.photo_url!]).map((url) => <img key={url} src={url} alt="კლიენტის მიერ ატვირთული სამუშაო ადგილი" style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 9, objectFit: "cover", display: "block" }} />)}</div>}<strong>{post.title}</strong><p style={{ margin: "5px 0", fontSize: 12, color: "var(--text2)", lineHeight: 1.4 }}>{post.description}</p><div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", fontSize: 12, fontWeight: 800 }}><span>{post.profession_name} · {post.city}</span><button type="button" disabled={busyId === post.id} onClick={() => respond(post.id)} style={{ ...buttonStyle, minHeight: 36 }}>{busyId === post.id ? "იგზავნება" : "ინტერესი"}</button></div></article>) : <p style={{ margin: "12px 0 0", color: "var(--text2)", fontSize: 13, fontWeight: 700 }}>ამ ეტაპზე შენს კატეგორიაში ახალი მოთხოვნა არ ჩანს.</p>}</section>;
 };

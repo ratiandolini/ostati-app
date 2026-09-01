@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { dataService, isDemoDataMode } from "../services/dataService";
+import { usePlatformSettings } from "../hooks/usePlatformSettings";
 import {
   requestPhoneOtp,
   signInOrSignUpWithEmail,
@@ -41,7 +42,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showRules, setShowRules] = useState(false);
-  const legalSettings = dataService.getLegalSettings();
+  const { legalSettings } = usePlatformSettings();
   const emailAuth = !isDemoDataMode && usesEmailPasswordAuth();
 
   const rememberedPhone = isDemoDataMode

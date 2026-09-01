@@ -7,15 +7,17 @@ import {
 } from "./adminApiService";
 import { loadMessageThreads } from "./messageApiService";
 import { loadCurrentUserProfile } from "./profileApiService";
+import { loadWorkerPublicReviews } from "./reviewApiService";
 import { getSupabaseAccessToken } from "./supabaseAuthService";
 import { getSupabaseConfig } from "./supabaseConfig";
+import { loadWorkerCatalog } from "./workerCatalogService";
 
 export type SupabasePreflightStatus = "ok" | "warning" | "error";
 
 export interface SupabasePreflightCheck {
   id: string;
   label: string;
-  area: "config" | "auth" | "profile" | "bookings" | "messages" | "admin" | "storage";
+  area: "config" | "auth" | "profile" | "reviews" | "bookings" | "messages" | "admin" | "storage";
   status: SupabasePreflightStatus;
   detail: string;
   nextAction?: string;
@@ -163,6 +165,50 @@ const runQaNoteSchemaCheck = async (): Promise<SupabasePreflightCheck> => {
   }
 };
 
+const runPublicReviewFeedCheck = async (): Promise<SupabasePreflightCheck> => {
+  try {
+    const worker = (await loadWorkerCatalog()).find((item) => item.backendId);
+    if (!worker?.backendId) {
+      return skippedCheck(
+        "public_review_feed",
+        "Public review feed",
+        "reviews",
+        "ვერიფიცირებული ხელოსანი არ მოიძებნა, ამიტომ review feed ვერ შემოწმდა.",
+        "ჯერ დაადასტურე მინიმუმ ერთი ხელოსნის პროფილი, შემდეგ თავიდან გაუშვი შემოწმება.",
+        "supabase/public_review_feed.sql",
+        false
+      );
+    }
+
+    await loadWorkerPublicReviews(worker.backendId);
+    return {
+      id: "public_review_feed",
+      label: "Public review feed",
+      area: "reviews",
+      status: "ok",
+      detail: "ხელოსნის დეტალური შეფასებები უსაფრთხოდ იტვირთება",
+      sqlFile: "supabase/public_review_feed.sql",
+      required: true,
+    };
+  } catch (error) {
+    const detail = errorMessage(error);
+    return {
+      id: "public_review_feed",
+      label: "Public review feed",
+      area: "reviews",
+      status: "error",
+      detail,
+      nextAction: nextActionForError(
+        detail,
+        "გაუშვი public_review_feed.sql და დარწმუნდი, რომ authenticated მომხმარებლებს function-ის შესრულების უფლება აქვთ.",
+        "supabase/public_review_feed.sql"
+      ),
+      sqlFile: "supabase/public_review_feed.sql",
+      required: true,
+    };
+  }
+};
+
 export const runSupabasePreflightChecks = async () => {
   const checks: SupabasePreflightCheck[] = [];
 
@@ -248,7 +294,8 @@ export const runSupabasePreflightChecks = async () => {
       loadMessageThreads,
       "supabase/message_actions.sql",
       "გაუშვი message_actions.sql და notification_actions.sql."
-    )
+    ),
+    await runPublicReviewFeedCheck()
   );
 
   const contextCheck = await runCheck(

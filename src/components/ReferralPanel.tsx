@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { applyReferralCode, getReferralCode } from "../services/marketplaceApiService";
+import { isDemoDataMode } from "../services/dataService";
 
 const friendlyReferralError = (error: unknown) => {
   const message = error instanceof Error ? error.message : "";
@@ -22,6 +23,10 @@ export const ReferralPanel: React.FC<{ roleLabel: string }> = ({ roleLabel }) =>
   const [loadingCode, setLoadingCode] = useState(true);
 
   useEffect(() => {
+    if (isDemoDataMode) {
+      setLoadingCode(false);
+      return;
+    }
     getReferralCode()
       .then((nextCode) => {
         setCode(nextCode);
@@ -32,6 +37,15 @@ export const ReferralPanel: React.FC<{ roleLabel: string }> = ({ roleLabel }) =>
         setLoadingCode(false);
       });
   }, []);
+
+  if (isDemoDataMode) {
+    return <section style={{ marginTop: 22, padding: 16, borderRadius: 16, border: "1px solid var(--border)", background: "white" }}>
+      <h2 style={{ margin: 0, fontSize: 18 }}>მოიწვიე {roleLabel}</h2>
+      <p style={{ margin: "6px 0 0", color: "var(--text2)", fontSize: 13, lineHeight: 1.45, fontWeight: 700 }}>
+        პირადი მოწვევის კოდი და ხილვადობის ბონუსი მუშაობს Supabase-თან დაკავშირებულ ვერსიაში. demo რეჟიმში კოდი არ იქმნება.
+      </p>
+    </section>;
+  }
 
   const apply = async () => {
     const normalizedCode = input.trim().toUpperCase();

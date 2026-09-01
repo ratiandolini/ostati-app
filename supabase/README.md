@@ -63,6 +63,12 @@ supabase/booking_workflow.sql
 supabase/review_workflow.sql
 ```
 
+ხელოსნის პროფილზე ანონიმური დეტალური შეფასებების გამოსაჩენად გაუშვი:
+
+```text
+supabase/public_review_feed.sql
+```
+
 გადახდების workflow-ისთვის გაუშვი:
 
 ```text

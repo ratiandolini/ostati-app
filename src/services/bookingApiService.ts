@@ -510,7 +510,7 @@ export const cancelBookingRequest = (
   return updateBookingStatus(bookingId, "cancelled", cancellationReason);
 };
 
-export const changeBookingWorkerRequest = (
+export const changeBookingWorkerRequest = async (
   bookingId: string,
   worker: Worker,
   reason?: string
@@ -535,7 +535,7 @@ export const confirmBookingCompletion = (bookingId: string) => {
   return updateBookingStatus(bookingId, "client_confirmed");
 };
 
-export const captureBookingPayment = (bookingId: string) => {
+export const captureBookingPayment = async (bookingId: string) => {
   const client = createSupabaseRestClient();
   return client.rpc<{
     booking_id: string;
@@ -546,7 +546,7 @@ export const captureBookingPayment = (bookingId: string) => {
   });
 };
 
-export const refundBookingPayment = (
+export const refundBookingPayment = async (
   bookingId: string,
   reason?: string
 ) => {
@@ -575,7 +575,7 @@ export interface BookingPaymentSummary {
   refunded_at: string | null;
 }
 
-export const loadBookingPaymentSummary = (bookingId: string) => {
+export const loadBookingPaymentSummary = async (bookingId: string) => {
   const client = createSupabaseRestClient();
   return client.rpc<BookingPaymentSummary>("get_booking_payment_summary", {
     p_booking_id: bookingId,

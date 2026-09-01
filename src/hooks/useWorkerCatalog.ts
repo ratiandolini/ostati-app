@@ -4,10 +4,13 @@ import {
   getDemoWorkerCatalog,
   loadWorkerCatalog,
 } from "../services/workerCatalogService";
+import { isDemoDataMode } from "../services/dataService";
 import { isAbortError, isTransientApiError } from "../services/apiErrorUtils";
 
 export const useWorkerCatalog = () => {
-  const [workers, setWorkers] = useState<Worker[]>(() => getDemoWorkerCatalog());
+  const [workers, setWorkers] = useState<Worker[]>(() =>
+    isDemoDataMode ? getDemoWorkerCatalog() : []
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +31,9 @@ export const useWorkerCatalog = () => {
         if (isAbortError(nextError)) {
           return;
         }
-        setWorkers(getDemoWorkerCatalog());
+        if (isDemoDataMode) {
+          setWorkers(getDemoWorkerCatalog());
+        }
         setError(
           isTransientApiError(nextError)
             ? null

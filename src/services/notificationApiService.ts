@@ -54,14 +54,14 @@ export const loadUnreadNotificationCount = async () => {
   return Number(result.unread_count || 0);
 };
 
-export const markNotificationRead = (notificationId: string) => {
+export const markNotificationRead = async (notificationId: string) => {
   const client = createSupabaseRestClient();
   return client.rpc<{ notification_id: string }>("mark_notification_read", {
     p_notification_id: notificationId,
   });
 };
 
-export const markBookingNotificationsRead = (bookingId: string) => {
+export const markBookingNotificationsRead = async (bookingId: string) => {
   const client = createSupabaseRestClient();
   return client.rpc<{ booking_id: string; updated_count: number }>(
     "mark_booking_notifications_read",
@@ -71,7 +71,7 @@ export const markBookingNotificationsRead = (bookingId: string) => {
   );
 };
 
-export const markAllNotificationsRead = () => {
+export const markAllNotificationsRead = async () => {
   const client = createSupabaseRestClient();
   return client.rpc<{ updated_count: number }>("mark_all_notifications_read", {});
 };

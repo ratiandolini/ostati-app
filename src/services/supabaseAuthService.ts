@@ -51,8 +51,16 @@ const isSupabaseAuthSession = (
   );
 };
 
-const isDevPasswordAuth = () =>
-  process.env.REACT_APP_AUTH_MODE === "dev_password";
+const isDevPasswordAuth = () => {
+  const enabled = process.env.REACT_APP_AUTH_MODE === "dev_password";
+  if (enabled && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "REACT_APP_AUTH_MODE=dev_password is not allowed in production builds. " +
+        "Set it to email_password (or unset it) before deploying."
+    );
+  }
+  return enabled;
+};
 
 export const usesEmailPasswordAuth = () =>
   process.env.REACT_APP_AUTH_MODE === "email_password";

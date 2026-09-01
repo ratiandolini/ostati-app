@@ -5,7 +5,13 @@ const root = process.cwd();
 const buildDir = path.join(root, "build");
 const targetDir = path.join(root, "NETLIFY_UPLOAD_THIS");
 
-const requiredItems = ["index.html", "_redirects", "asset-manifest.json", "static"];
+const requiredItems = [
+  "index.html",
+  "_redirects",
+  "_headers",
+  "asset-manifest.json",
+  "static",
+];
 
 if (!fs.existsSync(buildDir)) {
   throw new Error("Missing build folder. Run npm.cmd run build:local first.");

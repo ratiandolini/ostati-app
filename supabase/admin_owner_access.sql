@@ -1,6 +1,27 @@
--- Remonter: only the owner can access the Admin panel.
--- Owner email: rati3@gmail.com
--- Run once in Supabase SQL Editor.
+-- Remonter: restrict the Admin panel to an explicit allow-list of emails
+-- instead of a hardcoded literal, so adding/removing an admin is a table
+-- edit rather than a function edit. Run once in Supabase SQL Editor.
+--
+-- To add another admin later:
+--   insert into public.admin_allowlist (email) values ('someone@example.com');
+-- To remove one:
+--   delete from public.admin_allowlist where email = 'someone@example.com';
+
+create table if not exists public.admin_allowlist (
+  email text primary key,
+  created_at timestamptz not null default now()
+);
+
+-- No direct client access: only security definer functions (owned by the
+-- table owner, e.g. postgres) or the Supabase SQL editor / service role can
+-- read or write this table. This avoids a circular RLS dependency where the
+-- policy that guards admin access would itself need to check admin access.
+alter table public.admin_allowlist enable row level security;
+revoke all on public.admin_allowlist from anon, authenticated;
+
+insert into public.admin_allowlist (email)
+values ('rati3@gmail.com')
+on conflict (email) do nothing;
 
 create or replace function public.handle_new_auth_user()
 returns trigger
@@ -60,22 +81,26 @@ begin
 end;
 $$;
 
--- Keep precisely one active Admin user. The owner account must already exist in Auth.
+-- Keep the Admin role in sync with the allow-list: demote anyone who fell
+-- off it, promote anyone on it whose auth account already exists.
 update public.users
 set role = 'client'::public.user_role
 where role = 'admin'::public.user_role
   and auth_user_id not in (
-    select id from auth.users where lower(email) = 'rati3@gmail.com'
+    select au.id
+    from auth.users au
+    join public.admin_allowlist al on lower(au.email) = al.email
   );
 
 update public.users u
 set role = 'admin'::public.user_role,
     status = 'active'::public.user_status
 from auth.users au
-where u.auth_user_id = au.id
-  and lower(au.email) = 'rati3@gmail.com';
+join public.admin_allowlist al on lower(au.email) = al.email
+where u.auth_user_id = au.id;
 
--- All RLS policies using this helper now require both Admin role and owner email.
+-- All RLS policies using this helper now require both Admin role and an
+-- email present in the allow-list.
 create or replace function public.current_app_user_is_admin()
 returns boolean
 language sql
@@ -89,6 +114,8 @@ as $$
     where auth_user_id = auth.uid()
       and role = 'admin'::public.user_role
       and status = 'active'::public.user_status
-      and lower(coalesce(auth.jwt() ->> 'email', '')) = 'rati3@gmail.com'
+      and lower(coalesce(auth.jwt() ->> 'email', '')) in (
+        select email from public.admin_allowlist
+      )
   );
 $$;

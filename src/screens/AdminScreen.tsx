@@ -84,10 +84,12 @@ import {
   bookingActionFromPaymentStatus,
   bookingActionFromState,
   bookingStatusFromPaymentStatus,
+  canReleaseBookingPayment,
   getBookingAdminConfirmMessage,
   getPaymentStatusAuditSummary,
   getPaymentStatusConfirmMessage,
   isRefundBookingAction,
+  releasedPaymentStatusError,
   requiresPaymentStatusNote,
 } from "../components/admin/adminBookingActions";
 import type {
@@ -912,6 +914,11 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     paymentStatus?: AdminBookingResolutionPaymentStatus,
     options?: { skipConfirm?: boolean }
   ) => {
+    const currentBooking = clientBookings.find((booking) => booking.id === bookingId);
+    if (status === "closed" && !canReleaseBookingPayment(currentBooking?.status)) {
+      setAdminApiError(releasedPaymentStatusError);
+      return;
+    }
     if (!can("bookings")) {
       setAdminApiError("ამ Admin როლს ჯავშნების მართვის უფლება არ აქვს");
       return;
@@ -1145,6 +1152,14 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     bookingId: string,
     paymentStatus: AdminBookingPaymentStatus
   ) => {
+    const currentBooking = clientBookings.find((booking) => booking.id === bookingId);
+    if (
+      paymentStatus === "released" &&
+      !canReleaseBookingPayment(currentBooking?.status)
+    ) {
+      setAdminApiError(releasedPaymentStatusError);
+      return;
+    }
     if (!can("finance")) {
       setAdminApiError("ამ Admin როლს ფინანსების მართვის უფლება არ აქვს");
       return;

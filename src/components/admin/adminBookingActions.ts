@@ -49,6 +49,12 @@ export const bookingStatusFromPaymentStatus = (
   return undefined;
 };
 
+export const canReleaseBookingPayment = (status?: BookingStatus) =>
+  status !== "cancelled" && status !== "declined";
+
+export const releasedPaymentStatusError =
+  "გაუქმებულ ან უარყოფილ ჯავშანზე თანხის გაშვება შეუძლებელია. გამოიყენე თანხის დაბრუნება ან დატოვე განხილვაში.";
+
 export const requiresPaymentStatusNote = (
   paymentStatus: AdminBookingPaymentStatus
 ) => paymentStatus !== "held";

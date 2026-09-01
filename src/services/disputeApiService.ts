@@ -1,6 +1,6 @@
 import { createSupabaseRestClient } from "./supabaseRest";
 
-export const openBookingDispute = (
+export const openBookingDispute = async (
   bookingId: string,
   reason: string,
   details?: string,

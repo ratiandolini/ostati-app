@@ -40,7 +40,6 @@ export const canChangeBookingStatus = (
   currentStatus: BookingStatus | undefined,
   nextStatus: BookingStatus
 ) => {
-  if (role === "admin") return allowedByRole.admin.includes(nextStatus);
   if (!currentStatus || currentStatus === nextStatus) return false;
   return (
     allowedByRole[role].includes(nextStatus) &&
