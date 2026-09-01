@@ -133,7 +133,7 @@ const mapSupabaseWorker = (row: SupabaseWorkerCard, index: number): Worker => {
     status,
     city: row.city || "თბილისი",
     phone: "",
-    about: row.about || "ხელოსნის პროფილი მალე შეივსება.",
+    about: row.about || "",
     price: formatPrice(row.price_type, row.price_min, row.price_max),
     skills,
     busyDays: [],

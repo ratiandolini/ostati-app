@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { applyReferralCode, getReferralCode } from "../services/marketplaceApiService";
-import { isDemoDataMode } from "../services/dataService";
 
 const friendlyReferralError = (error: unknown) => {
   const message = error instanceof Error ? error.message : "";
@@ -23,10 +22,6 @@ export const ReferralPanel: React.FC<{ roleLabel: string }> = ({ roleLabel }) =>
   const [loadingCode, setLoadingCode] = useState(true);
 
   useEffect(() => {
-    if (isDemoDataMode) {
-      setLoadingCode(false);
-      return;
-    }
     getReferralCode()
       .then((nextCode) => {
         setCode(nextCode);
@@ -37,15 +32,6 @@ export const ReferralPanel: React.FC<{ roleLabel: string }> = ({ roleLabel }) =>
         setLoadingCode(false);
       });
   }, []);
-
-  if (isDemoDataMode) {
-    return <section style={{ marginTop: 22, padding: 16, borderRadius: 16, border: "1px solid var(--border)", background: "white" }}>
-      <h2 style={{ margin: 0, fontSize: 18 }}>მოიწვიე {roleLabel}</h2>
-      <p style={{ margin: "6px 0 0", color: "var(--text2)", fontSize: 13, lineHeight: 1.45, fontWeight: 700 }}>
-        პირადი მოწვევის კოდი და ხილვადობის ბონუსი მუშაობს Supabase-თან დაკავშირებულ ვერსიაში. demo რეჟიმში კოდი არ იქმნება.
-      </p>
-    </section>;
-  }
 
   const apply = async () => {
     const normalizedCode = input.trim().toUpperCase();
@@ -64,7 +50,7 @@ export const ReferralPanel: React.FC<{ roleLabel: string }> = ({ roleLabel }) =>
   const copy = async () => { if (!code) return; try { await navigator.clipboard.writeText(code); setMessage("კოდი დაკოპირებულია."); } catch { setMessage(`შენი კოდი: ${code}`); } };
   return <section style={{ marginTop: 22, padding: 16, borderRadius: 16, border: "1px solid var(--border)", background: "white" }}>
     <h2 style={{ margin: 0, fontSize: 18 }}>მოიწვიე {roleLabel}</h2>
-    <p style={{ margin: "5px 0 12px", color: "var(--text2)", fontSize: 12, lineHeight: 1.5, fontWeight: 700 }}>შენს პირად კოდს სისტემა ავტომატურად ქმნის. გაუზიარე მეგობარს და ბონუსი ჩაირიცხება მისი რეალური აქტივობის შემდეგ.</p>
+    <p style={{ margin: "5px 0 12px", color: "var(--text2)", fontSize: 12, lineHeight: 1.5, fontWeight: 700 }}>შენს პირად კოდს სისტემა ავტომატურად ქმნის. გაუზიარე მეგობარს: მისი აქტიური გამოყენების შემდეგ შენ დაგერიცხება რეფერალის ქულა, რომელიც დროებით გაზრდის ძიებაში ხილვადობას. თანხა არ ირიცხება.</p>
     {loadingCode ? <div style={{ minHeight: 42, display: "grid", placeItems: "center", borderRadius: 10, background: "#f4f7fb", color: "var(--text2)", fontSize: 12, fontWeight: 800 }}>კოდი იტვირთება...</div> : code ? <button type="button" onClick={() => void copy()} style={{ width: "100%", minHeight: 42, borderRadius: 10, background: "#eef6ff", color: "var(--primary)", border: "1px solid #bfdbfe", fontWeight: 900, whiteSpace: "nowrap" }}>შენი კოდი: {code} · კოპირება</button> : null}
     <label style={{ display: "block", marginTop: 14, color: "var(--text)", fontSize: 12, fontWeight: 900 }}>თუ მეგობარმა თავისი კოდი მოგცა</label>
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, marginTop: 6 }}><input value={input} maxLength={8} onChange={(event) => setInput(event.target.value.replace(/\s/g, "").toUpperCase())} placeholder="8-სიმბოლოიანი კოდი" style={{ width: "100%", minWidth: 0, height: 42, padding: "0 10px", border: "1px solid var(--border)", borderRadius: 10, fontWeight: 800 }} /><button type="button" disabled={input.trim().length !== 8} onClick={() => void apply()} style={{ minWidth: 92, padding: "0 12px", borderRadius: 10, background: "var(--primary)", color: "white", fontWeight: 900, whiteSpace: "nowrap", opacity: input.trim().length === 8 ? 1 : .45 }}>დამატება</button></div>

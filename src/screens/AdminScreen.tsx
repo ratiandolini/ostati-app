@@ -1868,7 +1868,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
                 minWidth: 0,
               }}
             >
-              <div style={{ color: "var(--text3)", fontSize: 11, fontWeight: 900 }}>
+              <div style={{ color: "var(--text3)", fontSize: 11, fontWeight: 900, lineHeight: 1.2, overflowWrap: "anywhere", wordBreak: "break-word" }}>
                 {item.label}
               </div>
               <div
@@ -1884,7 +1884,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
               >
                 {item.value}
               </div>
-              <div style={{ marginTop: 5, color: "var(--text3)", fontSize: 10, fontWeight: 800 }}>
+              <div style={{ marginTop: 5, color: "var(--text3)", fontSize: 10, fontWeight: 800, lineHeight: 1.25, overflowWrap: "anywhere", wordBreak: "break-word" }}>
                 {item.hint}
               </div>
             </button>

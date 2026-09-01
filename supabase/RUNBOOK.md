@@ -77,6 +77,8 @@ Fresh setup-ზე ეს ფაილი ჩვეულებრივ სა�
 1. `supabase/profile_actions.sql`
 2. `supabase/storage_profile_hotfix.sql`
 3. `supabase/marketplace_job_post_hotfix.sql`
+4. `supabase/marketplace_job_post_description_hotfix.sql`
+5. `supabase/marketplace_job_post_title_hotfix.sql`
 4. `supabase/message_time_hotfix.sql`
 
 ამის შემდეგ ერთხელ გამოდი ანგარიშიდან, თავიდან შედი და ატვირთე სატესტო

@@ -1,4 +1,7 @@
 import { createSupabaseRestClient } from "./supabaseRest";
+import { isDemoDataMode } from "./dataService";
+import { marketplaceDemo } from "./marketplaceDemoService";
+import { getSupabaseUserId } from "./supabaseAuthService";
 
 export interface JobPost {
   id: string;
@@ -28,25 +31,39 @@ export interface PortfolioItem {
   created_at: string;
 }
 
+export interface JobPostInterest {
+  id: string;
+  job_post_id: string;
+  status: "pending" | "selected" | "not_selected" | "withdrawn";
+  created_at: string;
+}
+
 // Every export here is declared `async` on purpose: createSupabaseRestClient()
 // throws synchronously when Supabase isn't configured (demo mode / missing
 // env vars). Calling it outside an async function let that throw escape any
 // caller's `.catch()` as an uncaught exception instead of a rejected
 // promise, which crashed the whole app (no ErrorBoundary catches it either).
 // `async` wraps that synchronous throw into a normal rejected promise.
-export const loadOpenJobPosts = async (signal?: AbortSignal) =>
-  createSupabaseRestClient().select<JobPost>("job_posts", {
+export const loadOpenJobPosts = async (signal?: AbortSignal) => {
+  if (isDemoDataMode) return marketplaceDemo.loadOpenJobPosts() as JobPost[];
+  return createSupabaseRestClient().select<JobPost>("job_posts", {
     select: "*",
     status: "eq.open",
     order: "created_at.desc",
     limit: 20,
   }, { signal });
+};
 
-export const loadMyJobPosts = async (signal?: AbortSignal) =>
-  createSupabaseRestClient().select<JobPost>("job_posts", {
+export const loadMyJobPosts = async (signal?: AbortSignal) => {
+  if (isDemoDataMode) return marketplaceDemo.loadMyJobPosts() as JobPost[];
+  const userId = getSupabaseUserId();
+  if (!userId) return [];
+  return createSupabaseRestClient().select<JobPost>("job_posts", {
     select: "*",
+    client_id: `eq.${userId}`,
     order: "created_at.desc",
   }, { signal });
+};
 
 export const createJobPost = async (input: {
   title: string;
@@ -59,6 +76,20 @@ export const createJobPost = async (input: {
   preferredDate?: string | null;
   photoUrls?: string[];
 }) => {
+  if (isDemoDataMode) {
+    return marketplaceDemo.createJobPost({
+      title: input.title,
+      profession_name: input.professionName,
+      city: input.city,
+      area_label: input.areaLabel || null,
+      description: input.description,
+      budget_min: input.budgetMin || null,
+      budget_max: input.budgetMax || null,
+      preferred_date: input.preferredDate || null,
+      photo_url: input.photoUrls?.[0] || null,
+      photo_urls: input.photoUrls || [],
+    }) as JobPost;
+  }
   const client = createSupabaseRestClient();
   const post = await client.rpc<JobPost>("create_job_post", {
     p_title: input.title,
@@ -78,38 +109,67 @@ export const createJobPost = async (input: {
   return updated[0] || { ...post, photo_url: input.photoUrls[0], photo_urls: input.photoUrls };
 };
 
-export const cancelMyJobPost = async (jobPostId: string) =>
-  createSupabaseRestClient().rpc<JobPost>("cancel_my_job_post", { p_job_post_id: jobPostId });
+export const cancelMyJobPost = async (jobPostId: string) => {
+  if (isDemoDataMode) return marketplaceDemo.cancelJobPost(jobPostId) as JobPost;
+  return createSupabaseRestClient().rpc<JobPost>("cancel_my_job_post", { p_job_post_id: jobPostId });
+};
 
-export const expressInterest = async (jobPostId: string, message: string, estimateMin?: number) =>
-  createSupabaseRestClient().rpc("express_interest_in_job_post", {
+export const expressInterest = async (jobPostId: string, message: string, estimateMin?: number) => {
+  if (isDemoDataMode) return marketplaceDemo.expressInterest(jobPostId);
+  return createSupabaseRestClient().rpc<JobPostInterest>("express_interest_in_job_post", {
     p_job_post_id: jobPostId,
     p_message: message || null,
     p_estimate_min: estimateMin || null,
     p_estimate_max: null,
   });
+};
 
-export const loadWorkerPortfolio = async (workerId: string, signal?: AbortSignal) =>
-  createSupabaseRestClient().select<PortfolioItem>("worker_portfolio_items", {
+export const loadCurrentWorkerJobPostInterests = async (signal?: AbortSignal) => {
+  if (isDemoDataMode) return marketplaceDemo.loadCurrentWorkerInterests() as JobPostInterest[];
+  return createSupabaseRestClient().select<JobPostInterest>("job_post_interests", {
+    select: "id,job_post_id,status,created_at",
+    order: "created_at.desc",
+  }, { signal });
+};
+
+export const withdrawInterestInJobPost = async (interestId: string) => {
+  if (isDemoDataMode) return marketplaceDemo.withdrawInterest(interestId) as JobPostInterest;
+  const rows = await createSupabaseRestClient().update<JobPostInterest>("job_post_interests", { status: "withdrawn" }, { id: `eq.${interestId}` });
+  if (!rows[0]) throw new Error("ინტერესის გაუქმება ვერ მოხერხდა.");
+  return rows[0];
+};
+
+export const loadWorkerPortfolio = async (workerId: string, signal?: AbortSignal) => {
+  if (isDemoDataMode) return marketplaceDemo.loadPortfolio() as PortfolioItem[];
+  return createSupabaseRestClient().select<PortfolioItem>("worker_portfolio_items", {
     select: "*",
     worker_id: `eq.${workerId}`,
     is_visible: "eq.true",
     order: "created_at.desc",
     limit: 15,
   }, { signal });
+};
 
-export const createCurrentWorkerPortfolioItem = async (imageUrl: string, professionName?: string, description?: string) =>
-  createSupabaseRestClient().rpc<PortfolioItem>("add_current_worker_portfolio_item", {
+export const createCurrentWorkerPortfolioItem = async (imageUrl: string, professionName?: string, description?: string) => {
+  if (isDemoDataMode) return marketplaceDemo.createPortfolioItem(imageUrl, professionName, description) as PortfolioItem;
+  return createSupabaseRestClient().rpc<PortfolioItem>("add_current_worker_portfolio_item", {
     p_image_url: imageUrl,
     p_profession_name: professionName || null,
     p_description: description || null,
   });
+};
 
-export const removePortfolioItem = async (itemId: string) =>
-  createSupabaseRestClient().remove("worker_portfolio_items", { id: `eq.${itemId}` });
+export const removePortfolioItem = async (itemId: string) => {
+  if (isDemoDataMode) return marketplaceDemo.removePortfolioItem(itemId);
+  return createSupabaseRestClient().remove("worker_portfolio_items", { id: `eq.${itemId}` });
+};
 
-export const getReferralCode = async () =>
-  createSupabaseRestClient().rpc<string>("get_or_create_referral_code", {});
+export const getReferralCode = async () => {
+  if (isDemoDataMode) return marketplaceDemo.getReferralCode();
+  return createSupabaseRestClient().rpc<string>("get_or_create_referral_code", {});
+};
 
-export const applyReferralCode = async (code: string) =>
-  createSupabaseRestClient().rpc<{ ok: boolean; message: string }>("apply_referral_code", { p_code: code });
+export const applyReferralCode = async (code: string) => {
+  if (isDemoDataMode) return marketplaceDemo.applyReferralCode(code);
+  return createSupabaseRestClient().rpc<{ ok: boolean; message: string }>("apply_referral_code", { p_code: code });
+};

@@ -131,6 +131,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenMessages,
 }) => {
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+  const [activePortfolioItem, setActivePortfolioItem] = useState<PortfolioItem | null>(null);
   const [workerReviews, setWorkerReviews] = useState<PublicWorkerReview[]>([]);
   const today = startOfDay(new Date());
   const [visibleMonth, setVisibleMonth] = useState(
@@ -139,9 +140,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date>(today);
 
   useEffect(() => {
-    if (!worker.backendId) { setPortfolio([]); return; }
+    if (!isDemoDataMode && !worker.backendId) { setPortfolio([]); return; }
     const controller = new AbortController();
-    loadWorkerPortfolio(worker.backendId, controller.signal).then(setPortfolio).catch(() => setPortfolio([]));
+    loadWorkerPortfolio(worker.backendId || "demo-worker", controller.signal).then(setPortfolio).catch(() => setPortfolio([]));
     return () => controller.abort();
   }, [worker.backendId]);
   useEffect(() => {
@@ -426,7 +427,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         <section className="profile-section">
           <h2>შესახებ</h2>
-          <p>{worker.about}</p>
+          {worker.about.trim() && <p>{worker.about}</p>}
           <div className="profile-meta">⌖ {worker.city}</div>
         </section>
 
@@ -434,11 +435,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <h2>ნამუშევრები</h2>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
             {portfolio.map((item) => <figure key={item.id} style={{ margin: 0 }}>
-              <img src={item.image_url} alt={item.profession_name || "შესრულებული სამუშაო"} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 12, border: "1px solid var(--border)" }} />
+              <button type="button" onClick={() => setActivePortfolioItem(item)} style={{ width: "100%", padding: 0, background: "transparent", borderRadius: 12 }} aria-label="ნამუშევრის ფოტოს გადიდება">
+                <img src={item.image_url} alt={item.profession_name || "შესრულებული სამუშაო"} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 12, border: "1px solid var(--border)", display: "block" }} />
+              </button>
               {item.profession_name && <figcaption style={{ marginTop: 5, fontSize: 11, color: "var(--text2)", fontWeight: 800 }}>{item.profession_name}</figcaption>}
             </figure>)}
           </div>
         </section>}
+
+        {activePortfolioItem && <div role="dialog" aria-modal="true" aria-label="ნამუშევრის ფოტო" onClick={() => setActivePortfolioItem(null)} style={{ position: "fixed", inset: 0, zIndex: 50, display: "grid", placeItems: "center", padding: 18, background: "rgba(15, 23, 42, .78)" }}>
+          <div onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 680px)", maxHeight: "calc(100vh - 36px)", position: "relative" }}>
+            <img src={activePortfolioItem.image_url} alt={activePortfolioItem.profession_name || "შესრულებული სამუშაო"} style={{ width: "100%", maxHeight: "calc(100vh - 90px)", objectFit: "contain", borderRadius: 12, background: "#111827", display: "block" }} />
+            <button type="button" onClick={() => setActivePortfolioItem(null)} style={{ position: "absolute", top: 8, right: 8, width: 36, height: 36, borderRadius: 10, background: "rgba(15, 23, 42, .88)", color: "white", fontSize: 22, fontWeight: 900 }} aria-label="დახურვა">×</button>
+          </div>
+        </div>}
 
         <section className="profile-section">
           <h2>შეფასებები</h2>

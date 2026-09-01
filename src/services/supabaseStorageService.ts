@@ -38,6 +38,32 @@ const fileExtension = (file: File) => {
   return "bin";
 };
 
+const supportedMimeByExtension: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  pdf: "application/pdf",
+};
+
+const supportedUploadTypes = new Set(Object.values(supportedMimeByExtension));
+
+// Some Windows pickers report a valid image as application/octet-stream (or
+// an empty MIME type). The filename extension is a safe fallback here; every
+// other unknown extension stays rejected.
+export const normalizeSupportedUploadFile = (file: File) => {
+  if (supportedUploadTypes.has(file.type)) return file;
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  const inferredType = supportedMimeByExtension[extension];
+  if (!inferredType) {
+    throw new Error("ატვირთე JPG, PNG, WebP ან PDF ფაილი.");
+  }
+  return new File([file], file.name, {
+    type: inferredType,
+    lastModified: file.lastModified,
+  });
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -142,23 +168,18 @@ export const uploadStorageFile = async ({
     throw new Error("Supabase session is required before uploading files.");
   }
 
-  const allowedTypes = new Set([
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "application/pdf",
-  ]);
-  if (!allowedTypes.has(file.type)) {
-    throw new Error("ატვირთე JPG, PNG, WebP ან PDF ფაილი.");
-  }
-  if (file.type === "application/pdf" && file.size > 4_500_000) {
+  const supportedFile = normalizeSupportedUploadFile(file);
+  if (supportedFile.type === "application/pdf" && supportedFile.size > 4_500_000) {
     throw new Error("PDF ფაილი 4.5 მბ-ზე ნაკლები უნდა იყოს.");
   }
 
-  const uploadFile = await compressImageFile(file, {
+  // A few valid phone/Windows images cannot be decoded by the browser canvas.
+  // Storage still validates size and MIME, so preserve the original rather than
+  // blocking a legitimate document before the upload starts.
+  const uploadFile = await compressImageFile(supportedFile, {
     maxSide: bucket === "profile-photos" ? 900 : 1400,
     maxBytes: bucket === "profile-photos" ? 900_000 : 1_800_000,
-  });
+  }).catch(() => supportedFile);
   const cleanPath = normalizePath(path);
   const response = await fetch(
     `${config.url}/storage/v1/object/${bucket}/${cleanPath}`,
@@ -193,4 +214,26 @@ export const uploadStorageFile = async ({
         ? getPublicStorageUrl(bucket, cleanPath)
         : null,
   };
+};
+
+export const removeStorageFile = async (bucket: StorageBucket, pathOrUrl: string) => {
+  const config = getSupabaseConfig();
+  const accessToken = getSupabaseAccessToken();
+  const path = extractStoragePath(bucket, pathOrUrl);
+
+  if (!path || path.startsWith("data:")) return;
+  if (!accessToken) throw new Error("Supabase session is required before deleting files.");
+
+  const response = await fetch(`${config.url}/storage/v1/object/${bucket}/${path}`, {
+    method: "DELETE",
+    headers: {
+      apikey: config.anonKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok && response.status !== 404) {
+    const body = await response.text();
+    throw new Error(`Supabase storage delete failed with ${response.status}: ${body || response.statusText}`);
+  }
 };

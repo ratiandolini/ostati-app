@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BookingStatus, Screen, User } from "../types";
-import { georgiaCities } from "../data/workers";
+import { categoryGroups, georgiaCities, getAllProfessionValue, getServiceSelectionLabel, makeServiceSelection, SUPERVISOR_CAPABILITIES } from "../data/workers";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   isAbortError,
@@ -42,8 +42,8 @@ import {
 import { usePlatformSettings } from "../hooks/usePlatformSettings";
 import { JobCard } from "../components/craftsman/JobCard";
 import { CraftsmanJobPostsPanel } from "../components/JobPostsPanel";
-import { createCurrentWorkerPortfolioItem, PortfolioItem } from "../services/marketplaceApiService";
-import { createStoragePath, uploadStorageFile } from "../services/supabaseStorageService";
+import { createCurrentWorkerPortfolioItem, PortfolioItem, removePortfolioItem } from "../services/marketplaceApiService";
+import { createStoragePath, normalizeSupportedUploadFile, removeStorageFile, uploadStorageFile } from "../services/supabaseStorageService";
 import { ReferralPanel } from "../components/ReferralPanel";
 import {
   Booking,
@@ -56,7 +56,6 @@ import {
   isBlankDetail,
   formatDetailValue,
   formatMaterialOwner,
-  PROFESSION_OPTIONS,
   PROFILE_SECTIONS,
   HOURS,
   readCraftsmanProfile,
@@ -252,6 +251,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [portfolioBusy, setPortfolioBusy] = useState(false);
   const [portfolioError, setPortfolioError] = useState("");
+  const [portfolioReplaceId, setPortfolioReplaceId] = useState("");
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [notificationError, setNotificationError] = useState("");
   const [bookingActionError, setBookingActionError] = useState("");
@@ -262,6 +262,12 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   >(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const portfolioInputRef = useRef<HTMLInputElement | null>(null);
+  const portfolioFileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("ფოტოს წაკითხვა ვერ მოხერხდა."));
+    reader.onerror = () => reject(new Error("ფოტოს წაკითხვა ვერ მოხერხდა."));
+    reader.readAsDataURL(file);
+  });
   const fullName =
     `${firstName.trim()} ${lastName.trim()}`.trim() || "სახელი გვარი";
   const normalizedProfilePhone = profilePhone.replace(/\D/g, "");
@@ -270,8 +276,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     : user.phone.includes("@")
       ? user.phone
       : "ნომერი დასამატებელია";
-  const mainProfession = professions[0] || "პროფესია ასარჩევია";
-  const professionText = professions.length ? professions.join(" · ") : "პროფესია ასარჩევია";
+  const mainProfession = professions.length ? getServiceSelectionLabel(professions[0]) : "პროფესია ასარჩევია";
+  const professionText = professions.length ? professions.map(getServiceSelectionLabel).join(" · ") : "პროფესია ასარჩევია";
   const priceMinText = priceMin.trim();
   const priceMaxText = priceMax.trim();
   const normalizedPriceMin = priceMinText ? Number(priceMinText) : null;
@@ -356,6 +362,15 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     if (nextRating) {
       setRating(nextRating);
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    import("../services/marketplaceApiService")
+      .then(({ loadWorkerPortfolio }) => loadWorkerPortfolio("demo-worker"))
+      .then((items) => { if (!cancelled) setPortfolioItems(items); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -1131,31 +1146,80 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     });
   };
 
-  const handlePortfolioUpload = async (file?: File) => {
-    if (!file) return;
-    if (portfolioItems.length >= 15) {
+  const toggleCategoryAll = (category: (typeof categoryGroups)[number]) => {
+    const allValue = getAllProfessionValue(category);
+    const categoryValues = category.subcategories.map((item) => makeServiceSelection(category.id, item.label));
+    setProfessions((current) => current.includes(allValue)
+      ? current.filter((item) => item !== allValue)
+      : [...current.filter((item) => !categoryValues.includes(item)), allValue]
+    );
+  };
+
+  const handlePortfolioUpload = async (files: File[], replaceId = "") => {
+    if (!files.length) return;
+    const selectedFiles = replaceId ? files.slice(0, 1) : files;
+    if (!replaceId && portfolioItems.length + selectedFiles.length > 15) {
       setPortfolioError("პორტფოლიოში მაქსიმუმ 15 ნამუშევრის დამატება შეიძლება.");
       return;
     }
     setPortfolioBusy(true);
     setPortfolioError("");
     try {
-      const uploaded = await uploadStorageFile({
-        bucket: "worker-portfolio",
-        file,
-        path: createStoragePath("portfolio", file, "work"),
-      });
-      const item = await createCurrentWorkerPortfolioItem(
-        uploaded.publicUrl || uploaded.path,
-        professions[0],
-        ""
-      );
-      setPortfolioItems((current) => [item, ...current]);
+      const created: PortfolioItem[] = [];
+      for (const file of selectedFiles) {
+        let resolvedImageUrl: string;
+        if (isDemoDataMode) {
+          resolvedImageUrl = await portfolioFileToDataUrl(file);
+        } else {
+          const uploaded = await uploadStorageFile({
+            bucket: "worker-portfolio",
+            file,
+            path: createStoragePath("portfolio", file, "work"),
+          });
+          resolvedImageUrl = uploaded.publicUrl || uploaded.path;
+        }
+        created.push(await createCurrentWorkerPortfolioItem(resolvedImageUrl, getServiceSelectionLabel(professions[0]), ""));
+      }
+      if (replaceId) {
+        const oldItem = portfolioItems.find((item) => item.id === replaceId);
+        await removePortfolioItem(replaceId);
+        if (oldItem && !isDemoDataMode) await removeStorageFile("worker-portfolio", oldItem.image_url).catch(() => undefined);
+        setPortfolioItems((current) => [created[0], ...current.filter((item) => item.id !== replaceId)]);
+      } else {
+        setPortfolioItems((current) => [...created, ...current]);
+      }
     } catch (error) {
       setPortfolioError(error instanceof Error ? error.message : "ფოტოს ატვირთვა ვერ მოხერხდა.");
     } finally {
+      setPortfolioReplaceId("");
       setPortfolioBusy(false);
     }
+  };
+
+  const handleRemovePortfolioItem = async (item: PortfolioItem) => {
+    setPortfolioBusy(true); setPortfolioError("");
+    try {
+      await removePortfolioItem(item.id);
+      if (!isDemoDataMode) await removeStorageFile("worker-portfolio", item.image_url).catch(() => undefined);
+      setPortfolioItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
+    } catch (error) {
+      setPortfolioError(error instanceof Error ? error.message : "ფოტოს წაშლა ვერ მოხერხდა.");
+    } finally { setPortfolioBusy(false); }
+  };
+
+  const handleRemoveAllPortfolioItems = async () => {
+    if (!portfolioItems.length || !window.confirm("ყველა ნამუშევრის ფოტო წაიშლება. გავაგრძელოთ?")) return;
+    setPortfolioBusy(true); setPortfolioError("");
+    try {
+      const items = [...portfolioItems];
+      await Promise.all(items.map(async (item) => {
+        await removePortfolioItem(item.id);
+        if (!isDemoDataMode) await removeStorageFile("worker-portfolio", item.image_url).catch(() => undefined);
+      }));
+      setPortfolioItems([]);
+    } catch (error) {
+      setPortfolioError(error instanceof Error ? error.message : "პორტფოლიოს სრულად წაშლა ვერ მოხერხდა.");
+    } finally { setPortfolioBusy(false); }
   };
 
   const handleSave = async () => {
@@ -1314,17 +1378,14 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   ) => {
     setVerificationUploadError("");
 
-    const allowedTypes = new Set([
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-    ]);
-    if (!allowedTypes.has(file.type)) {
-      setVerificationUploadError("ატვირთე მხოლოდ JPG, PNG, WebP ან PDF დოკუმენტი.");
+    let supportedFile: File;
+    try {
+      supportedFile = normalizeSupportedUploadFile(file);
+    } catch (error) {
+      setVerificationUploadError(error instanceof Error ? error.message : "ატვირთე მხოლოდ JPG, PNG, WebP ან PDF დოკუმენტი.");
       return;
     }
-    if (file.type === "application/pdf" && file.size > 4_500_000) {
+    if (supportedFile.type === "application/pdf" && supportedFile.size > 4_500_000) {
       setVerificationUploadError("PDF ფაილი 4.5 მბ-ზე ნაკლები უნდა იყოს.");
       return;
     }
@@ -1338,7 +1399,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
       setUploadingVerification(key);
       try {
-        const uploaded = await uploadVerificationDocument(file, typeByKey[key]);
+        const uploaded = await uploadVerificationDocument(supportedFile, typeByKey[key]);
         setVerificationDocuments((prev) => ({
           ...prev,
           [key]: uploaded.path,
@@ -1379,7 +1440,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     reader.onerror = () => {
       setVerificationUploadError("დოკუმენტის წაკითხვა ვერ მოხერხდა.");
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(supportedFile);
   };
 
   const handleBankAccountSave = async () => {
@@ -1602,7 +1663,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             ))}
           </div>
 
-          {isVerified && <CraftsmanJobPostsPanel />}
+          {isVerified && <CraftsmanJobPostsPanel professions={professions} />}
 
           {(visibleHomeNotifications.length > 0 || notificationError) && (
             <section style={{ marginTop: 22 }}>
@@ -2250,43 +2311,33 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 background: "white",
               }}
             >
-              {PROFESSION_OPTIONS.map((profession) => {
-                const selected = professions.includes(profession);
-                return (
-                  <label
-                    key={profession}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      minHeight: 44,
-                      padding: "0 12px",
-                      borderRadius: 12,
-                      border: `1px solid ${
-                        selected ? "var(--primary)" : "var(--border)"
-                      }`,
-                      background: selected ? "#f0f7ff" : "#f8fafc",
-                      color: selected ? "var(--primary)" : "var(--text)",
-                      fontSize: 14,
-                      fontWeight: 900,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <span>{profession}</span>
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={() => toggleProfession(profession)}
-                      style={{
-                        width: 18,
-                        height: 18,
-                        accentColor: "var(--primary)",
-                      }}
-                    />
+              {categoryGroups.map((category) => {
+                const allValue = getAllProfessionValue(category);
+                const allSelected = professions.includes(allValue);
+                return <div key={category.id} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+                  <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 46, padding: "0 12px", background: "#f8fafc", color: "var(--text)", fontSize: 14, fontWeight: 900, cursor: "pointer" }}>
+                    <span>{category.label}</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 7, color: "var(--primary)", fontSize: 12 }}><span>ყველაფერს</span><input type="checkbox" checked={allSelected} onChange={() => toggleCategoryAll(category)} style={{ width: 18, height: 18, accentColor: "var(--primary)" }} /></span>
                   </label>
-                );
+                  <div style={{ display: "grid", gap: 7, padding: 10 }}>
+                    {category.subcategories.map((subcategory) => {
+                      const value = makeServiceSelection(category.id, subcategory.label);
+                      const selected = allSelected || professions.includes(value);
+                      return <label key={value} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 38, padding: "0 10px", borderRadius: 9, background: selected ? "#f0f7ff" : "white", color: selected ? "var(--primary)" : "var(--text2)", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+                        <span>{subcategory.label}</span>
+                        <input type="checkbox" checked={selected} onChange={() => setProfessions((current) => {
+                          const withoutAll = current.filter((item) => item !== allValue);
+                          return withoutAll.includes(value) ? withoutAll.filter((item) => item !== value) : [...withoutAll, value];
+                        })} style={{ width: 17, height: 17, accentColor: "var(--primary)" }} />
+                      </label>;
+                    })}
+                  </div>
+                </div>;
               })}
+              <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 12, display: "grid", gap: 8 }}>
+                <strong style={{ fontSize: 14 }}>სამუშაოთა ხელმძღვანელი (პრარაბი / ბრიგადირი)</strong>
+                {SUPERVISOR_CAPABILITIES.map((capability) => <label key={capability} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 36, color: "var(--text2)", fontSize: 13, fontWeight: 800, cursor: "pointer" }}><span>{capability}</span><input type="checkbox" checked={professions.includes(capability)} onChange={() => toggleProfession(capability)} style={{ width: 17, height: 17, accentColor: "var(--primary)" }} /></label>)}
+              </div>
             </div>
             <label
               style={{
@@ -2440,12 +2491,15 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               <p style={{ margin: "0 0 14px", color: "var(--text2)", fontSize: 12, lineHeight: 1.45, fontWeight: 700 }}>
                 ატვირთე რეალური შესრულებული სამუშაო. კლიენტი პროფესიისა და აღწერის მიხედვით ნახავს შენს გამოცდილებას.
               </p>
-              <input ref={portfolioInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={(event) => { void handlePortfolioUpload(event.target.files?.[0]); event.currentTarget.value = ""; }} />
-              <button type="button" disabled={portfolioBusy} onClick={() => portfolioInputRef.current?.click()} style={{ width: "100%", minHeight: 48, borderRadius: 12, background: "var(--primary)", color: "white", fontSize: 14, fontWeight: 900, opacity: portfolioBusy ? .55 : 1 }}>
-                {portfolioBusy ? "ფოტო იტვირთება..." : "ნამუშევრის ფოტოს დამატება"}
-              </button>
+              <input ref={portfolioInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple style={{ display: "none" }} onChange={(event) => { void handlePortfolioUpload(Array.from(event.target.files || []), portfolioReplaceId); event.currentTarget.value = ""; }} />
+              <div style={{ display: "grid", gridTemplateColumns: portfolioItems.length ? "minmax(0, 1fr) auto" : "1fr", gap: 8 }}>
+                <button type="button" disabled={portfolioBusy} onClick={() => { setPortfolioReplaceId(""); portfolioInputRef.current?.click(); }} style={{ width: "100%", minHeight: 48, borderRadius: 12, background: "var(--primary)", color: "white", fontSize: 14, fontWeight: 900, opacity: portfolioBusy ? .55 : 1 }}>
+                  {portfolioBusy ? "ფოტოები იტვირთება..." : "ნამუშევრების ფოტოების დამატება"}
+                </button>
+                {portfolioItems.length > 0 && <button type="button" disabled={portfolioBusy} onClick={() => void handleRemoveAllPortfolioItems()} style={{ minHeight: 48, padding: "0 12px", borderRadius: 12, background: "white", color: "#b91c1c", border: "1px solid #fecaca", fontSize: 12, fontWeight: 900 }}>ყველას წაშლა</button>}
+              </div>
               {portfolioError && <p style={{ margin: "10px 0 0", color: "#b91c1c", fontSize: 12, fontWeight: 800, lineHeight: 1.4 }}>{portfolioError}</p>}
-              {portfolioItems.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>{portfolioItems.map((item) => <img key={item.id} src={item.image_url} alt="ნამუშევარი" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 12, border: "1px solid var(--border)" }} />)}</div>}
+              {portfolioItems.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>{portfolioItems.map((item) => <div key={item.id} style={{ minWidth: 0 }}><img src={item.image_url} alt="ნამუშევარი" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 12, border: "1px solid var(--border)", display: "block" }} /><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 6 }}><button type="button" disabled={portfolioBusy} onClick={() => { setPortfolioReplaceId(item.id); portfolioInputRef.current?.click(); }} style={{ minHeight: 34, borderRadius: 8, background: "#eef6ff", color: "var(--primary)", border: "1px solid #bfdbfe", fontSize: 11, fontWeight: 900 }}>ჩანაცვლება</button><button type="button" disabled={portfolioBusy} onClick={() => void handleRemovePortfolioItem(item)} style={{ minHeight: 34, borderRadius: 8, background: "white", color: "#b91c1c", border: "1px solid #fecaca", fontSize: 11, fontWeight: 900 }}>წაშლა</button></div></div>)}</div>}
               {!portfolioItems.length && <p style={{ margin: "14px 0 0", color: "var(--text2)", fontSize: 12, fontWeight: 700 }}>ჯერ ფოტო არ დაგიმატებია. მაქსიმუმ 15 ნამუშევარი შეგიძლია აჩვენო.</p>}
             </section>
           )}

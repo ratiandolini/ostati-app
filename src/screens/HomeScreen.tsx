@@ -47,7 +47,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <h2>კატეგორიები</h2>
         <div className="home-categories">
           {visibleCategories.map((cat) => (
-            <button key={cat.id} onClick={() => onCategorySelect(cat.professions[0])}>
+            <button key={cat.id} onClick={() => onCategorySelect(cat.id)}>
               <span>
                 {cat.image ? (
                   <img src={cat.image} alt="" />
