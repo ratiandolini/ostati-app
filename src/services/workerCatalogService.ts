@@ -1,4 +1,4 @@
-import { workers as demoWorkers } from "../data/workers";
+import { getServiceSelectionLabel, sanitizeWorkerProfessions, workers as demoWorkers } from "../data/workers";
 import type { Worker, WorkerStatus } from "../types";
 import { dataService, isDemoDataMode } from "./dataService";
 import { createSupabaseRestClient } from "./supabaseRest";
@@ -62,12 +62,17 @@ const getSavedCraftsmanWorker = (): Worker | null => {
   const profile = dataService.getCraftsmanProfile();
   if (!profile.name && !profile.role && !profile.avatar) return null;
   if (profile.verificationStatus !== "verified") return null;
+  const skills = sanitizeWorkerProfessions(
+    Array.isArray(profile.professions) && profile.professions.length
+      ? profile.professions
+      : [profile.role || ""]
+  );
 
   return {
     id: 999,
     verificationStatus: "verified",
     name: profile.name || "გიორგი კურტანიძე",
-    role: profile.role || "მალიარი",
+    role: getServiceSelectionLabel(skills[0] || "ხელოსანი"),
     avatar: profile.avatar || "გკ",
     avatarColor: profile.avatarColor || "#17243a",
     exp: profile.experienceYears || 0,
@@ -80,9 +85,7 @@ const getSavedCraftsmanWorker = (): Worker | null => {
       profile.extraWorkComment ||
       "პროფილი დამატებულია ხელოსნის პირადი კაბინეტიდან.",
     price: profile.price || "80-120 ლარი",
-    skills: Array.isArray(profile.professions)
-      ? profile.professions
-      : ["ინტერიერი", "ფასადი", "შეკეთება"],
+    skills,
     busyDays: [12, 13, 19],
     reviews: [],
     schedule: profile.schedule || [],
@@ -112,11 +115,9 @@ export const getDemoWorkerCatalog = (): Worker[] => {
 
 const mapSupabaseWorker = (row: SupabaseWorkerCard, index: number): Worker => {
   const name = row.name || "ხელოსანი";
-  const skills = row.skills?.length
-    ? row.skills
-    : row.role
-      ? [row.role]
-      : ["რემონტი"];
+  const skills = sanitizeWorkerProfessions(
+    row.skills?.length ? row.skills : row.role ? [row.role] : []
+  );
   const status: WorkerStatus = "free";
 
   return {
@@ -124,7 +125,7 @@ const mapSupabaseWorker = (row: SupabaseWorkerCard, index: number): Worker => {
     backendId: row.id,
     verificationStatus: row.verification_status || "not_started",
     name,
-    role: row.role || skills[0] || "ხელოსანი",
+    role: getServiceSelectionLabel(skills[0] || "ხელოსანი"),
     avatar: row.avatar_url || initialsFromName(name),
     avatarColor: avatarColors[index % avatarColors.length],
     exp: Number(row.experience_years || 0),

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BookingStatus, Screen, User } from "../types";
-import { categoryGroups, georgiaCities, getAllProfessionValue, getServiceSelectionLabel, makeServiceSelection, SUPERVISOR_CAPABILITIES } from "../data/workers";
+import { categoryGroups, georgiaCities, getAllProfessionValue, getServiceSelectionLabel, makeServiceSelection, sanitizeWorkerProfessions, SUPERVISOR_CAPABILITIES } from "../data/workers";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   isAbortError,
@@ -200,13 +200,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const [professions, setProfessions] = useState<string[]>(() => {
     if (!isDemoDataMode) return [];
     const profile = readCraftsmanProfile();
-    if (Array.isArray(profile.professions) && profile.professions.length) {
-      return profile.professions;
-    }
-    if (typeof profile.role === "string" && profile.role) {
-      return [profile.role];
-    }
-    return [];
+    const storedProfessions = Array.isArray(profile.professions) ? profile.professions : [];
+    return sanitizeWorkerProfessions(
+      storedProfessions.length ? storedProfessions : typeof profile.role === "string" ? [profile.role] : []
+    );
   });
   const [expandedProfessionCategoryId, setExpandedProfessionCategoryId] =
     useState("");
@@ -280,8 +277,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     : user.phone.includes("@")
       ? user.phone
       : "ნომერი დასამატებელია";
-  const mainProfession = professions.length ? getServiceSelectionLabel(professions[0]) : "პროფესია ასარჩევია";
-  const professionText = professions.length ? professions.map(getServiceSelectionLabel).join(" · ") : "პროფესია ასარჩევია";
+  const canonicalProfessions = useMemo(() => sanitizeWorkerProfessions(professions), [professions]);
+  const mainProfession = canonicalProfessions.length ? getServiceSelectionLabel(canonicalProfessions[0]) : "პროფესია ასარჩევია";
+  const professionText = canonicalProfessions.length ? canonicalProfessions.map(getServiceSelectionLabel).join(" · ") : "პროფესია ასარჩევია";
   const priceMinText = priceMin.trim();
   const priceMaxText = priceMax.trim();
   const normalizedPriceMin = priceMinText ? Number(priceMinText) : null;
@@ -306,7 +304,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     profileCity,
     experienceYears: normalizedExperienceYears,
     extraWorkComment,
-    professions,
+    professions: canonicalProfessions,
     priceType,
     priceMin: normalizedPriceMin,
     priceMax: normalizedPriceMax,
@@ -391,7 +389,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         city: profileCity,
         role: mainProfession,
         experienceYears: normalizedExperienceYears,
-        professions,
+        professions: canonicalProfessions,
         extraWorkComment,
         verification,
         verificationDocuments,
@@ -410,7 +408,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     profilePhoto,
     profilePrice,
     profileCity,
-    professions,
+    canonicalProfessions,
     rating.count,
     rating.value,
     verification,
@@ -435,9 +433,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         const nextFirstName = profile.first_name || displayFirst;
         const nextLastName = profile.last_name || displayLastParts.join(" ");
         const nextPhone = profile.contact_phone || "";
-        const nextProfessions = profile.professions?.length
-          ? profile.professions
-          : professions;
+        const nextProfessions = sanitizeWorkerProfessions(profile.professions || professions);
         const nextPriceType = profile.price_type || priceType;
         const nextPriceMin = profile.price_min != null
           ? Number(profile.price_min)
@@ -1182,7 +1178,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           });
           resolvedImageUrl = uploaded.publicUrl || uploaded.path;
         }
-        created.push(await createCurrentWorkerPortfolioItem(resolvedImageUrl, getServiceSelectionLabel(professions[0]), ""));
+        created.push(await createCurrentWorkerPortfolioItem(resolvedImageUrl, getServiceSelectionLabel(canonicalProfessions[0]), ""));
       }
       if (replaceId) {
         const oldItem = portfolioItems.find((item) => item.id === replaceId);
@@ -1234,7 +1230,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       lastName,
       contactPhone: normalizedProfilePhone,
       city: profileCity,
-      professions,
+      professions: canonicalProfessions,
       experienceYears: normalizedExperienceYears,
       priceType,
       priceMin: normalizedPriceMin,
@@ -1252,6 +1248,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       return;
     }
 
+    if (professions.join("\u0000") !== canonicalProfessions.join("\u0000")) {
+      setProfessions(canonicalProfessions);
+    }
+
     if (!isDemoDataMode) {
       setProfileSaving(true);
       try {
@@ -1262,7 +1262,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           photoUrl: profilePhoto,
           city: profileCity,
           about: extraWorkComment,
-          professions,
+          professions: canonicalProfessions,
           experienceYears: normalizedExperienceYears,
           priceType,
           priceMin: normalizedPriceMin,
@@ -1342,7 +1342,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           photoUrl: uploaded.publicUrl,
           city: profileCity,
           about: extraWorkComment,
-          professions,
+          professions: canonicalProfessions,
           experienceYears: normalizedExperienceYears,
           priceType,
           priceMin: normalizedPriceMin,
@@ -1667,7 +1667,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             ))}
           </div>
 
-          {isVerified && <CraftsmanJobPostsPanel professions={professions} />}
+          {isVerified && <CraftsmanJobPostsPanel professions={canonicalProfessions} />}
 
           {(visibleHomeNotifications.length > 0 || notificationError) && (
             <section style={{ marginTop: 22 }}>

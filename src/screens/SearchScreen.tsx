@@ -5,7 +5,9 @@ import {
   georgiaCities,
   getCategoryById,
   getSearchSuggestions,
+  getServiceSelectionLabel,
   makeServiceSelection,
+  sanitizeWorkerProfessions,
   workerMatchesService,
 } from "../data/workers";
 import { WorkerCard } from "../components/WorkerCard";
@@ -89,16 +91,15 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({
   const filtered = useMemo(() => {
     const serviceFilter = selectedSubcategory || activeCategory;
     let list = allWorkers.filter((worker) => {
-      const values = [worker.role, ...worker.skills];
+      const values = sanitizeWorkerProfessions([worker.role, ...worker.skills]);
       const matchService =
         serviceFilter === "all" || workerMatchesService(values, serviceFilter);
       const matchCity = city === "all" || worker.city === city;
       const text = [
         worker.name,
-        worker.role,
         worker.city,
         worker.about,
-        ...worker.skills,
+        ...values.map(getServiceSelectionLabel),
       ]
         .join(" ")
         .toLocaleLowerCase("ka-GE");

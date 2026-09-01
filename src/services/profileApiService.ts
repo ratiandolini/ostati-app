@@ -3,6 +3,7 @@ import {
   createStoragePath,
   uploadStorageFile,
 } from "./supabaseStorageService";
+import { sanitizeWorkerProfessions } from "../data/workers";
 
 export type WorkerPriceType = "fixed" | "from" | "range";
 
@@ -159,6 +160,7 @@ export const saveCurrentWorkerProfile = async (
   profile: WorkerProfileApiPayload
 ) => {
   const client = createSupabaseRestClient();
+  const professions = sanitizeWorkerProfessions(profile.professions);
 
   const payload = {
     p_first_name: profile.firstName || null,
@@ -167,7 +169,7 @@ export const saveCurrentWorkerProfile = async (
     p_photo_url: profile.photoUrl || null,
     p_city: profile.city || null,
     p_about: profile.about || null,
-    p_professions: profile.professions,
+    p_professions: professions,
     p_experience_years: profile.experienceYears,
     p_price_type: profile.priceType,
     p_price_min: profile.priceMin,
@@ -199,7 +201,7 @@ export const saveCurrentWorkerProfile = async (
       p_photo_url: profile.photoUrl || null,
       p_city: profile.city || null,
       p_about: profile.about || null,
-      p_professions: profile.professions,
+      p_professions: professions,
       p_experience_years: profile.experienceYears,
       p_price_type: profile.priceType,
       p_price_min: profile.priceMin,

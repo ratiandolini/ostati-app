@@ -221,9 +221,9 @@ export const CraftsmanJobPostsPanel: React.FC<{ professions: string[] }> = ({ pr
         {isExpanded && <div style={{ marginTop: 10 }}>
           {urls.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7, marginBottom: 10 }}>{urls.map((url) => <img key={url} src={url} alt="კლიენტის მიერ ატვირთული სამუშაო ადგილი" style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 9, objectFit: "cover", display: "block" }} />)}</div>}
           <p style={{ margin: "5px 0 10px", fontSize: 12, color: "var(--text2)", lineHeight: 1.5 }}>{post.description}</p>
-          <div style={{ display: "flex", gap: 8 }}>
-            {interest ? <button type="button" disabled={busyId === post.id} onClick={() => void withdraw(interest)} style={{ ...buttonStyle, minHeight: 36, background: "white", color: "#b91c1c", border: "1px solid #fecaca" }}>{busyId === post.id ? "უქმდება..." : "ინტერესის გაუქმება"}</button> : <button type="button" disabled={busyId === post.id} onClick={() => void respond(post.id)} style={{ ...buttonStyle, minHeight: 36 }}>{busyId === post.id ? "იგზავნება..." : "ინტერესის გამოხატვა"}</button>}
-            <button type="button" onClick={() => skip(post.id)} style={{ minHeight: 36, padding: "0 12px", borderRadius: 10, background: "white", color: "var(--text2)", border: "1px solid var(--border)", fontWeight: 900 }}>გამოტოვება</button>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 110px", gap: 8 }}>
+            {interest ? <button type="button" disabled={busyId === post.id} onClick={() => void withdraw(interest)} style={{ ...buttonStyle, width: "100%", minWidth: 0, minHeight: 44, whiteSpace: "normal", lineHeight: 1.2, background: "white", color: "#b91c1c", border: "1px solid #fecaca" }}>{busyId === post.id ? "უქმდება..." : "ინტერესის გაუქმება"}</button> : <button type="button" disabled={busyId === post.id} onClick={() => void respond(post.id)} style={{ ...buttonStyle, width: "100%", minWidth: 0, minHeight: 44, whiteSpace: "normal", lineHeight: 1.2 }}>{busyId === post.id ? "იგზავნება..." : "ინტერესის გამოხატვა"}</button>}
+            <button type="button" onClick={() => skip(post.id)} style={{ width: "100%", minWidth: 0, minHeight: 44, padding: "0 6px", borderRadius: 10, background: "white", color: "var(--text2)", border: "1px solid var(--border)", fontWeight: 900, whiteSpace: "nowrap" }}>გამოტოვება</button>
           </div>
         </div>}
       </article>;

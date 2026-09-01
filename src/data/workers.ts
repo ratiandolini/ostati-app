@@ -318,15 +318,68 @@ const parseServiceSelection = (value: string) => {
 };
 export const getServiceSelectionLabel = (value: string) => parseServiceSelection(value)?.subcategory || value;
 
+const isCanonicalServiceSelection = (value: string) => {
+  const parsed = parseServiceSelection(value);
+  return Boolean(
+    parsed && parsed.category.subcategories.some((item) => item.label === parsed.subcategory)
+  );
+};
+
+const isCanonicalAllSelection = (value: string) =>
+  categoryGroups.some((category) => value === getAllProfessionValue(category));
+
+const isSupervisorCapability = (value: string) =>
+  SUPERVISOR_CAPABILITIES.includes(value as (typeof SUPERVISOR_CAPABILITIES)[number]);
+
+/**
+ * Keeps stored worker skills in the current format. A legacy broad title is
+ * retained only for an old profile with no current-format selection, where it
+ * becomes the equivalent "all services" category selection.
+ */
+export const sanitizeWorkerProfessions = (values: readonly string[]): string[] => {
+  const uniqueValues = Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+  const canonical = uniqueValues.reduce<string[]>((items, value) => {
+    if (isCanonicalServiceSelection(value) || isCanonicalAllSelection(value) || isSupervisorCapability(value)) {
+      items.push(value);
+      return items;
+    }
+
+    const category = findCategoryForValue(value);
+    const subcategory = category?.subcategories.find(
+      (item) => normalizeSearch(item.label) === normalizeSearch(value)
+    );
+    if (category && subcategory) items.push(makeServiceSelection(category.id, subcategory.label));
+    else if (category && (normalizeSearch(category.id) === normalizeSearch(value) || normalizeSearch(category.label) === normalizeSearch(value))) {
+      items.push(getAllProfessionValue(category));
+    }
+    return items;
+  }, []);
+
+  if (canonical.some((value) => isCanonicalServiceSelection(value) || isCanonicalAllSelection(value))) {
+    return Array.from(new Set(canonical));
+  }
+
+  const migratedLegacy = uniqueValues.reduce<string[]>((items, value) => {
+    const category = categoryGroups.find((item) =>
+      item.legacyProfessions?.some((legacy) => normalizeSearch(legacy) === normalizeSearch(value))
+    );
+    if (category) items.push(getAllProfessionValue(category));
+    return items;
+  }, []);
+
+  return Array.from(new Set([...canonical, ...migratedLegacy]));
+};
+
 export const workerMatchesService = (workerValues: readonly string[], selection: string) => {
   if (selection === "all") return true;
+  const canonicalWorkerValues = sanitizeWorkerProfessions(workerValues);
   const parsedSelection = parseServiceSelection(selection);
   const targetCategory = parsedSelection?.category || findCategoryForValue(selection);
-  if (!targetCategory) return workerValues.some((value) => normalizeSearch(value) === normalizeSearch(selection));
+  if (!targetCategory) return canonicalWorkerValues.some((value) => normalizeSearch(value) === normalizeSearch(selection));
   const selectionIsCategory = targetCategory.id === selection || Boolean(
     !parsedSelection && targetCategory.legacyProfessions?.some((legacy) => normalizeSearch(legacy) === normalizeSearch(selection))
   );
-  return workerValues.some((value) => {
+  return canonicalWorkerValues.some((value) => {
     const normalizedValue = normalizeSearch(value);
     const parsedValue = parseServiceSelection(value);
     if (
