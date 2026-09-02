@@ -254,6 +254,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const [profileUploadError, setProfileUploadError] = useState("");
   const [profileSaveError, setProfileSaveError] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [profileUploading, setProfileUploading] = useState(false);
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [portfolioBusy, setPortfolioBusy] = useState(false);
@@ -1611,7 +1612,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             }}
           >
             {renderAvatar(68)}
-            <div>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <h1
                 style={{
                   margin: 0,
@@ -1623,7 +1624,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               >
                 {fullName}
               </h1>
-              <p className="screen-subtitle">{professionText}</p>
+              <p className="screen-subtitle profile-profession-summary">{professionText}</p>
               {isVerified && (
                 <div
                   style={{
@@ -2062,9 +2063,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
               gap: 8,
-              marginTop: 18,
+              marginTop: 16,
             }}
           >
             {PROFILE_SECTIONS.map((section) => (
@@ -2073,8 +2074,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 type="button"
                 onClick={() => setProfileSection(section.id)}
                 style={{
-                  minHeight: 42,
-                  padding: "0 8px",
+                  gridColumn: section.id === "portfolio" ? "1 / -1" : undefined,
+                  minHeight: 46,
+                  padding: "7px 10px",
                   borderRadius: 12,
                   background:
                     profileSection === section.id ? "var(--primary)" : "white",
@@ -2085,8 +2087,11 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                       ? "var(--primary)"
                       : "var(--border)"
                   }`,
-                  fontSize: 11,
+                  fontSize: 12,
+                  lineHeight: 1.25,
                   fontWeight: 900,
+                  textAlign: "center",
+                  overflowWrap: "normal",
                 }}
               >
                 {section.label}
@@ -2131,7 +2136,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             <div style={{ fontSize: 18, fontWeight: 900, color: "var(--text)" }}>
               {fullName}
             </div>
-            <div style={{ marginTop: 3, fontSize: 13, color: "var(--text2)" }}>
+            <div className="profile-profession-summary" style={{ marginTop: 3, fontSize: 13, color: "var(--text2)" }}>
               {professionText}
             </div>
             <div style={{ marginTop: 3, fontSize: 13, color: "var(--text2)" }}>
@@ -2971,23 +2976,71 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
           <button
             type="button"
-            onClick={onLogout}
+            onClick={() => setLogoutConfirmOpen(true)}
             style={{
               width: "100%",
-              minHeight: 56,
-              marginTop: 20,
-              borderRadius: 14,
+              minHeight: 46,
+              margin: "24px 0 8px",
+              borderRadius: 12,
               background: "white",
               color: "#ef4444",
-              border: "1px solid var(--border)",
-              fontSize: 15,
+              border: "1px solid #fecaca",
+              fontSize: 14,
               fontWeight: 900,
-              textAlign: "left",
-              padding: "0 16px",
+              textAlign: "center",
+              padding: "0 14px",
             }}
           >
-            ⇱ გასვლა
+            <span aria-hidden="true" style={{ marginRight: 8 }}>↪</span>
+            ანგარიშიდან გასვლა
           </button>
+
+          {logoutConfirmOpen && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 120,
+                display: "flex",
+                alignItems: "flex-end",
+                background: "rgba(15,23,42,0.42)",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  padding: "20px 24px calc(24px + var(--safe-bottom))",
+                  borderRadius: "18px 18px 0 0",
+                  background: "white",
+                }}
+              >
+                <h2 style={{ margin: 0, color: "var(--text)", fontSize: 18, lineHeight: 1.3, fontWeight: 900 }}>
+                  ანგარიშიდან გასვლა?
+                </h2>
+                <p style={{ margin: "8px 0 18px", color: "var(--text2)", fontSize: 13, lineHeight: 1.45, fontWeight: 700 }}>
+                  გასვლის შემდეგ ამ მოწყობილობაზე თავიდან შესვლა დაგჭირდება.
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setLogoutConfirmOpen(false)}
+                    style={{ minHeight: 46, borderRadius: 12, background: "white", color: "var(--text2)", border: "1px solid var(--border)", fontSize: 14, fontWeight: 900 }}
+                  >
+                    დარჩენა
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    style={{ minHeight: 46, borderRadius: 12, background: "#ef4444", color: "white", fontSize: 14, fontWeight: 900 }}
+                  >
+                    გასვლა
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

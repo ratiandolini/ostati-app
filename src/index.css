@@ -122,6 +122,17 @@ body {
   line-height: 1.45;
 }
 
+.profile-profession-summary {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 .profile-page {
   height: 100%;
   position: relative;
