@@ -1906,9 +1906,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
               gap: 8,
-              margin: "18px 0 10px",
+              margin: "18px 0 12px",
               padding: 4,
               borderRadius: 14,
               background: "#f1f5f9",
@@ -1926,7 +1926,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                   type="button"
                   onClick={() => setWorkView(item.id)}
                   style={{
-                    minHeight: 38,
+                    minHeight: 44,
                     borderRadius: 11,
                     background: selected ? "white" : "transparent",
                     color: selected ? "var(--text)" : "var(--text2)",
@@ -1942,20 +1942,21 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             })}
           </div>
 
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", margin: "22px 0 16px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "0 0 16px" }}>
             {[
               { id: "all", label: "ყველა" },
               { id: "today", label: "დღეს" },
               { id: "pending", label: "მოლოდინში" },
-              { id: "confirmed", label: "დადასტ." },
-              { id: "completed", label: "შესრულ." },
+              { id: "confirmed", label: "დადასტურებული" },
+              { id: "completed", label: "შესრულებული" },
             ].map((filter) => (
               <button
                 key={filter.id}
                 onClick={() => setWorkFilter(filter.id as typeof workFilter)}
                 style={{
                   flexShrink: 0,
-                  padding: "9px 14px",
+                  minHeight: 40,
+                  padding: "8px 13px",
                   borderRadius: 999,
                   background: workFilter === filter.id ? "var(--primary)" : "white",
                   color: workFilter === filter.id ? "white" : "var(--text2)",
@@ -1972,7 +1973,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {visibleWorks.length ? (
               visibleWorks.map((booking) => (
-                <JobCard key={booking.id} booking={booking} {...jobCardProps} />
+                <JobCard key={booking.id} booking={booking} presentation="work-list" {...jobCardProps} />
               ))
             ) : (
               <div

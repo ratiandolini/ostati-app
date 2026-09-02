@@ -13,6 +13,7 @@ import {
 interface JobCardProps {
   booking: Booking;
   bookingFee: number;
+  presentation?: "default" | "work-list";
   expandedArchiveIds: string[];
   bookingActionId: string | null;
   onExpand: (bookingId: string) => void;
@@ -29,6 +30,7 @@ interface JobCardProps {
 export const JobCard: React.FC<JobCardProps> = ({
   booking,
   bookingFee,
+  presentation = "default",
   expandedArchiveIds,
   bookingActionId,
   onExpand,
@@ -49,6 +51,7 @@ export const JobCard: React.FC<JobCardProps> = ({
   );
   const paymentMeta = getWorkerPaymentMeta(booking, bookingFee);
   const disputeMeta = getWorkerDisputeMeta(booking);
+  const isWorkList = presentation === "work-list";
 
   if (isArchived && !expanded) {
     return (
@@ -103,45 +106,75 @@ export const JobCard: React.FC<JobCardProps> = ({
         border: `1px solid ${tone.border}`,
         borderTop: `3px solid ${tone.color}`,
         borderRadius: 16,
-        padding: 16,
+        padding: isWorkList ? "15px 14px" : 16,
         boxShadow: "var(--shadow-sm)",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text)" }}>
-            {clientShortName}
+      {isWorkList ? (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "start", gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 16, lineHeight: 1.3, fontWeight: 900, color: "var(--text)", overflowWrap: "anywhere" }}>
+                {clientShortName}
+              </div>
+              <div style={{ marginTop: 3, fontSize: 13, lineHeight: 1.4, color: "var(--text2)", fontWeight: 750, overflowWrap: "anywhere" }}>
+                {booking.service}
+              </div>
+            </div>
+            <div style={{ display: "grid", justifyItems: "end", gap: 7, textAlign: "right" }}>
+              <div style={{ fontSize: 12, lineHeight: 1.35, fontWeight: 850, color: "var(--text2)", whiteSpace: "nowrap" }}>
+                {formatBookingDateTime(booking)}
+              </div>
+              <span style={{ padding: "5px 8px", borderRadius: 999, background: tone.bg, color: tone.color, border: `1px solid ${tone.border}`, fontSize: 10, lineHeight: 1.2, fontWeight: 900, whiteSpace: "nowrap" }}>
+                {meta.label}
+              </span>
+            </div>
           </div>
-          <div style={{ marginTop: 3, fontSize: 13, color: "var(--text2)" }}>
-            {booking.service}
+          <div style={{ display: "flex", gap: 7, marginTop: 12, color: "var(--text3)", fontSize: 12, lineHeight: 1.45, fontWeight: 700 }}>
+            <span aria-hidden="true" style={{ flex: "0 0 auto" }}>📍</span>
+            <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{booking.address}</span>
           </div>
-        </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 900, color: meta.color }}>
-            {formatBookingDateTime(booking)}
+        </>
+      ) : (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text)" }}>
+                {clientShortName}
+              </div>
+              <div style={{ marginTop: 3, fontSize: 13, color: "var(--text2)" }}>
+                {booking.service}
+              </div>
+            </div>
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: meta.color }}>
+                {formatBookingDateTime(booking)}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+          <div style={{ marginTop: 10, fontSize: 12, color: "var(--text3)" }}>
+            📍 {booking.address}
+          </div>
+        </>
+      )}
 
-      <div style={{ marginTop: 10, fontSize: 12, color: "var(--text3)" }}>
-        📍 {booking.address}
-      </div>
-
-      <div
-        style={{
-          display: "inline-flex",
-          marginTop: 12,
-          padding: "6px 11px",
-          borderRadius: 999,
-          background: tone.bg,
-          color: tone.color,
-          border: `1px solid ${tone.border}`,
-          fontSize: 11,
-          fontWeight: 900,
-        }}
-      >
-        {meta.label}
-      </div>
+      {!isWorkList && (
+        <div
+          style={{
+            display: "inline-flex",
+            marginTop: 12,
+            padding: "6px 11px",
+            borderRadius: 999,
+            background: tone.bg,
+            color: tone.color,
+            border: `1px solid ${tone.border}`,
+            fontSize: 11,
+            fontWeight: 900,
+          }}
+        >
+          {meta.label}
+        </div>
+      )}
 
       <div
         style={{
