@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { categoryGroups, georgiaCities, getCategoryById, getServiceSelectionLabel, makeServiceSelection, workerMatchesService } from "../data/workers";
 import { cancelMyJobPost, createJobPost, expressInterest, JobPost, JobPostInterest, loadCurrentWorkerJobPostInterests, loadMyJobPosts, loadOpenJobPosts, withdrawInterestInJobPost } from "../services/marketplaceApiService";
 import { createStoragePath, uploadStorageFile } from "../services/supabaseStorageService";
@@ -163,16 +163,36 @@ export const CraftsmanJobPostsPanel: React.FC<{ professions: string[] }> = ({ pr
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
   const [expandedId, setExpandedId] = useState("");
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [requestLoadError, setRequestLoadError] = useState(false);
   const [skippedIds, setSkippedIds] = useState<string[]>(() => {
     try { return JSON.parse(window.localStorage.getItem("remonterSkippedJobPostIds") || "[]") as string[]; } catch { return []; }
   });
+
+  const loadIncomingRequests = useCallback(async (signal?: AbortSignal) => {
+    setLoadingRequests(true);
+    setRequestLoadError(false);
+    try {
+      const [nextPosts, nextInterests] = await Promise.all([
+        loadOpenJobPosts(signal),
+        loadCurrentWorkerJobPostInterests(signal),
+      ]);
+      if (signal?.aborted) return;
+      setPosts(nextPosts);
+      setInterests(nextInterests);
+    } catch {
+      if (signal?.aborted) return;
+      setRequestLoadError(true);
+    } finally {
+      if (!signal?.aborted) setLoadingRequests(false);
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all([loadOpenJobPosts(controller.signal), loadCurrentWorkerJobPostInterests(controller.signal)])
-      .then(([nextPosts, nextInterests]) => { setPosts(nextPosts); setInterests(nextInterests); })
-      .catch(() => undefined);
+    void loadIncomingRequests(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [loadIncomingRequests]);
   const refresh = async () => {
     const [nextPosts, nextInterests] = await Promise.all([loadOpenJobPosts(), loadCurrentWorkerJobPostInterests()]);
     setPosts(nextPosts); setInterests(nextInterests);
@@ -208,7 +228,12 @@ export const CraftsmanJobPostsPanel: React.FC<{ professions: string[] }> = ({ pr
     <h2 style={{ margin: 0, fontSize: 18 }}>ახალი მოთხოვნები</h2>
     <p style={{ margin: "4px 0 12px", fontSize: 12, color: "var(--text2)", fontWeight: 700, lineHeight: 1.45 }}>კლიენტთან კომუნიკაცია მხოლოდ აპლიკაციის ჩატში მიმდინარეობს. ჯერ გახსენი დეტალები, შემდეგ გადაწყვიტე ინტერესის გამოხატვა.</p>
     {message && <p role="alert" style={{ fontSize: 12, color: "var(--text2)", fontWeight: 800, lineHeight: 1.4 }}>{message}</p>}
-    {visiblePosts.length ? visiblePosts.slice(0, 5).map((post) => {
+    {loadingRequests ? <p role="status" style={{ margin: "12px 0 0", color: "var(--text2)", fontSize: 13, fontWeight: 700 }}>მოთხოვნებს ვტვირთავთ...</p>
+      : requestLoadError ? <div role="alert" style={{ marginTop: 12, display: "grid", gap: 10 }}>
+        <p style={{ margin: 0, color: "var(--text2)", fontSize: 13, fontWeight: 700, lineHeight: 1.45 }}>მოთხოვნების ჩატვირთვა დროებით ვერ მოხერხდა. სცადე ხელახლა.</p>
+        <button type="button" onClick={() => void loadIncomingRequests()} style={{ ...buttonStyle, justifySelf: "start", minHeight: 42, padding: "0 14px" }}>ხელახლა ცდა</button>
+      </div>
+      : visiblePosts.length ? visiblePosts.slice(0, 5).map((post) => {
       const interest = interests.find((item) => item.job_post_id === post.id && item.status === "pending");
       const isExpanded = expandedId === post.id;
       const urls = post.photo_urls?.length ? post.photo_urls : post.photo_url ? [post.photo_url] : [];
