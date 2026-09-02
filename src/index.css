@@ -38,6 +38,12 @@ textarea {
   font-family: inherit;
 }
 
+.profile-extra-info::placeholder {
+  color: var(--text3);
+  opacity: 0.72;
+  font-weight: 600;
+}
+
 button {
   border: 0;
   cursor: pointer;

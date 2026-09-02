@@ -209,14 +209,20 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     useState("");
   const [expandedSupervisorOptions, setExpandedSupervisorOptions] =
     useState(false);
-  const initialPrice = isDemoDataMode
-    ? parseStoredPrice(readCraftsmanProfile().price)
-    : { type: "range" as const, min: 80, max: 120 };
+  const storedPrice = isDemoDataMode ? readCraftsmanProfile().price : "";
+  const initialPrice = storedPrice
+    ? parseStoredPrice(storedPrice)
+    : { type: "range" as const, min: 0, max: null };
   const [priceType, setPriceType] = useState<"fixed" | "from" | "range">(
     initialPrice.type
   );
-  const [priceMin, setPriceMin] = useState(String(initialPrice.min));
-  const [priceMax, setPriceMax] = useState(String(initialPrice.max || 120));
+  const [priceMin, setPriceMin] = useState(
+    initialPrice.min > 0 ? String(initialPrice.min) : ""
+  );
+  const [priceMax, setPriceMax] = useState(
+    initialPrice.max ? String(initialPrice.max) : ""
+  );
+  const [priceTouched, setPriceTouched] = useState(false);
   const { platformSettings } = usePlatformSettings();
   const [verification, setVerification] = useState(() => {
     if (!isDemoDataMode) {
@@ -285,17 +291,29 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const normalizedPriceMin = priceMinText ? Number(priceMinText) : null;
   const normalizedPriceMax = priceMaxText ? Number(priceMaxText) : null;
   const normalizedExperienceYears = Math.max(0, Number(experienceYears) || 0);
+  const priceChoice =
+    priceType === "fixed"
+      ? "fixed"
+      : priceType === "range" && normalizedPriceMin == null
+        ? "negotiable"
+        : "from";
   const priceValidationError =
-    priceMinText && (!Number.isFinite(normalizedPriceMin) || (normalizedPriceMin || 0) <= 0)
-      ? "ფასი რიცხვით მიუთითე ან ველი დატოვე ცარიელი."
-      : priceType === "range" && priceMaxText && (!Number.isFinite(normalizedPriceMax) || (normalizedPriceMax || 0) <= 0)
-        ? "მაქსიმალური ფასი რიცხვით მიუთითე ან ველი დატოვე ცარიელი."
-        : priceType === "range" && normalizedPriceMin != null && normalizedPriceMax != null && normalizedPriceMax < normalizedPriceMin
-          ? "მაქსიმუმი მინიმუმზე ნაკლები ვერ იქნება."
-          : "";
-  const profilePrice = normalizedPriceMin == null
-    ? "ფასი შეთანხმებით"
-    : formatProfilePrice(priceType, normalizedPriceMin, normalizedPriceMax || normalizedPriceMin);
+    priceChoice !== "negotiable" && normalizedPriceMin == null
+      ? "ფასი მიუთითე ან აირჩიე „შეთანხმებით“."
+      : priceChoice !== "negotiable" &&
+          (!Number.isFinite(normalizedPriceMin) || (normalizedPriceMin || 0) <= 0)
+        ? "ფასი დადებით რიცხვად მიუთითე."
+        : "";
+  const visiblePriceValidationError =
+    priceTouched && priceChoice !== "negotiable" ? priceValidationError : "";
+  const profilePrice =
+    priceChoice === "negotiable"
+      ? "ფასი შეთანხმებით"
+      : formatProfilePrice(
+          priceType,
+          normalizedPriceMin || 0,
+          normalizedPriceMax || normalizedPriceMin || 0
+        );
   const profileSnapshot = JSON.stringify({
     firstName,
     lastName,
@@ -315,6 +333,23 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   });
   const [savedProfileSnapshot, setSavedProfileSnapshot] = useState(profileSnapshot);
   const profileChanged = profileSnapshot !== savedProfileSnapshot;
+  const profileSaveLabel = profileSaving
+    ? "ინახება..."
+    : saved
+      ? "შენახულია ✓"
+      : profileChanged
+        ? "შენახვა"
+        : "შენახულია";
+  const profileSaveButtonStyle: React.CSSProperties = {
+    width: "100%",
+    minHeight: 52,
+    borderRadius: 14,
+    background: saved ? "#10b981" : profileChanged ? "var(--primary)" : "#dbe4ef",
+    color: "white",
+    opacity: profileSaving || !profileChanged ? 0.75 : 1,
+    fontSize: 15,
+    fontWeight: 900,
+  };
   const hasAllVerificationDocuments = Object.values(verification).every(Boolean);
   const isVerified = workerVerified || verificationStatus === "verified";
   const verificationItems = [
@@ -365,6 +400,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       setRating(nextRating);
     }
   }, []);
+
+  useEffect(() => {
+    if (profileChanged) setSaved(false);
+  }, [profileChanged]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1241,6 +1280,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     });
 
     if (!validation.success || priceValidationError) {
+      if (priceValidationError) setPriceTouched(true);
       setProfileSaveError(
         priceValidationError ||
           `${getValidationMessage(validation.success ? null : validation.error, "პროფილის მონაცემები გადაამოწმეთ")}. საჭირო ველები პროფილის მონაცემებსა და პროფესიის არჩევაშია.`
@@ -2355,36 +2395,51 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 {expandedSupervisorOptions && <div style={{ display: "grid", gap: 7, padding: 12, borderTop: "1px solid var(--border)", background: "#f8fafc" }}>{SUPERVISOR_CAPABILITIES.map((capability) => <label key={capability} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 42, padding: "8px 10px", borderRadius: 9, background: professions.includes(capability) ? "#f0f7ff" : "white", color: professions.includes(capability) ? "var(--primary)" : "var(--text2)", fontSize: 13, lineHeight: 1.35, fontWeight: 800, cursor: "pointer" }}><span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{capability}</span><input type="checkbox" checked={professions.includes(capability)} onChange={() => toggleProfession(capability)} style={{ flex: "0 0 auto", width: 17, height: 17, accentColor: "var(--primary)" }} /></label>)}</div>}
               </div>
             </div>
-            <label
-              style={{
-                display: "block",
-                marginTop: 14,
-                color: "var(--text2)",
-                fontSize: 11,
-                fontWeight: 900,
-              }}
-            >
-              დამატებითი კომენტარი
+            <section style={{ marginTop: 16 }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 15,
+                  lineHeight: 1.35,
+                  fontWeight: 900,
+                  color: "var(--text)",
+                }}
+              >
+                დამატებითი ინფორმაცია
+              </h3>
+              <p
+                style={{
+                  margin: "4px 0 8px",
+                  color: "var(--text2)",
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                  fontWeight: 750,
+                }}
+              >
+                მოკლედ მიუთითე მნიშვნელოვანი დეტალი, რომელიც კლიენტმა წინასწარ უნდა იცოდეს.
+              </p>
               <textarea
                 value={extraWorkComment}
                 onChange={(event) => setExtraWorkComment(event.target.value)}
-                placeholder="მაგალითად: ვაკეთებ მცირე დემონტაჟსაც, კარის შეკეთებასაც..."
-                rows={4}
+                placeholder="მაგ: მასალითაც ვმუშაობ, თბილისის გარეთაც გავდივარ..."
+                rows={3}
+                className="profile-extra-info"
                 style={{
                   width: "100%",
-                  marginTop: 7,
+                  minHeight: 92,
                   padding: 12,
                   borderRadius: 12,
                   border: "1px solid var(--border)",
                   background: "white",
                   color: "var(--text)",
                   fontSize: 14,
+                  lineHeight: 1.45,
                   fontWeight: 700,
                   resize: "vertical",
                 }}
               />
-            </label>
-            <div style={{ marginTop: 18 }}>
+            </section>
+            <div style={{ marginTop: 16 }}>
               <h3
                 style={{
                   margin: "0 0 10px",
@@ -2393,7 +2448,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                   color: "var(--text)",
                 }}
               >
-                საფასური
+                ფასი
               </h3>
               <div
                 style={{
@@ -2404,28 +2459,43 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                   fontWeight: 750,
                 }}
               >
-                მომსახურების ფასი არჩევითია. თუ ჯერ არ გინდა მითითება, ორივე
-                ველი ცარიელი დატოვე და კლიენტს "ფასი შეთანხმებით" გამოუჩნდება.
+                აირჩიე, როგორ გამოჩნდეს ფასი კლიენტისთვის.
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
                 {[
-                  { value: "fixed" as const, label: "ზუსტი" },
-                  { value: "from" as const, label: "დან" },
-                  { value: "range" as const, label: "შუალედი" },
+                  { value: "fixed" as const, label: "ზუსტი ფასი" },
+                  { value: "from" as const, label: "ფასი იწყება" },
+                  { value: "negotiable" as const, label: "შეთანხმებით" },
                 ].map((item) => (
                   <button
                     key={item.value}
                     type="button"
-                    onClick={() => setPriceType(item.value)}
+                    onClick={() => {
+                      if (item.value === "negotiable") {
+                        setPriceType("range");
+                        setPriceMin("");
+                        setPriceMax("");
+                        setPriceTouched(false);
+                        setProfileSaveError((current) =>
+                          current.startsWith("ფასი") ? "" : current
+                        );
+                        return;
+                      }
+                      setPriceType(item.value);
+                      setPriceMax("");
+                      setPriceTouched(false);
+                    }}
                     style={{
-                      minHeight: 40,
+                      minHeight: 46,
                       borderRadius: 12,
                       border: `1px solid ${
-                        priceType === item.value ? "var(--primary)" : "var(--border)"
+                        priceChoice === item.value ? "var(--primary)" : "var(--border)"
                       }`,
-                      background: priceType === item.value ? "var(--primary)" : "white",
-                      color: priceType === item.value ? "white" : "var(--text2)",
+                      background: priceChoice === item.value ? "var(--primary)" : "white",
+                      color: priceChoice === item.value ? "white" : "var(--text2)",
+                      padding: "6px 5px",
                       fontSize: 12,
+                      lineHeight: 1.2,
                       fontWeight: 900,
                     }}
                   >
@@ -2433,69 +2503,70 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                   </button>
                 ))}
               </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: priceType === "range" ? "1fr 1fr" : "1fr",
-                  gap: 12,
-                  marginTop: 12,
-                }}
-              >
-                <label style={{ color: "var(--text2)", fontSize: 11, fontWeight: 900 }}>
-                  {priceType === "range" ? "მინიმუმი (არასავალდებულო)" : "ფასი (არასავალდებულო)"}
-                  <input
-                    type="number"
-                    min="0"
-                    value={priceMin}
-                    onChange={(event) => setPriceMin(event.target.value)}
-                    style={{
-                      width: "100%",
-                      height: 44,
-                      marginTop: 7,
-                      padding: "0 12px",
-                      borderRadius: 12,
-                      border: "1px solid var(--border)",
-                      background: "white",
-                      color: "var(--text)",
-                      fontSize: 14,
-                      fontWeight: 800,
-                    }}
-                  />
-                </label>
-                {priceType === "range" && (
-                  <label style={{ color: "var(--text2)", fontSize: 11, fontWeight: 900 }}>
-                    მაქსიმუმი (არასავალდებულო)
+              {priceChoice !== "negotiable" && (
+                <label
+                  style={{
+                    display: "block",
+                    marginTop: 12,
+                    color: "var(--text2)",
+                    fontSize: 12,
+                    lineHeight: 1.35,
+                    fontWeight: 900,
+                  }}
+                >
+                  {priceChoice === "fixed" ? "ფასი" : "ფასი იწყება"}
+                  <span style={{ display: "block", position: "relative", marginTop: 7 }}>
                     <input
                       type="number"
                       min="0"
-                      value={priceMax}
-                      onChange={(event) => setPriceMax(event.target.value)}
+                      inputMode="numeric"
+                      value={priceMin}
+                      onChange={(event) => {
+                        setPriceMin(event.target.value);
+                        setPriceTouched(true);
+                        setProfileSaveError("");
+                      }}
+                      onBlur={() => setPriceTouched(true)}
                       style={{
                         width: "100%",
-                        height: 44,
-                        marginTop: 7,
-                        padding: "0 12px",
+                        height: 46,
+                        padding: "0 42px 0 12px",
                         borderRadius: 12,
                         border: "1px solid var(--border)",
                         background: "white",
                         color: "var(--text)",
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: 800,
                       }}
                     />
-                  </label>
-                )}
-              </div>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute",
+                        top: "50%",
+                        right: 14,
+                        transform: "translateY(-50%)",
+                        color: "var(--text2)",
+                        fontSize: 15,
+                        fontWeight: 900,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      ₾
+                    </span>
+                  </span>
+                </label>
+              )}
               <div
                 style={{
                   marginTop: 8,
-                  color: priceValidationError ? "#dc2626" : "var(--text2)",
+                  color: visiblePriceValidationError ? "#dc2626" : "var(--text2)",
                   fontSize: 12,
                   lineHeight: 1.45,
                   fontWeight: 800,
                 }}
               >
-                {priceValidationError || `გამოჩნდება ასე: ${profilePrice}`}
+                {visiblePriceValidationError || `გამოჩნდება ასე: ${profilePrice}`}
               </div>
             </div>
           </section>
@@ -2762,26 +2833,11 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               onClick={handleSave}
               disabled={profileSaving || !profileChanged}
               style={{
-                width: "100%",
-                minHeight: 52,
                 marginTop: 18,
-                borderRadius: 14,
-                background: saved
-                  ? "#10b981"
-                  : profileChanged
-                    ? "var(--primary)"
-                    : "#dbe4ef",
-                color: "white",
-                opacity: profileSaving || !profileChanged ? 0.75 : 1,
-                fontSize: 15,
-                fontWeight: 900,
+                ...profileSaveButtonStyle,
               }}
             >
-              {profileSaving
-                ? "ინახება..."
-                : saved || !profileChanged
-                  ? "შენახულია"
-                  : "შენახვა"}
+              {profileSaveLabel}
             </button>
             {profileSaveError && (
               <div style={{ marginTop: 9, color: "#dc2626", fontSize: 12, fontWeight: 800 }}>
@@ -2899,26 +2955,11 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 onClick={handleSave}
                 disabled={profileSaving || !profileChanged}
                 style={{
-                  width: "100%",
-                  minHeight: 52,
                   marginTop: 20,
-                  borderRadius: 14,
-                  background: saved
-                    ? "#10b981"
-                    : profileChanged
-                      ? "var(--primary)"
-                      : "#dbe4ef",
-                  color: "white",
-                  opacity: profileSaving || !profileChanged ? 0.75 : 1,
-                  fontSize: 15,
-                  fontWeight: 900,
+                  ...profileSaveButtonStyle,
                 }}
               >
-                {profileSaving
-                  ? "ინახება..."
-                  : saved || !profileChanged
-                    ? "შენახულია"
-                    : "შენახვა"}
+                {profileSaveLabel}
               </button>
               {profileSaveError && (
                 <div style={{ marginTop: 9, color: "#dc2626", fontSize: 12, fontWeight: 800 }}>
