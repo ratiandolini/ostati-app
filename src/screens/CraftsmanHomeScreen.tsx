@@ -812,7 +812,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     );
   };
 
-  const displayedBookings = demoMode
+  const displayedBookings = isDemoDataMode && demoMode
     ? [...bookings, ...initialBookings]
     : bookings;
 
@@ -1838,23 +1838,25 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         <div className="fade-up">
           <h1 className="screen-title">საქმეები</h1>
           <p className="screen-subtitle">ნახე შენი საქმეები დროისა და სტატუსის მიხედვით</p>
-          <button
-            type="button"
-            onClick={() => setDemoMode((current) => !current)}
-            style={{
-              marginTop: 14,
-              minHeight: 38,
-              padding: "0 13px",
-              borderRadius: 11,
-              background: demoMode ? "#fff7ed" : "white",
-              color: demoMode ? "#c2410c" : "var(--text2)",
-              border: `1px solid ${demoMode ? "#fed7aa" : "var(--border)"}`,
-              fontSize: 12,
-              fontWeight: 900,
-            }}
-          >
-            {demoMode ? "სატესტო რეჟიმის გამორთვა" : "სატესტო რეჟიმის ჩართვა"}
-          </button>
+          {isDemoDataMode && (
+            <button
+              type="button"
+              onClick={() => setDemoMode((current) => !current)}
+              style={{
+                marginTop: 14,
+                minHeight: 38,
+                padding: "0 13px",
+                borderRadius: 11,
+                background: demoMode ? "#fff7ed" : "white",
+                color: demoMode ? "#c2410c" : "var(--text2)",
+                border: `1px solid ${demoMode ? "#fed7aa" : "var(--border)"}`,
+                fontSize: 12,
+                fontWeight: 900,
+              }}
+            >
+              {demoMode ? "სატესტო რეჟიმის გამორთვა" : "სატესტო რეჟიმის ჩართვა"}
+            </button>
+          )}
 
           <div
             style={{
