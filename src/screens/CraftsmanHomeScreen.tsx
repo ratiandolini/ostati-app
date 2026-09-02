@@ -9,6 +9,7 @@ import {
 } from "../services/apiErrorUtils";
 import {
   loadCurrentWorkerProfile,
+  loadCurrentWorkerId,
   saveWorkerBankAccount,
   saveCurrentWorkerProfile,
   WorkerProfileApiResult,
@@ -408,11 +409,25 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    import("../services/marketplaceApiService")
-      .then(({ loadWorkerPortfolio }) => loadWorkerPortfolio("demo-worker"))
+    const controller = new AbortController();
+    const currentWorkerId = isDemoDataMode
+      ? Promise.resolve("demo-worker")
+      : loadCurrentWorkerId(controller.signal);
+
+    currentWorkerId
+      .then((workerId) => {
+        if (!workerId) return [] as PortfolioItem[];
+        return import("../services/marketplaceApiService")
+          .then(({ loadWorkerPortfolio }) =>
+            loadWorkerPortfolio(workerId, controller.signal)
+          );
+      })
       .then((items) => { if (!cancelled) setPortfolioItems(items); })
       .catch(() => undefined);
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, []);
 
   useEffect(() => {

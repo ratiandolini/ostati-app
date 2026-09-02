@@ -156,6 +156,20 @@ export const loadCurrentWorkerProfile =
     );
   };
 
+export const loadCurrentWorkerId = async (signal?: AbortSignal) => {
+  const profile = await loadCurrentUserProfile(signal);
+  if (!profile?.id) return null;
+
+  const client = createSupabaseRestClient();
+  const rows = await client.select<{ id: string }>("workers", {
+    select: "id",
+    user_id: `eq.${profile.id}`,
+    limit: 1,
+  }, { signal });
+
+  return rows[0]?.id || null;
+};
+
 export const saveCurrentWorkerProfile = async (
   profile: WorkerProfileApiPayload
 ) => {
