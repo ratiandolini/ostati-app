@@ -81,6 +81,21 @@ const statusLabels: Record<string, string> = {
   cancelled: "გაუქმებული",
   disputed: "დავა გახსნილია",
 };
+// Keep the status values intact, but do not put workflow sentences into a small pill.
+const craftsmanStatusLabels: Record<string, string> = {
+  pending: "მოლოდინში",
+  confirmed: "დადასტურებული",
+  en_route: "გზაშია",
+  started: "მიმდინარეობს",
+  worker_completed: "შესრულებული",
+  client_confirmed: "დასრულებული",
+  closed: "დახურული",
+  declined: "უარყოფილი",
+  cancelled: "გაუქმებული",
+  disputed: "დავა",
+};
+const getCraftsmanStatusLabel = (status?: string) =>
+  craftsmanStatusLabels[status || ""] || "აქტიური";
 const isRealThreadName = (name: string) => !/^კლიენტი(\s|$)/.test(name || "");
 const formatMessageTime = (value: string) =>
   formatGeorgianTime(value);
@@ -232,6 +247,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   onProblemOpened,
 }) => {
   const role: MessageRole = user.role === "craftsman" ? "craftsman" : "client";
+  const isCraftsman = role === "craftsman";
   const [messages, setMessages] = useState<Message[]>(
     () => (isDemoDataMode ? dataService.getBookingMessages() : [])
   );
@@ -776,15 +792,16 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 10,
-              padding: "0 24px 14px",
-              maxHeight: 246,
+              gap: isCraftsman ? 8 : 10,
+              padding: isCraftsman ? "0 24px 12px" : "0 24px 14px",
+              // Two complete craftsman cards fit before the conversation area begins.
+              maxHeight: isCraftsman ? 184 : 246,
               overflowY: "auto",
             }}
           >
             {threads.map((thread, index) => (
               <React.Fragment key={thread.id}>
-              {thread.archived && (index === 0 || !threads[index - 1].archived) && (
+              {!isCraftsman && thread.archived && (index === 0 || !threads[index - 1].archived) && (
                 <div style={{ margin: "8px 0 2px", color: "var(--text3)", fontSize: 11, fontWeight: 900 }}>
                   არქივი
                 </div>
@@ -794,17 +811,27 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                 onClick={() => selectThread(thread)}
                 style={{
                   width: "100%",
-                  minHeight: 76,
-                  padding: "12px 13px",
+                  minHeight: isCraftsman ? 88 : 76,
+                  padding: isCraftsman ? "11px 12px" : "12px 13px",
                   borderRadius: 14,
                   background:
-                    activeThread?.id === thread.id ? "var(--primary)" : "white",
+                    activeThread?.id === thread.id
+                      ? "var(--primary)"
+                      : isCraftsman && thread.unreadCount > 0
+                        ? "#f0f7ff"
+                        : "white",
                   color: activeThread?.id === thread.id ? "white" : "var(--text)",
                   border: `1px solid ${
                     activeThread?.id === thread.id
                       ? "var(--primary)"
+                      : isCraftsman && thread.unreadCount > 0
+                        ? "#bfdbfe"
                       : "var(--border)"
                   }`,
+                  boxShadow:
+                    isCraftsman && activeThread?.id !== thread.id && thread.unreadCount > 0
+                      ? "var(--shadow-sm)"
+                      : "none",
                   textAlign: "left",
                 }}
               >
@@ -828,16 +855,16 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                       {thread.unreadCount > 9 ? "9+" : thread.unreadCount}
                     </span>
                   )}
-                  <div style={{ minWidth: 0, fontSize: 12, lineHeight: 1.35, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ minWidth: 0, fontSize: isCraftsman ? 14 : 12, lineHeight: 1.35, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {thread.title}
                   </div>
                   </div>
                   {thread.lastAt && (
                     <div
                       style={{
-                        fontSize: 10,
-                        fontWeight: 900,
-                        opacity: 0.72,
+                        fontSize: isCraftsman ? 11 : 10,
+                        fontWeight: isCraftsman ? 800 : 900,
+                        opacity: isCraftsman ? 0.62 : 0.72,
                         flexShrink: 0,
                       }}
                     >
@@ -845,42 +872,50 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                     </div>
                   )}
                 </div>
-                <div style={{ marginTop: 4, fontSize: 10, lineHeight: 1.35, opacity: 0.75, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ marginTop: isCraftsman ? 5 : 4, fontSize: isCraftsman ? 11 : 10, lineHeight: 1.35, opacity: 0.75, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {thread.subtitle}
                 </div>
-                <div
-                  style={{
-                    marginTop: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    width: "fit-content",
-                    maxWidth: "100%",
-                    padding: "3px 8px",
-                    borderRadius: 999,
-                    background:
-                      activeThread?.id === thread.id
-                        ? "rgba(255,255,255,0.16)"
-                        : thread.archived
-                          ? "#eef3f9"
-                          : "#ecfdf5",
-                    color:
-                      activeThread?.id === thread.id
-                        ? "white"
-                        : thread.archived
-                          ? "var(--text3)"
-                          : "#047857",
-                    fontSize: 10,
-                    fontWeight: 900,
-                    whiteSpace: "normal",
-                    overflow: "hidden",
-                    lineHeight: 1.25,
-                  }}
-                >
-                  {statusLabels[thread.status || ""] || "აქტიური"}
+                <div style={{ display: isCraftsman ? "grid" : "block", gridTemplateColumns: isCraftsman ? "minmax(0, 1fr) auto" : undefined, alignItems: "center", gap: isCraftsman ? 8 : undefined, marginTop: isCraftsman ? 7 : 6 }}>
+                  {isCraftsman && (
+                    <div style={{ minWidth: 0, fontSize: 11, lineHeight: 1.35, opacity: 0.78, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {thread.lastText}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      width: "fit-content",
+                      padding: "3px 8px",
+                      borderRadius: 999,
+                      background:
+                        activeThread?.id === thread.id
+                          ? "rgba(255,255,255,0.16)"
+                          : thread.archived
+                            ? "#eef3f9"
+                            : "#ecfdf5",
+                      color:
+                        activeThread?.id === thread.id
+                          ? "white"
+                          : thread.archived
+                            ? "var(--text3)"
+                            : "#047857",
+                      fontSize: 10,
+                      fontWeight: 900,
+                      whiteSpace: "nowrap",
+                      lineHeight: 1.25,
+                    }}
+                  >
+                    {isCraftsman
+                      ? getCraftsmanStatusLabel(thread.status)
+                      : statusLabels[thread.status || ""] || "აქტიური"}
+                  </div>
                 </div>
-                <div style={{ marginTop: 5, fontSize: 11, lineHeight: 1.35, opacity: 0.9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {thread.lastText}
-                </div>
+                {!isCraftsman && (
+                  <div style={{ marginTop: 5, fontSize: 11, lineHeight: 1.35, opacity: 0.9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {thread.lastText}
+                  </div>
+                )}
               </button>
               </React.Fragment>
             ))}
@@ -890,7 +925,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
             style={{
               flex: 1,
               overflowY: "auto",
-              padding: "10px 24px calc(168px + var(--safe-bottom))",
+              padding: isCraftsman
+                ? "12px 24px calc(176px + var(--safe-bottom))"
+                : "10px 24px calc(168px + var(--safe-bottom))",
             }}
           >
             {activeThread && role === "client" && !isThreadArchived && (
@@ -967,6 +1004,50 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                 {messageError}
               </div>
             )}
+            {isCraftsman && activeThread && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  minWidth: 0,
+                  padding: "0 0 10px",
+                  marginBottom: 4,
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      color: "var(--text)",
+                      fontSize: 13,
+                      fontWeight: 900,
+                      lineHeight: 1.35,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {activeThread.title}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 2,
+                      color: "var(--text2)",
+                      fontSize: 11,
+                      fontWeight: 750,
+                      lineHeight: 1.35,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {activeThread.subtitle.split(" · ")[0]} · {getCraftsmanStatusLabel(activeThread.status)}
+                  </div>
+                </div>
+              </div>
+            )}
             {visibleMessages.length === 0 ? (
               <div
                 style={{
@@ -980,7 +1061,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                 დაწერეთ პირველი შეტყობინება ამ ჯავშანზე
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: isCraftsman ? 12 : 10 }}>
                 {visibleMessages.map((message, index) => {
                   const mine = message.sender === role;
                   const isSystem =
@@ -996,6 +1077,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                       <div
                         style={{
                           alignSelf: "center",
+                          marginTop: isCraftsman ? 4 : 0,
                           padding: "5px 10px",
                           borderRadius: 999,
                           background: "#eef3f9",
@@ -1014,8 +1096,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                           : mine
                             ? "flex-end"
                             : "flex-start",
-                        maxWidth: isSystem ? "94%" : "82%",
-                        padding: "10px 12px",
+                        maxWidth: isSystem ? "94%" : isCraftsman ? "80%" : "82%",
+                        padding: isCraftsman ? "11px 12px" : "10px 12px",
                         borderRadius: isSystem
                           ? 14
                           : mine
@@ -1034,8 +1116,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                             : "1px solid var(--border)",
                         minWidth: 0,
                         fontSize: isSystem ? 12 : 13,
-                        lineHeight: 1.5,
-                        fontWeight: isSystem ? 850 : 700,
+                        lineHeight: isCraftsman ? 1.55 : 1.5,
+                        fontWeight: isSystem ? 850 : isCraftsman ? 650 : 700,
                         overflowWrap: "anywhere",
                       }}
                     >
@@ -1069,9 +1151,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                       <div>{isSystem ? message.text.replace(/^სისტემა:\s*/, "") : message.text}</div>
                       <div
                         style={{
-                          marginTop: 4,
+                          marginTop: isCraftsman ? 6 : 4,
                           textAlign: isSystem ? "center" : mine ? "right" : "left",
-                          opacity: 0.75,
+                          opacity: isCraftsman ? 0.62 : 0.75,
                           fontSize: 10,
                           fontWeight: 800,
                         }}
@@ -1093,10 +1175,12 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
               right: 0,
               bottom: "calc(76px + var(--safe-bottom))",
               display: "flex",
+              alignItems: "center",
               gap: 8,
               padding: "10px 14px 12px",
               background: "rgba(250,250,250,0.96)",
               borderTop: "1px solid var(--border)",
+              boxShadow: isCraftsman ? "0 -8px 24px rgba(15,23,42,0.04)" : undefined,
             }}
           >
             {isThreadArchived ? (
@@ -1190,7 +1274,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                 border: "1px solid var(--border)",
                 background: "white",
                 color: "var(--text)",
-                fontSize: 12,
+                fontSize: isCraftsman ? 13 : 12,
                 fontWeight: 700,
                 opacity: isThreadArchived || messagingBlocked ? 0.7 : 1,
               }}
