@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { categoryGroups, georgiaCities, getCategoryById, getServiceSelectionLabel, makeServiceSelection, workerMatchesService } from "../data/workers";
-import { cancelMyJobPost, createJobPost, expressInterest, JobPost, JobPostInterest, loadCurrentWorkerJobPostInterests, loadMyJobPosts, loadOpenJobPosts, withdrawInterestInJobPost } from "../services/marketplaceApiService";
+import { cancelMyJobPost, createJobPost, expressInterest, JobPost, JobPostInterest, loadCurrentWorkerJobPostInterests, loadMyJobPostInterests, loadMyJobPosts, loadOpenJobPosts, selectJobPostWorker, withdrawInterestInJobPost } from "../services/marketplaceApiService";
 import { createStoragePath, uploadStorageFile } from "../services/supabaseStorageService";
 import { isDemoDataMode } from "../services/dataService";
+import { loadWorkerCatalog } from "../services/workerCatalogService";
+import type { Worker } from "../types";
 
 const panelStyle: React.CSSProperties = { marginTop: 22, padding: 16, borderRadius: 16, border: "1px solid var(--border)", background: "white", overflow: "hidden" };
 const inputStyle: React.CSSProperties = { width: "100%", minHeight: 44, marginTop: 6, padding: "0 12px", border: "1px solid var(--border)", borderRadius: 10, background: "#fff", color: "var(--text)", font: "inherit", fontWeight: 700 };
@@ -36,6 +38,8 @@ const uploadErrorMessage = (error: unknown) => {
 
 export const ClientJobPostsPanel: React.FC = () => {
   const [posts, setPosts] = useState<JobPost[]>([]);
+  const [interests, setInterests] = useState<JobPostInterest[]>([]);
+  const [interestedWorkers, setInterestedWorkers] = useState<Worker[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [expandedPostId, setExpandedPostId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -50,11 +54,22 @@ export const ClientJobPostsPanel: React.FC = () => {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const loadPostsAndInterests = useCallback(async (signal?: AbortSignal) => {
+    const nextPosts = await loadMyJobPosts(signal);
+    if (signal?.aborted) return;
+    const nextInterests = await loadMyJobPostInterests(nextPosts.map((post) => post.id), signal);
+    if (signal?.aborted) return;
+    setPosts(nextPosts);
+    setInterests(nextInterests);
+    if (nextInterests.length) setInterestedWorkers(await loadWorkerCatalog(signal));
+    else setInterestedWorkers([]);
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-    loadMyJobPosts(controller.signal).then(setPosts).catch(() => undefined);
+    void loadPostsAndInterests(controller.signal).catch(() => undefined);
     return () => controller.abort();
-  }, []);
+  }, [loadPostsAndInterests]);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,12 +111,24 @@ export const ClientJobPostsPanel: React.FC = () => {
     if (!window.confirm("ნამდვილად გსურს ამ მოთხოვნის გაუქმება? ხელოსნებს ის აღარ გამოუჩნდებათ.")) return;
     setSaving(true); setMessage("");
     try {
-      const cancelled = await cancelMyJobPost(postId);
-      setPosts((current) => current.filter((post) => post.id !== cancelled.id));
+      await cancelMyJobPost(postId);
+      await loadPostsAndInterests();
       setMessage("მოთხოვნა გაუქმდა. ხელოსნებს ის აღარ გამოუჩნდებათ.");
     } catch (error) {
       setMessage(messageFrom(error));
-      loadMyJobPosts().then(setPosts).catch(() => undefined);
+      void loadPostsAndInterests().catch(() => undefined);
+    } finally { setSaving(false); }
+  };
+
+  const chooseWorker = async (postId: string, workerId: string) => {
+    setSaving(true); setMessage("");
+    try {
+      await selectJobPostWorker(postId, workerId);
+      await loadPostsAndInterests();
+      setMessage("ხელოსანი არჩეულია. შემდეგი შეთანხმება აპლიკაციის ჯავშნისა და ჩატის გზით გაგრძელდება.");
+    } catch (error) {
+      setMessage(messageFrom(error));
+      void loadPostsAndInterests().catch(() => undefined);
     } finally { setSaving(false); }
   };
 
@@ -139,6 +166,9 @@ export const ClientJobPostsPanel: React.FC = () => {
     {posts.slice(0, 3).map((post) => {
       const isPostExpanded = expandedPostId === post.id;
       const urls = post.photo_urls?.length ? post.photo_urls : post.photo_url ? [post.photo_url] : [];
+      const postInterests = interests.filter((interest) => interest.job_post_id === post.id);
+      const selectedInterest = postInterests.find((interest) => interest.status === "selected");
+      const selectedWorker = selectedInterest ? interestedWorkers.find((worker) => worker.backendId === selectedInterest.worker_id) : undefined;
       return <div key={post.id} style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
         <button type="button" onClick={() => setExpandedPostId(isPostExpanded ? "" : post.id)} style={{ width: "100%", padding: 0, background: "transparent", color: "var(--text)", textAlign: "left" }}>
           <strong>{post.title}</strong>
@@ -148,6 +178,25 @@ export const ClientJobPostsPanel: React.FC = () => {
         {isPostExpanded && <div style={{ marginTop: 10 }}>
           {urls.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7, marginBottom: 10 }}>{urls.map((url) => <img key={url} src={url} alt="სამუშაო ადგილის ფოტო" style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 9, objectFit: "cover", display: "block" }} />)}</div>}
           {post.description.trim() && <p style={{ margin: "0", color: "var(--text2)", fontSize: 12, lineHeight: 1.5 }}>{post.description}</p>}
+          {post.status === "open" && <div style={{ marginTop: 12 }}>
+            <strong style={{ display: "block", fontSize: 13 }}>დაინტერესებული ხელოსნები ({postInterests.filter((interest) => interest.status === "pending").length})</strong>
+            {postInterests.filter((interest) => interest.status === "pending").length > 0 ? <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+              {postInterests.filter((interest) => interest.status === "pending").map((interest) => {
+                const worker = interestedWorkers.find((item) => item.backendId === interest.worker_id);
+                return <div key={interest.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "center", padding: 10, border: "1px solid var(--border)", borderRadius: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ display: "block", fontSize: 13 }}>{worker?.name || "ვერიფიცირებული ხელოსანი"}</strong>
+                    <span style={{ display: "block", marginTop: 3, fontSize: 11, lineHeight: 1.4, color: "var(--text2)", fontWeight: 700 }}>{worker?.role || "ხელოსანი"}{worker ? ` · ★ ${worker.rating.toFixed(1)} (${worker.reviewCount})` : ""}</span>
+                    {worker?.verificationStatus === "verified" && <span style={{ display: "block", marginTop: 2, fontSize: 11, color: "#047857", fontWeight: 800 }}>ვერიფიცირებული</span>}
+                  </div>
+                  <button type="button" disabled={saving} onClick={() => void chooseWorker(post.id, interest.worker_id)} style={{ ...buttonStyle, minWidth: 84, minHeight: 40, padding: "0 10px" }}>{saving ? "ინახება..." : "არჩევა"}</button>
+                </div>;
+              })}
+            </div> : <p style={{ margin: "7px 0 0", fontSize: 12, color: "var(--text2)", lineHeight: 1.45 }}>ჯერ არცერთი ხელოსანი არ დაინტერესებულა.</p>}
+          </div>}
+          {post.status === "selected" && <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: "#ecfdf5", color: "#047857", fontSize: 12, fontWeight: 800, lineHeight: 1.45 }}>
+            არჩეული ხელოსანი: {selectedWorker?.name || "ვერიფიცირებული ხელოსანი"}
+          </div>}
         </div>}
         <div style={{ marginTop: 7, fontSize: 12, fontWeight: 800, color: post.status === "open" ? "#047857" : "var(--text2)" }}>{post.status === "open" ? "მიღება ღიაა" : post.status === "cancelled" ? "გაუქმებულია" : "ხელოსანი არჩეულია"}</div>
         <div style={{ marginTop: 4, fontSize: 11, color: "var(--text3)", fontWeight: 750 }}>გამოქვეყნდა: {formatJobPostCreatedAt(post.created_at)}</div>

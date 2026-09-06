@@ -20,6 +20,7 @@ type DemoJobPost = {
 type DemoJobPostInterest = {
   id: string;
   job_post_id: string;
+  worker_id: string;
   status: "pending" | "selected" | "not_selected" | "withdrawn";
   created_at: string;
 };
@@ -91,7 +92,7 @@ export const marketplaceDemo = {
   },
 
   expressInterest(jobPostId: string): DemoJobPostInterest {
-    const interest: DemoJobPostInterest = { id: id("interest"), job_post_id: jobPostId, status: "pending", created_at: new Date().toISOString() };
+    const interest: DemoJobPostInterest = { id: id("interest"), job_post_id: jobPostId, worker_id: "demo-worker", status: "pending", created_at: new Date().toISOString() };
     const next = read<DemoJobPost[]>(JOB_POSTS_KEY, []).map((post) => {
       if (post.id !== jobPostId) return post;
       const interested = post.interested_worker_ids || [];
@@ -105,6 +106,27 @@ export const marketplaceDemo = {
   },
 
   loadCurrentWorkerInterests: (): DemoJobPostInterest[] => read<DemoJobPostInterest[]>(INTERESTS_KEY, []),
+
+  loadMyJobPostInterests: (jobPostIds: string[]): DemoJobPostInterest[] =>
+    read<DemoJobPostInterest[]>(INTERESTS_KEY, []).filter((item) => jobPostIds.includes(item.job_post_id) && (item.status === "pending" || item.status === "selected")),
+
+  selectJobPostWorker(jobPostId: string, workerId: string): DemoJobPost {
+    let updated: DemoJobPost | undefined;
+    const posts = read<DemoJobPost[]>(JOB_POSTS_KEY, []).map((post) => {
+      if (post.id !== jobPostId) return post;
+      if (post.status !== "open") throw new Error("მოთხოვნა ვეღარ განახლდება.");
+      updated = { ...post, status: "selected", selected_worker_id: workerId };
+      return updated;
+    });
+    if (!updated) throw new Error("მოთხოვნა ვერ მოიძებნა.");
+    write(JOB_POSTS_KEY, posts);
+    write(INTERESTS_KEY, read<DemoJobPostInterest[]>(INTERESTS_KEY, []).map((interest) =>
+      interest.job_post_id === jobPostId
+        ? { ...interest, status: interest.worker_id === workerId ? "selected" : "not_selected" }
+        : interest
+    ));
+    return updated;
+  },
 
   withdrawInterest(interestId: string): DemoJobPostInterest {
     let updated: DemoJobPostInterest | undefined;

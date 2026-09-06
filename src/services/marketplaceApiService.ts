@@ -34,6 +34,10 @@ export interface PortfolioItem {
 export interface JobPostInterest {
   id: string;
   job_post_id: string;
+  worker_id: string;
+  message?: string | null;
+  estimate_min?: number | null;
+  estimate_max?: number | null;
   status: "pending" | "selected" | "not_selected" | "withdrawn";
   created_at: string;
 }
@@ -133,6 +137,25 @@ export const loadCurrentWorkerJobPostInterests = async (signal?: AbortSignal) =>
     select: "id,job_post_id,status,created_at",
     order: "created_at.desc",
   }, { signal });
+};
+
+export const loadMyJobPostInterests = async (jobPostIds: string[], signal?: AbortSignal) => {
+  if (!jobPostIds.length) return [] as JobPostInterest[];
+  if (isDemoDataMode) return marketplaceDemo.loadMyJobPostInterests(jobPostIds) as JobPostInterest[];
+  return createSupabaseRestClient().select<JobPostInterest>("job_post_interests", {
+    select: "id,job_post_id,worker_id,message,estimate_min,estimate_max,status,created_at",
+    job_post_id: `in.(${jobPostIds.join(",")})`,
+    status: "in.(pending,selected)",
+    order: "created_at.asc",
+  }, { signal });
+};
+
+export const selectJobPostWorker = async (jobPostId: string, workerId: string) => {
+  if (isDemoDataMode) return marketplaceDemo.selectJobPostWorker(jobPostId, workerId) as JobPost;
+  return createSupabaseRestClient().rpc<JobPost>("select_job_post_worker", {
+    p_job_post_id: jobPostId,
+    p_worker_id: workerId,
+  });
 };
 
 export const withdrawInterestInJobPost = async (interestId: string) => {
