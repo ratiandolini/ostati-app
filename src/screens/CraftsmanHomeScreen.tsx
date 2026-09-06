@@ -410,6 +410,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
+    setPortfolioItems([]);
+    setPortfolioError("");
     const currentWorkerId = isDemoDataMode
       ? Promise.resolve("demo-worker")
       : loadCurrentWorkerId(controller.signal);
@@ -428,7 +430,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       cancelled = true;
       controller.abort();
     };
-  }, []);
+  }, [user.phone]);
 
   useEffect(() => {
     if (!isDemoDataMode) return;
