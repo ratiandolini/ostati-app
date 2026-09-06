@@ -142,7 +142,7 @@ end $$;
 create or replace function public.express_interest_in_job_post(
   p_job_post_id uuid, p_message text default null, p_estimate_min numeric default null, p_estimate_max numeric default null
 ) returns public.job_post_interests
-language plpgsql security invoker set search_path = public as $$
+language plpgsql security definer set search_path = public as $$
 declare v_worker uuid; v_post public.job_posts; v_count integer; result public.job_post_interests;
 begin
   v_worker := public.current_app_worker_id();
