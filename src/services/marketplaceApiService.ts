@@ -1,7 +1,7 @@
 import { createSupabaseRestClient } from "./supabaseRest";
 import { isDemoDataMode } from "./dataService";
 import { marketplaceDemo } from "./marketplaceDemoService";
-import { getSupabaseUserId } from "./supabaseAuthService";
+import { loadCurrentUserProfile } from "./profileApiService";
 
 export interface JobPost {
   id: string;
@@ -56,11 +56,14 @@ export const loadOpenJobPosts = async (signal?: AbortSignal) => {
 
 export const loadMyJobPosts = async (signal?: AbortSignal) => {
   if (isDemoDataMode) return marketplaceDemo.loadMyJobPosts() as JobPost[];
-  const userId = getSupabaseUserId();
-  if (!userId) return [];
+  // job_posts.client_id references public.users.id, while Auth exposes
+  // users.auth_user_id. Resolve the canonical app user first so a returning
+  // client reads the same ownership ID that creation and RLS use.
+  const profile = await loadCurrentUserProfile(signal);
+  if (!profile?.id) return [];
   return createSupabaseRestClient().select<JobPost>("job_posts", {
     select: "*",
-    client_id: `eq.${userId}`,
+    client_id: `eq.${profile.id}`,
     order: "created_at.desc",
   }, { signal });
 };
