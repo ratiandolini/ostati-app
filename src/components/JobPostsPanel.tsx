@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { categoryGroups, georgiaCities, getCategoryById, getServiceSelectionLabel, makeServiceSelection, workerMatchesService } from "../data/workers";
-import { cancelMyJobPost, createJobPost, expressInterest, JobPost, JobPostInterest, loadCurrentWorkerJobPostInterests, loadMyJobPostInterests, loadMyJobPosts, loadOpenJobPosts, selectJobPostWorker, withdrawInterestInJobPost } from "../services/marketplaceApiService";
+import { cancelMyJobPost, createBookingFromJobPost, createJobPost, expressInterest, JobPost, JobPostBookingLink, JobPostInterest, loadCurrentWorkerJobPostInterests, loadMyJobPostBookingLinks, loadMyJobPostInterests, loadMyJobPosts, loadOpenJobPosts, selectJobPostWorker, withdrawInterestInJobPost } from "../services/marketplaceApiService";
 import { createStoragePath, uploadStorageFile } from "../services/supabaseStorageService";
 import { isDemoDataMode } from "../services/dataService";
 import { loadWorkerCatalog } from "../services/workerCatalogService";
@@ -21,6 +21,9 @@ const messageFrom = (error: unknown) => {
   if (/Only an open request created by you can be cancelled/i.test(message)) return "ეს მოთხოვნა უკვე დახურულია ან შენი ანგარიშით არ არის შექმნილი. სია განახლდა.";
   if (/already has enough responses/i.test(message)) return "ამ მოთხოვნაზე უკვე საკმარისი ხელოსანი დაინტერესდა. სია განახლდა.";
   if (/Only verified active craftspeople/i.test(message)) return "ინტერესის გამოსახატად საჭიროა აქტიური და ვერიფიცირებული ხელოსნის პროფილი.";
+  if (/A booking already exists for this job post|duplicate key value/i.test(message)) return "ამ მოთხოვნაზე ჯავშანი უკვე შექმნილია.";
+  if (/selected worker.*receive bookings|Selected worker is no longer available/i.test(message)) return "არჩეული ხელოსანი ამჟამად ჯავშნებს ვერ იღებს. აირჩიე სხვა ხელოსანი.";
+  if (/scheduled date\/time|address/i.test(message)) return "მიუთითე ზუსტი თარიღი, დრო და მისამართი.";
   return message || "მოთხოვნის შესრულება ვერ მოხერხდა.";
 };
 const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
@@ -39,6 +42,7 @@ const uploadErrorMessage = (error: unknown) => {
 export const ClientJobPostsPanel: React.FC = () => {
   const [posts, setPosts] = useState<JobPost[]>([]);
   const [interests, setInterests] = useState<JobPostInterest[]>([]);
+  const [bookingLinks, setBookingLinks] = useState<JobPostBookingLink[]>([]);
   const [interestedWorkers, setInterestedWorkers] = useState<Worker[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [expandedPostId, setExpandedPostId] = useState("");
@@ -53,14 +57,22 @@ export const ClientJobPostsPanel: React.FC = () => {
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [bookingPostId, setBookingPostId] = useState("");
+  const [bookingDate, setBookingDate] = useState("");
+  const [bookingTime, setBookingTime] = useState("");
+  const [bookingAddress, setBookingAddress] = useState("");
 
   const loadPostsAndInterests = useCallback(async (signal?: AbortSignal) => {
     const nextPosts = await loadMyJobPosts(signal);
     if (signal?.aborted) return;
-    const nextInterests = await loadMyJobPostInterests(nextPosts.map((post) => post.id), signal);
+    const [nextInterests, nextBookingLinks] = await Promise.all([
+      loadMyJobPostInterests(nextPosts.map((post) => post.id), signal),
+      loadMyJobPostBookingLinks(nextPosts.map((post) => post.id), signal),
+    ]);
     if (signal?.aborted) return;
     setPosts(nextPosts);
     setInterests(nextInterests);
+    setBookingLinks(nextBookingLinks);
     if (nextInterests.length) setInterestedWorkers(await loadWorkerCatalog(signal));
     else setInterestedWorkers([]);
   }, []);
@@ -132,6 +144,42 @@ export const ClientJobPostsPanel: React.FC = () => {
     } finally { setSaving(false); }
   };
 
+  const openBookingForm = (post: JobPost) => {
+    setBookingPostId(post.id);
+    setBookingDate(post.preferred_date || new Date().toISOString().slice(0, 10));
+    setBookingTime("");
+    setBookingAddress("");
+    setMessage("");
+  };
+
+  const confirmBooking = async (post: JobPost) => {
+    if (!bookingDate || !bookingTime || !bookingAddress.trim()) {
+      setMessage("მიუთითე ზუსტი თარიღი, დრო და მისამართი.");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      const scheduledAt = new Date(`${bookingDate}T${bookingTime}`).toISOString();
+      await createBookingFromJobPost({
+        jobPostId: post.id,
+        scheduledAt,
+        addressText: bookingAddress.trim(),
+      });
+      setBookingPostId("");
+      setBookingDate("");
+      setBookingTime("");
+      setBookingAddress("");
+      await loadPostsAndInterests();
+      setMessage("ჯავშანი შეიქმნა. ხელოსანთან მიმოწერა უკვე ხელმისაწვდომია მესიჯებში.");
+    } catch (error) {
+      setMessage(messageFrom(error));
+      void loadPostsAndInterests().catch(() => undefined);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return <section style={panelStyle}>
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12, alignItems: "center" }}>
       <div style={{ minWidth: 0 }}><h2 style={{ margin: 0, fontSize: 18, lineHeight: 1.25 }}>შენი მოთხოვნები</h2><p style={{ margin: "5px 0 0", fontSize: 12, lineHeight: 1.45, color: "var(--text2)", fontWeight: 700 }}>აღწერე სამუშაო და დაინტერესებული ხელოსნებიდან თავად აირჩიე.</p></div>
@@ -169,6 +217,7 @@ export const ClientJobPostsPanel: React.FC = () => {
       const postInterests = interests.filter((interest) => interest.job_post_id === post.id);
       const selectedInterest = postInterests.find((interest) => interest.status === "selected");
       const selectedWorker = selectedInterest ? interestedWorkers.find((worker) => worker.backendId === selectedInterest.worker_id) : undefined;
+      const bookingLink = bookingLinks.find((booking) => booking.job_post_id === post.id);
       return <div key={post.id} style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
         <button type="button" onClick={() => setExpandedPostId(isPostExpanded ? "" : post.id)} style={{ width: "100%", padding: 0, background: "transparent", color: "var(--text)", textAlign: "left" }}>
           <strong>{post.title}</strong>
@@ -196,6 +245,21 @@ export const ClientJobPostsPanel: React.FC = () => {
           </div>}
           {post.status === "selected" && <div style={{ marginTop: 12, padding: 10, borderRadius: 10, background: "#ecfdf5", color: "#047857", fontSize: 12, fontWeight: 800, lineHeight: 1.45 }}>
             არჩეული ხელოსანი: {selectedWorker?.name || "ვერიფიცირებული ხელოსანი"}
+          </div>}
+          {post.status === "selected" && bookingLink && <div style={{ marginTop: 8, padding: 10, borderRadius: 10, background: "#eff6ff", color: "var(--primary)", fontSize: 12, fontWeight: 800, lineHeight: 1.45 }}>
+            ჯავშანი შექმნილია. მიმოწერა ხელმისაწვდომია მესიჯებში.
+          </div>}
+          {post.status === "selected" && !bookingLink && !isDemoDataMode && <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            {bookingPostId !== post.id ? <button type="button" disabled={saving} onClick={() => openBookingForm(post)} style={{ ...buttonStyle, width: "100%" }}>ჯავშნის გაგრძელება</button> : <div style={{ display: "grid", gap: 10, padding: 12, border: "1px solid var(--border)", borderRadius: 10, background: "#f8fbff" }}>
+              <strong style={{ fontSize: 13 }}>ჯავშნის დეტალები</strong>
+              <p style={{ margin: "-3px 0 0", color: "var(--text2)", fontSize: 12, lineHeight: 1.45 }}>მიუთითე მხოლოდ ზუსტი თარიღი, დრო და მისამართი.</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                <label style={{ minWidth: 0, fontSize: 12, fontWeight: 800, color: "var(--text2)" }}>თარიღი<input type="date" value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} style={inputStyle} /></label>
+                <label style={{ minWidth: 0, fontSize: 12, fontWeight: 800, color: "var(--text2)" }}>დრო<input type="time" value={bookingTime} onChange={(event) => setBookingTime(event.target.value)} style={inputStyle} /></label>
+              </div>
+              <label style={{ fontSize: 12, fontWeight: 800, color: "var(--text2)" }}>ზუსტი მისამართი<input value={bookingAddress} onChange={(event) => setBookingAddress(event.target.value)} placeholder="ქუჩა, ნომერი, სადარბაზო" style={inputStyle} /></label>
+              <button type="button" disabled={saving} onClick={() => void confirmBooking(post)} style={{ ...buttonStyle, width: "100%", opacity: saving ? .55 : 1 }}>{saving ? "ინახება..." : "ჯავშნის დადასტურება"}</button>
+            </div>}
           </div>}
         </div>}
         <div style={{ marginTop: 7, fontSize: 12, fontWeight: 800, color: post.status === "open" ? "#047857" : "var(--text2)" }}>{post.status === "open" ? "მიღება ღიაა" : post.status === "cancelled" ? "გაუქმებულია" : "ხელოსანი არჩეულია"}</div>

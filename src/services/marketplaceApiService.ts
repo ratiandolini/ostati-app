@@ -42,6 +42,11 @@ export interface JobPostInterest {
   created_at: string;
 }
 
+export interface JobPostBookingLink {
+  id: string;
+  job_post_id: string;
+}
+
 // Every export here is declared `async` on purpose: createSupabaseRestClient()
 // throws synchronously when Supabase isn't configured (demo mode / missing
 // env vars). Calling it outside an async function let that throw escape any
@@ -156,6 +161,35 @@ export const selectJobPostWorker = async (jobPostId: string, workerId: string) =
     p_job_post_id: jobPostId,
     p_worker_id: workerId,
   });
+};
+
+export const loadMyJobPostBookingLinks = async (
+  jobPostIds: string[],
+  signal?: AbortSignal
+) => {
+  if (!jobPostIds.length || isDemoDataMode) return [] as JobPostBookingLink[];
+  return createSupabaseRestClient().select<JobPostBookingLink>("bookings", {
+    select: "id,job_post_id",
+    job_post_id: `in.(${jobPostIds.join(",")})`,
+  }, { signal });
+};
+
+export const createBookingFromJobPost = async (input: {
+  jobPostId: string;
+  scheduledAt: string;
+  addressText: string;
+}) => {
+  if (isDemoDataMode) {
+    throw new Error("ჯავშნის გაგრძელება ხელმისაწვდომია რეალურ ანგარიშზე.");
+  }
+  return createSupabaseRestClient().rpc<{ booking_id: string; job_post_id: string }>(
+    "create_booking_from_job_post",
+    {
+      p_job_post_id: input.jobPostId,
+      p_scheduled_at: input.scheduledAt,
+      p_address_text: input.addressText,
+    }
+  );
 };
 
 export const withdrawInterestInJobPost = async (interestId: string) => {
