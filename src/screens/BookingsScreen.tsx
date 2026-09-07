@@ -50,6 +50,8 @@ export type { Booking } from "./bookings/bookings.helpers";
 interface BookingsScreenProps {
   bookings: Booking[];
   isLoading?: boolean;
+  loadError?: string;
+  onRetryLoad?: () => void;
   onCancelBooking: (id: string, reason: string) => Promise<void> | void;
   onChangeWorker: (id: string, worker: Worker) => Promise<void> | void;
   onReviewBooking: (id: string) => Promise<void> | void;
@@ -65,6 +67,8 @@ interface BookingsScreenProps {
 export const BookingsScreen: React.FC<BookingsScreenProps> = ({
   bookings,
   isLoading = false,
+  loadError = "",
+  onRetryLoad,
   onCancelBooking,
   onChangeWorker,
   onReviewBooking,
@@ -909,13 +913,53 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
             })}
           </div>
         )}
+        {loadError && (
+          <div
+            role="alert"
+            style={{
+              display: "grid",
+              gap: 9,
+              marginBottom: 14,
+              padding: 12,
+              borderRadius: 12,
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#991b1b",
+              fontSize: 12,
+              fontWeight: 800,
+              lineHeight: 1.45,
+            }}
+          >
+            <span>{loadError}</span>
+            {onRetryLoad && (
+              <button
+                type="button"
+                onClick={onRetryLoad}
+                disabled={isLoading}
+                style={{
+                  justifySelf: "start",
+                  minHeight: 38,
+                  padding: "0 12px",
+                  borderRadius: 9,
+                  background: "white",
+                  border: "1px solid #fecaca",
+                  color: "#991b1b",
+                  fontSize: 12,
+                  fontWeight: 900,
+                }}
+              >
+                ხელახლა ცდა
+              </button>
+            )}
+          </div>
+        )}
         {isLoading ? (
           <EmptyState
             compact
             title="ჯავშნები იტვირთება"
             description="მიმდინარეობს შენი მოთხოვნების შემოწმება."
           />
-        ) : bookings.length === 0 ? (
+        ) : loadError && bookings.length === 0 ? null : bookings.length === 0 ? (
           <EmptyState
             title="ჯავშნები არ გაქვს"
             description="აირჩიე ხელოსანი, მიუთითე მისამართი და დაჯავშნე დრო."

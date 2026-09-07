@@ -128,15 +128,15 @@ const problemReasons = [
 const formatChatUploadError = (error: unknown) => {
   const message = error instanceof Error ? error.message : "";
   if (/row-level security|Unauthorized|403/i.test(message)) {
-    return "ფოტოს ატვირთვა ვერ მოხერხდა. Supabase Storage-ის წესები გადასამოწმებელია.";
+    return "ფოტოს ატვირთვა დროებით ვერ მოხერხდა. სცადე თავიდან.";
   }
   if (/bucket|not found/i.test(message)) {
-    return "ჩატის ფოტოებისთვის Storage bucket არ არის მზად. გაუშვი storage SQL და სცადე თავიდან.";
+    return "ფოტოს ატვირთვა დროებით ვერ მოხერხდა. სცადე თავიდან.";
   }
   if (/mime|file size|payload|too large|413/i.test(message)) {
     return "ფოტო ძალიან დიდია ან ფორმატი არასწორია. გამოიყენე JPG, PNG ან WEBP მაქსიმუმ 10MB.";
   }
-  return message || "ფოტოს გაგზავნა ვერ მოხერხდა";
+  return "ფოტოს გაგზავნა ვერ მოხერხდა. სცადე თავიდან.";
 };
 
 const countUnreadMessages = (
@@ -253,6 +253,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   );
   const [apiThreads, setApiThreads] = useState<Thread[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(false);
+  const [threadLoadError, setThreadLoadError] = useState("");
   const [messageError, setMessageError] = useState("");
   const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [problemOpen, setProblemOpen] = useState(false);
@@ -360,6 +361,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   const refreshApiThreads = async (signal?: AbortSignal) => {
     if (isDemoDataMode) return;
     setLoadingThreads(true);
+    setThreadLoadError("");
     setMessageError("");
     try {
       let nextThreads: Thread[] = [];
@@ -377,7 +379,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
           })
         );
       } catch (error) {
+        if (isAbortError(error)) throw error;
         if (role !== "craftsman" && !bookings.length) throw error;
+        setThreadLoadError("მიმოწერის განახლება ვერ მოხერხდა. შეამოწმე ინტერნეტი და სცადე თავიდან.");
         reportApiError(error, { silentTransient: true });
       }
       if (!nextThreads.length && role === "client") {
@@ -407,9 +411,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
       }
     } catch (error) {
       if (isAbortError(error)) return;
-      setMessageError(
-        error instanceof Error ? error.message : "მესიჯების ჩატვირთვა ვერ მოხერხდა"
-      );
+      setThreadLoadError("მიმოწერის ჩატვირთვა ვერ მოხერხდა. შეამოწმე ინტერნეტი და სცადე თავიდან.");
     } finally {
       setLoadingThreads(false);
     }
@@ -460,6 +462,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
     if (isDemoDataMode || !activeThreadId) return;
 
     let cancelled = false;
+    setThreadLoadError("");
     setMessageError("");
     loadBookingMessages(activeThreadId)
       .then((nextMessages) => {
@@ -484,11 +487,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
       })
       .catch((error) => {
         if (!cancelled) {
-          setMessageError(
-            error instanceof Error
-              ? error.message
-              : "მესიჯების ჩატვირთვა ვერ მოხერხდა"
-          );
+          setThreadLoadError("მესიჯების ჩატვირთვა ვერ მოხერხდა. შეამოწმე ინტერნეტი და სცადე თავიდან.");
         }
       });
 
@@ -496,6 +495,19 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
       cancelled = true;
     };
   }, [activeThreadId]);
+
+  const retryThreadLoad = () => {
+    if (isDemoDataMode) return;
+    setThreadLoadError("");
+    void refreshApiThreads().then(async () => {
+      if (!activeThreadId) return;
+      try {
+        setMessages(await loadBookingMessages(activeThreadId));
+      } catch {
+        setThreadLoadError("მესიჯების ჩატვირთვა ვერ მოხერხდა. შეამოწმე ინტერნეტი და სცადე თავიდან.");
+      }
+    });
+  };
 
   useEffect(() => {
     if (!activeThreadId) return;
@@ -559,9 +571,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
           current.filter((message) => message.id !== optimisticId)
         );
         setDraft(text);
-        setMessageError(
-          error instanceof Error ? error.message : "მესიჯის გაგზავნა ვერ მოხერხდა"
-        );
+        setMessageError("მესიჯის გაგზავნა ვერ მოხერხდა. სცადე თავიდან.");
         return;
       }
     }
@@ -737,9 +747,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
       setProblemDetails("");
       setProblemEvidence([]);
     } catch (error) {
-      setMessageError(
-        error instanceof Error ? error.message : "დავის გახსნა ვერ მოხერხდა"
-      );
+      setMessageError("პრობლემის დაფიქსირება ვერ მოხერხდა. სცადე თავიდან.");
     } finally {
       setProblemSubmitting(false);
     }
@@ -772,16 +780,30 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
         <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 30 }}>
           <div style={{ width: "100%" }}>
             <EmptyState
-              title={loadingThreads ? "მიმოწერა იტვირთება" : "ჯერ მიმოწერა არ გაქვთ"}
+              title={
+                loadingThreads
+                  ? "მიმოწერა იტვირთება"
+                  : threadLoadError
+                    ? "მიმოწერის ჩატვირთვა ვერ მოხერხდა"
+                    : "ჯერ მიმოწერა არ გაქვთ"
+              }
               description={
                 loadingThreads
                   ? "ჩატებს ვამოწმებთ აქტიურ ჯავშნებზე."
-                  : "ჩატი გამოჩნდება, როცა ჯავშანზე საუბარი დაიწყება."
+                  : threadLoadError
+                    ? "კავშირი გადაამოწმე და ხელახლა სცადე."
+                    : "ჩატი გამოჩნდება, როცა ჯავშანზე საუბარი დაიწყება."
               }
             />
             {messageError && (
               <div style={{ marginTop: 8, fontSize: 12, color: "#dc2626", fontWeight: 800 }}>
                 {messageError}
+              </div>
+            )}
+            {threadLoadError && (
+              <div role="alert" style={{ display: "grid", gap: 8, marginTop: 10, padding: 11, borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", fontSize: 12, fontWeight: 800, lineHeight: 1.45 }}>
+                <span>{threadLoadError}</span>
+                <button type="button" disabled={loadingThreads} onClick={retryThreadLoad} style={{ justifySelf: "start", minHeight: 38, padding: "0 12px", borderRadius: 9, background: "white", border: "1px solid #fecaca", color: "#991b1b", fontSize: 12, fontWeight: 900 }}>ხელახლა ცდა</button>
               </div>
             )}
           </div>
@@ -997,6 +1019,12 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                     პრობლემა მაქვს
                   </button>
                 )}
+              </div>
+            )}
+            {threadLoadError && (
+              <div role="alert" style={{ display: "grid", gap: 8, marginBottom: 10, padding: 11, borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", fontSize: 12, fontWeight: 800, lineHeight: 1.45 }}>
+                <span>{threadLoadError}</span>
+                <button type="button" disabled={loadingThreads} onClick={retryThreadLoad} style={{ justifySelf: "start", minHeight: 38, padding: "0 12px", borderRadius: 9, background: "white", border: "1px solid #fecaca", color: "#991b1b", fontSize: 12, fontWeight: 900 }}>ხელახლა ცდა</button>
               </div>
             )}
             {messageError && (

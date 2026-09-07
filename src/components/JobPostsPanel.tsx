@@ -47,6 +47,8 @@ export const ClientJobPostsPanel: React.FC = () => {
   const [expanded, setExpanded] = useState(false);
   const [expandedPostId, setExpandedPostId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [postsLoadError, setPostsLoadError] = useState("");
   const [message, setMessage] = useState("");
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -63,18 +65,29 @@ export const ClientJobPostsPanel: React.FC = () => {
   const [bookingAddress, setBookingAddress] = useState("");
 
   const loadPostsAndInterests = useCallback(async (signal?: AbortSignal) => {
-    const nextPosts = await loadMyJobPosts(signal);
-    if (signal?.aborted) return;
-    const [nextInterests, nextBookingLinks] = await Promise.all([
-      loadMyJobPostInterests(nextPosts.map((post) => post.id), signal),
-      loadMyJobPostBookingLinks(nextPosts.map((post) => post.id), signal),
-    ]);
-    if (signal?.aborted) return;
-    setPosts(nextPosts);
-    setInterests(nextInterests);
-    setBookingLinks(nextBookingLinks);
-    if (nextInterests.length) setInterestedWorkers(await loadWorkerCatalog(signal));
-    else setInterestedWorkers([]);
+    setLoadingPosts(true);
+    setPostsLoadError("");
+    try {
+      const nextPosts = await loadMyJobPosts(signal);
+      if (signal?.aborted) return;
+      const [nextInterests, nextBookingLinks] = await Promise.all([
+        loadMyJobPostInterests(nextPosts.map((post) => post.id), signal),
+        loadMyJobPostBookingLinks(nextPosts.map((post) => post.id), signal),
+      ]);
+      if (signal?.aborted) return;
+      setPosts(nextPosts);
+      setInterests(nextInterests);
+      setBookingLinks(nextBookingLinks);
+      if (nextInterests.length) setInterestedWorkers(await loadWorkerCatalog(signal));
+      else setInterestedWorkers([]);
+    } catch (error) {
+      if (!signal?.aborted) {
+        setPostsLoadError("მოთხოვნების ჩატვირთვა ვერ მოხერხდა. შეამოწმე ინტერნეტი და სცადე თავიდან.");
+      }
+      throw error;
+    } finally {
+      if (!signal?.aborted) setLoadingPosts(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -211,6 +224,9 @@ export const ClientJobPostsPanel: React.FC = () => {
       <button type="button" disabled={saving} onClick={submit} style={{ ...buttonStyle, opacity: saving ? .55 : 1 }}>{saving ? "იტვირთება..." : "გამოქვეყნება"}</button>
     </div>}
     {message && <p role="alert" style={{ margin: "12px 0 0", color: Object.keys(errors).length ? "#b91c1c" : "var(--text2)", fontSize: 12, fontWeight: 800, lineHeight: 1.4 }}>{message}</p>}
+    {loadingPosts && posts.length === 0 ? <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: "#f8fbff", color: "var(--text2)", fontSize: 12, fontWeight: 800 }}>მოთხოვნები იტვირთება...</div> : null}
+    {postsLoadError ? <div role="alert" style={{ display: "grid", gap: 9, marginTop: 14, padding: 12, borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", fontSize: 12, fontWeight: 800, lineHeight: 1.45 }}><span>{postsLoadError}</span><button type="button" disabled={loadingPosts} onClick={() => void loadPostsAndInterests().catch(() => undefined)} style={{ ...buttonStyle, justifySelf: "start", minHeight: 38, background: "white", color: "#991b1b", border: "1px solid #fecaca" }}>ხელახლა ცდა</button></div> : null}
+    {!loadingPosts && !postsLoadError && posts.length === 0 ? <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: "#f8fbff", color: "var(--text2)", fontSize: 12, fontWeight: 800, lineHeight: 1.45 }}>ჯერ მოთხოვნა არ გაქვს. დაამატე სამუშაო, რომ ხელოსნებმა ინტერესი გამოხატონ.</div> : null}
     {posts.map((post) => {
       const isPostExpanded = expandedPostId === post.id;
       const urls = post.photo_urls?.length ? post.photo_urls : post.photo_url ? [post.photo_url] : [];

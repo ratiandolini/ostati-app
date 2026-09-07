@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { BookingStatus, Screen, Worker, User, UserRole } from "./types";
 import { LoginScreen } from "./screens/LoginScreen";
@@ -330,6 +330,7 @@ const App: React.FC = () => {
   const [clientBookingsHydrated, setClientBookingsHydrated] = useState(
     isDemoDataMode
   );
+  const [clientBookingsError, setClientBookingsError] = useState("");
   const [craftsmanBookings, setCraftsmanBookings] = useState<
     CraftsmanBookingRequest[]
   >([]);
@@ -362,6 +363,22 @@ const App: React.FC = () => {
     window.history.pushState(window.history.state, "", path);
   };
 
+  const refreshClientBookings = useCallback(async (signal?: AbortSignal) => {
+    setClientBookingsHydrated(false);
+    setClientBookingsError("");
+    try {
+      const nextBookings = await loadClientBookings(signal);
+      if (signal?.aborted) return;
+      setBookings((current) => keepEqualSnapshot(current, nextBookings));
+    } catch (error) {
+      if (isAbortError(error) || signal?.aborted) return;
+      reportApiError(error, { silentTransient: true });
+      setClientBookingsError("ჯავშნების ჩატვირთვა ვერ მოხერხდა. შეამოწმე ინტერნეტი და სცადე თავიდან.");
+    } finally {
+      if (!signal?.aborted) setClientBookingsHydrated(true);
+    }
+  }, []);
+
   const loadApiUserIntoApp = async (
     fallbackPhone = "",
     fallbackRole: UserRole = "client"
@@ -390,17 +407,7 @@ const App: React.FC = () => {
     setApiWorkerVerificationStatus(null);
 
     if (nextRole === "client") {
-      setClientBookingsHydrated(false);
-      loadClientBookings()
-        .then((nextBookings) => {
-          setBookings(nextBookings);
-          setClientBookingsHydrated(true);
-        })
-        .catch((error) => {
-          reportApiError(error, { silentTransient: true });
-          setBookings([]);
-          setClientBookingsHydrated(true);
-        });
+      void refreshClientBookings();
     } else if (nextRole === "craftsman") {
       loadWorkerBookings()
         .then(setCraftsmanBookings)
@@ -531,11 +538,7 @@ const App: React.FC = () => {
       activeController = controller;
       try {
         if (user.role === "client") {
-          const nextBookings = await loadClientBookings(controller.signal);
-          if (!cancelled) {
-            setBookings((current) => keepEqualSnapshot(current, nextBookings));
-            setClientBookingsHydrated(true);
-          }
+          await refreshClientBookings(controller.signal);
           return;
         }
         if (user.role === "craftsman") {
@@ -547,9 +550,6 @@ const App: React.FC = () => {
           }
         }
       } catch (error) {
-        if (!cancelled && user.role === "client") {
-          setClientBookingsHydrated(true);
-        }
         reportApiError(error, { silentTransient: true });
       }
     };
@@ -570,7 +570,7 @@ const App: React.FC = () => {
       window.removeEventListener("focus", refreshApiBookings);
       document.removeEventListener("visibilitychange", refreshOnFocus);
     };
-  }, [user?.phone, user?.role]);
+  }, [user?.phone, user?.role, refreshClientBookings]);
 
   useEffect(() => {
     if (!isDemoDataMode || !user) return;
@@ -677,6 +677,7 @@ const App: React.FC = () => {
     setBrowserPath("/login", true);
     setScreen("home");
     setBookings([]);
+    setClientBookingsError("");
     setApiWorkerVerificationStatus(null);
     setApiAccountStatus("active");
   };
@@ -719,24 +720,13 @@ const App: React.FC = () => {
     if (isDemoDataMode || user?.role !== "client") return;
     if (screen !== "bookings" && screen !== "messages") return;
 
-    let cancelled = false;
     const controller = new AbortController();
-    loadClientBookings(controller.signal)
-      .then((nextBookings) => {
-        if (!cancelled) {
-          setBookings((current) => keepEqualSnapshot(current, nextBookings));
-        }
-      })
-      .catch((error) => {
-        if (isAbortError(error)) return;
-        reportApiError(error, { silentTransient: true });
-      });
+    void refreshClientBookings(controller.signal);
 
     return () => {
-      cancelled = true;
       controller.abort();
     };
-  }, [screen, user?.role]);
+  }, [screen, user?.role, refreshClientBookings]);
 
   useEffect(() => {
     if (isDemoDataMode || user?.role !== "craftsman") return;
@@ -1597,6 +1587,8 @@ const App: React.FC = () => {
         <BookingsScreen
           bookings={bookings}
           isLoading={user?.role === "client" && !clientBookingsHydrated}
+          loadError={clientBookingsError}
+          onRetryLoad={() => void refreshClientBookings()}
           onCancelBooking={handleCancelBooking}
           onChangeWorker={handleChangeBookingWorker}
           onReviewBooking={handleReviewBooking}
