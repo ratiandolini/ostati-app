@@ -211,7 +211,7 @@ export const ClientJobPostsPanel: React.FC = () => {
       <button type="button" disabled={saving} onClick={submit} style={{ ...buttonStyle, opacity: saving ? .55 : 1 }}>{saving ? "იტვირთება..." : "გამოქვეყნება"}</button>
     </div>}
     {message && <p role="alert" style={{ margin: "12px 0 0", color: Object.keys(errors).length ? "#b91c1c" : "var(--text2)", fontSize: 12, fontWeight: 800, lineHeight: 1.4 }}>{message}</p>}
-    {posts.slice(0, 3).map((post) => {
+    {posts.map((post) => {
       const isPostExpanded = expandedPostId === post.id;
       const urls = post.photo_urls?.length ? post.photo_urls : post.photo_url ? [post.photo_url] : [];
       const postInterests = interests.filter((interest) => interest.job_post_id === post.id);
