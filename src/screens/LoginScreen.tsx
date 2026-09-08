@@ -1,9 +1,14 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import { usePlatformSettings } from "../hooks/usePlatformSettings";
 import {
   requestPhoneOtp,
+  getPasswordRecoveryLinkState,
+  PasswordRecoveryLinkState,
+  requestPasswordRecovery,
   signInOrSignUpWithEmail,
+  SupabaseAuthSession,
+  updatePasswordWithRecoverySession,
   usesEmailPasswordAuth,
   verifyPhoneOtp,
 } from "../services/supabaseAuthService";
@@ -22,7 +27,13 @@ interface LoginScreenProps {
   onExitAdmin?: () => void;
 }
 
-type LoginStep = "role" | "phone" | "code";
+type LoginStep =
+  | "role"
+  | "phone"
+  | "code"
+  | "recovery-request"
+  | "recovery-reset"
+  | "recovery-success";
 type LoginRole = "client" | "craftsman" | "admin";
 type AuthMethod = "email" | "mobile";
 
@@ -52,6 +63,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [authMethod, setAuthMethod] = useState<AuthMethod>("email");
   const [mobileNumber, setMobileNumber] = useState("");
   const [phoneNotice, setPhoneNotice] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryPasswordConfirmation, setRecoveryPasswordConfirmation] =
+    useState("");
+  const [recoverySession, setRecoverySession] =
+    useState<SupabaseAuthSession | null>(null);
+  const recoveryLinkCheckStarted = useRef(false);
   const [generatedCode] = useState("1234");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,6 +83,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       ? ""
       : dataService.getRememberedPhone(role)
     : "";
+
+  useEffect(() => {
+    if (!emailAuth || adminOnly || recoveryLinkCheckStarted.current) return;
+    recoveryLinkCheckStarted.current = true;
+
+    const applyRecoveryLinkState = (result: PasswordRecoveryLinkState) => {
+      if (result.status === "none") return;
+      setError("");
+      if (result.status === "ready") {
+        setRecoverySession(result.session);
+        setStep("recovery-reset");
+        return;
+      }
+      setRecoverySession(null);
+      setStep("recovery-request");
+      setError("აღდგენის ბმული არასწორია ან ვადაგასულია. მოითხოვეთ ახალი ბმული.");
+    };
+
+    void getPasswordRecoveryLinkState().then(applyRecoveryLinkState);
+  }, [adminOnly, emailAuth]);
 
   const chooseRole = (nextRole: LoginRole) => {
     const nextRememberedPhone = isDemoDataMode
@@ -83,6 +121,81 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setAuthMethod(nextMethod);
     setError("");
     setPhoneNotice("");
+  };
+
+  const returnToLogin = () => {
+    setError("");
+    setPhoneNotice("");
+    setRecoveryPassword("");
+    setRecoveryPasswordConfirmation("");
+    setRecoverySession(null);
+    setStep("phone");
+  };
+
+  const openPasswordRecovery = () => {
+    setRecoveryEmail(phone.trim());
+    setError("");
+    setPhoneNotice("");
+    setStep("recovery-request");
+  };
+
+  const handlePasswordRecoveryRequest = async () => {
+    const normalizedEmail = recoveryEmail.trim();
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setError("სწორი ელ.ფოსტა შეიყვანეთ");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+    try {
+      await requestPasswordRecovery(normalizedEmail);
+      setPhoneNotice(
+        "თუ ამ ელფოსტით ანგარიში არსებობს, პაროლის აღდგენის ბმულს მიიღებთ."
+      );
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "აღდგენის ბმულის გაგზავნა ვერ მოხერხდა. სცადეთ მოგვიანებით."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordUpdate = async () => {
+    if (!recoverySession) {
+      setError("აღდგენის ბმული არასწორია ან ვადაგასულია. მოითხოვეთ ახალი ბმული.");
+      setStep("recovery-request");
+      return;
+    }
+    if (recoveryPassword.length < 6) {
+      setError("პაროლი მინიმუმ 6 სიმბოლო უნდა იყოს");
+      return;
+    }
+    if (recoveryPassword !== recoveryPasswordConfirmation) {
+      setError("პაროლები არ ემთხვევა");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+    try {
+      await updatePasswordWithRecoverySession(recoverySession, recoveryPassword);
+      setRecoveryPassword("");
+      setRecoveryPasswordConfirmation("");
+      setRecoverySession(null);
+      setStep("recovery-success");
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "პაროლის შეცვლა ვერ მოხერხდა. მოითხოვეთ ახალი ბმული."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePhonePreparation = () => {
@@ -179,7 +292,96 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <span>FIXART</span>
         </div>
 
-        {adminOnly ? (
+        {step === "recovery-request" ? (
+          <>
+            <h1 className="auth-title">პაროლის აღდგენა</h1>
+            <p className="auth-subtitle">
+              შეიყვანე ელ.ფოსტა და გამოგიგზავნით პაროლის აღდგენის ბმულს.
+            </p>
+            <label className="auth-label">ელ.ფოსტა</label>
+            <div className={`auth-input-row ${error ? "auth-input-error" : ""}`}>
+              <input
+                type="email"
+                autoComplete="email"
+                placeholder="name@example.com"
+                value={recoveryEmail}
+                onChange={(event) => {
+                  setRecoveryEmail(event.target.value);
+                  setError("");
+                }}
+              />
+            </div>
+            {error && <div className="auth-error">{error}</div>}
+            {phoneNotice && <div className="auth-notice">{phoneNotice}</div>}
+            <button
+              className="auth-submit"
+              onClick={handlePasswordRecoveryRequest}
+              disabled={loading}
+            >
+              {loading ? "იგზავნება..." : "აღდგენის ბმულის გაგზავნა"}
+              <span>›</span>
+            </button>
+            <button className="auth-link-button" onClick={returnToLogin}>
+              დაბრუნება შესვლაზე
+            </button>
+          </>
+        ) : step === "recovery-reset" ? (
+          <>
+            <h1 className="auth-title">ახალი პაროლი</h1>
+            <p className="auth-subtitle">
+              მიუთითე ახალი პაროლი შენი FIXART ანგარიშისთვის.
+            </p>
+            <label className="auth-label">ახალი პაროლი</label>
+            <input
+              className={`auth-password-input ${error ? "auth-input-error" : ""}`}
+              type="password"
+              autoComplete="new-password"
+              placeholder="მინ. 6 სიმბოლო"
+              value={recoveryPassword}
+              onChange={(event) => {
+                setRecoveryPassword(event.target.value);
+                setError("");
+              }}
+            />
+            <label className="auth-label" style={{ marginTop: 12 }}>
+              გაიმეორეთ პაროლი
+            </label>
+            <input
+              className={`auth-password-input ${error ? "auth-input-error" : ""}`}
+              type="password"
+              autoComplete="new-password"
+              placeholder="გაიმეორეთ ახალი პაროლი"
+              value={recoveryPasswordConfirmation}
+              onChange={(event) => {
+                setRecoveryPasswordConfirmation(event.target.value);
+                setError("");
+              }}
+            />
+            {error && <div className="auth-error">{error}</div>}
+            <button
+              className="auth-submit"
+              onClick={handlePasswordUpdate}
+              disabled={loading}
+            >
+              {loading ? "იცვლება..." : "პაროლის შეცვლა"}
+              <span>›</span>
+            </button>
+            <button className="auth-link-button" onClick={openPasswordRecovery}>
+              ახალი ბმულის მოთხოვნა
+            </button>
+          </>
+        ) : step === "recovery-success" ? (
+          <>
+            <h1 className="auth-title">პაროლი შეცვლილია</h1>
+            <p className="auth-subtitle">
+              ახლა შეგიძლია შეხვიდე ახალი პაროლით.
+            </p>
+            <button className="auth-submit" onClick={returnToLogin}>
+              შესვლაზე დაბრუნება
+              <span>›</span>
+            </button>
+          </>
+        ) : adminOnly ? (
           <>
             <h1 className="auth-title">Admin შესვლა</h1>
             <p className="auth-subtitle">შეიყვანე owner ანგარიშის ელ.ფოსტა და პაროლი</p>
@@ -372,6 +574,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
+                    <button
+                      type="button"
+                      className="auth-inline-link"
+                      onClick={openPasswordRecovery}
+                    >
+                      დაგავიწყდა პაროლი?
+                    </button>
                   </>
                 )}
                 {error && <div className="auth-error">{error}</div>}

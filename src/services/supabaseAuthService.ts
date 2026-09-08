@@ -318,6 +318,109 @@ export const signInOrSignUpWithEmail = async (
   );
 };
 
+const getPasswordRecoveryRedirectUrl = () =>
+  `${window.location.origin}/login`;
+
+const clearPasswordRecoveryUrl = () => {
+  window.history.replaceState({}, document.title, "/login");
+};
+
+export const requestPasswordRecovery = async (email: string) => {
+  try {
+    await authRequest<Record<string, unknown>>("recover", {
+      method: "POST",
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        redirect_to: getPasswordRecoveryRedirectUrl(),
+      }),
+    });
+  } catch {
+    throw new Error("აღდგენის ბმულის გაგზავნა ვერ მოხერხდა. სცადეთ მოგვიანებით.");
+  }
+};
+
+export type PasswordRecoveryLinkState =
+  | { status: "none" }
+  | { status: "ready"; session: SupabaseAuthSession }
+  | { status: "invalid" };
+
+const recoverySessionFromHash = (): SupabaseAuthSession | null => {
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  if (hash.get("type") !== "recovery") return null;
+
+  const accessToken = hash.get("access_token");
+  if (!accessToken) return null;
+
+  const expiresAt = Number(hash.get("expires_at"));
+  return {
+    access_token: accessToken,
+    refresh_token: hash.get("refresh_token") || undefined,
+    expires_at: Number.isFinite(expiresAt) ? expiresAt : undefined,
+    token_type: hash.get("token_type") || undefined,
+  };
+};
+
+export const getPasswordRecoveryLinkState = async (): Promise<PasswordRecoveryLinkState> => {
+  const hashSession = recoverySessionFromHash();
+  if (hashSession) {
+    clearPasswordRecoveryUrl();
+    return { status: "ready", session: hashSession };
+  }
+
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const query = new URLSearchParams(window.location.search);
+  const authCode = query.get("code");
+  const recoveryAttempt =
+    hash.get("type") === "recovery" ||
+    query.get("type") === "recovery" ||
+    hash.has("error") ||
+    hash.has("error_code");
+
+  if (!authCode) {
+    if (recoveryAttempt) {
+      clearPasswordRecoveryUrl();
+      return { status: "invalid" };
+    }
+    return { status: "none" };
+  }
+
+  try {
+    const session = await authRequest<SupabaseAuthSession>("token?grant_type=pkce", {
+      method: "POST",
+      body: JSON.stringify({ auth_code: authCode }),
+    });
+    clearPasswordRecoveryUrl();
+    return { status: "ready", session };
+  } catch {
+    clearPasswordRecoveryUrl();
+    return { status: "invalid" };
+  }
+};
+
+export const updatePasswordWithRecoverySession = async (
+  session: SupabaseAuthSession,
+  password: string
+) => {
+  const config = getSupabaseConfig();
+  try {
+    const response = await fetch(`${config.url}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        apikey: config.anonKey,
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password }),
+    });
+
+    if (!response.ok) throw new Error("Password update failed");
+  } catch {
+    throw new Error(
+      "პაროლის შეცვლა ვერ მოხერხდა. ბმული შესაძლოა ვადაგასულია. მოითხოვეთ ახალი ბმული."
+    );
+  }
+};
+
 export const refreshSupabaseSession = async () => {
   const current = getSupabaseSession();
   if (!current?.refresh_token) return null;

@@ -1048,6 +1048,17 @@ body {
   font-weight: 650;
 }
 
+.auth-inline-link {
+  display: block;
+  margin: 10px 0 -2px auto;
+  padding: 4px 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
 .auth-code-hint {
   margin-bottom: 20px;
   padding: 12px 14px;
