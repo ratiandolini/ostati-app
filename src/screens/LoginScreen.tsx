@@ -143,7 +143,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       <div className="auth-content fade-up">
         <div className="auth-brand">
           <div className="auth-logo">🔨</div>
-          <span>რემონტერი</span>
+          <span>FIXART</span>
         </div>
 
         {adminOnly ? (
