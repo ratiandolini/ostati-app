@@ -25,6 +25,7 @@ import { isAbortError, reportApiError } from "../services/apiErrorUtils";
 import { openBookingDispute } from "../services/disputeApiService";
 import { disputeSchema, getValidationMessage } from "../services/validation";
 import { formatGeorgianDate, formatGeorgianTime, normalizeGeorgianDateLabel } from "../utils/georgianDate";
+import { formatServiceLabels } from "../data/workers";
 
 type Message = BookingMessage;
 type MessageRole = "client" | "craftsman";
@@ -178,7 +179,7 @@ const fallbackThreadsFromClientBookings = (clientBookings: Booking[]): Thread[] 
   clientBookings.map((booking) => ({
     id: booking.id,
     title: booking.worker.name,
-    subtitle: `${booking.worker.role} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
+    subtitle: `${formatServiceLabels(booking.worker.role)} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
     status: booking.status || "pending",
     lastText: "ჯერ მიმოწერა არ არის",
     lastAt: "",
@@ -194,7 +195,7 @@ const fallbackThreadsFromCraftsmanBookings = (
     .map((booking) => ({
       id: booking.id,
       title: booking.clientName,
-      subtitle: `${booking.service} · ${booking.date} · ${booking.time}`,
+      subtitle: `${formatServiceLabels(booking.service)} · ${booking.date} · ${booking.time}`,
       status: booking.status || "pending",
       lastText: "ჯერ მიმოწერა არ არის",
       lastAt: "",
@@ -294,7 +295,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
           enhance({
             id: booking.id,
             title: booking.worker.name,
-            subtitle: `${booking.worker.role} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
+            subtitle: `${formatServiceLabels(booking.worker.role)} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
             status: booking.status || "pending",
           })
         )
@@ -310,7 +311,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
               enhance({
                 id: request.id,
                 title: request.clientName,
-                subtitle: `${request.service} · ${request.date} · ${request.time}`,
+                subtitle: `${formatServiceLabels(request.service)} · ${request.date} · ${request.time}`,
                 status: request.status || "pending",
               })
             )
@@ -320,7 +321,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
             enhance({
               id: booking.id,
               title: booking.worker.name,
-              subtitle: `${booking.worker.role} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
+              subtitle: `${formatServiceLabels(booking.worker.role)} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
               status: booking.status || "pending",
             })
           )
@@ -370,7 +371,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
           (thread: ApiMessageThread): Thread => ({
             id: thread.id,
             title: thread.title,
-            subtitle: thread.subtitle,
+            subtitle: formatServiceLabels(thread.subtitle),
             status: thread.status,
             lastText: thread.lastText.replace(/\s+/g, " ").trim().slice(0, 80),
             lastAt: thread.lastAt,

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Worker } from "../types";
 import { normalizeGeorgianDateLabel } from "../utils/georgianDate";
+import { formatServiceLabels } from "../data/workers";
 
 interface SuccessScreenProps {
   worker: Worker;
@@ -112,7 +113,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
             lineHeight: 1.45,
           }}
         >
-          {worker.name} · {worker.role}
+          {worker.name} · {formatServiceLabels(worker.role)}
           <div style={{ marginTop: 4 }}>
           <span style={{ color: "var(--accent)", fontWeight: 700 }}>
           {normalizeGeorgianDateLabel(dateLabel)} · {time}
@@ -175,7 +176,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
               <div
                 style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}
               >
-                {worker.role}
+                {formatServiceLabels(worker.role)}
               </div>
               <div
                 style={{

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Worker } from "../types";
+import { formatServiceLabels } from "../data/workers";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import { getBookingQuestionFields } from "../services/professionQuestions";
 import { bookingDetailsSchema, getValidationMessage } from "../services/validation";
@@ -249,9 +250,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       setSelectedTime("");
     }
   }, [availableTimes, selectedTime]);
-  const workerProfessionText = worker.skills?.length
-    ? worker.skills.join(" · ")
-    : worker.role;
+  const workerProfessionText = formatServiceLabels(
+    worker.skills?.length ? worker.skills : worker.role
+  );
   const { platformSettings, legalSettings } = usePlatformSettings();
   const reviewAverages = useMemo(() => {
     if (!workerReviews.length) {

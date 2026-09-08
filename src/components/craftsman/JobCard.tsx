@@ -1,5 +1,6 @@
 import React from "react";
 import { BookingStatus } from "../../types";
+import { formatServiceLabels } from "../../data/workers";
 import {
   Booking,
   archivedWorkStatuses,
@@ -72,7 +73,7 @@ export const JobCard: React.FC<JobCardProps> = ({
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {clientShortName} · {booking.service}
+              {clientShortName} · {formatServiceLabels(booking.service)}
             </div>
             <div style={{ marginTop: 4, color: "var(--text2)", fontSize: 12, fontWeight: 750 }}>
               {formatBookingDateTime(booking)}
@@ -118,7 +119,7 @@ export const JobCard: React.FC<JobCardProps> = ({
                 {clientShortName}
               </div>
               <div style={{ marginTop: 3, fontSize: 13, lineHeight: 1.4, color: "var(--text2)", fontWeight: 750, overflowWrap: "anywhere" }}>
-                {booking.service}
+                {formatServiceLabels(booking.service)}
               </div>
             </div>
             <div style={{ display: "grid", justifyItems: "end", gap: 7, textAlign: "right" }}>
@@ -143,7 +144,7 @@ export const JobCard: React.FC<JobCardProps> = ({
                 {clientShortName}
               </div>
               <div style={{ marginTop: 3, fontSize: 13, color: "var(--text2)" }}>
-                {booking.service}
+                {formatServiceLabels(booking.service)}
               </div>
             </div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>

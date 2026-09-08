@@ -41,6 +41,7 @@ import {
   signOutSupabase,
 } from "./services/supabaseAuthService";
 import { getValidationMessage } from "./services/validation";
+import { formatServiceLabels } from "./data/workers";
 import {
   bookingStatusTransitionError,
   canChangeBookingStatus,
@@ -999,7 +1000,7 @@ const App: React.FC = () => {
       bookingId: booking.id,
       type: "confirmed",
       title: "ახალი ჯავშანი",
-      text: `${request.clientName} · ${worker.role} · ${dateLabel} · ${time}`,
+      text: `${request.clientName} · ${formatServiceLabels(worker.role)} · ${dateLabel} · ${time}`,
       readAt: null,
       createdAt: new Date().toISOString(),
     });
@@ -1247,7 +1248,7 @@ const App: React.FC = () => {
       bookingId: newBookingId,
       type: "confirmed",
       title: "ახალი ჯავშანი",
-      text: `${nextBooking.dateLabel} · ${nextBooking.time} · ${worker.role}`,
+      text: `${nextBooking.dateLabel} · ${nextBooking.time} · ${formatServiceLabels(worker.role)}`,
       readAt: null,
       createdAt: new Date().toISOString(),
     });

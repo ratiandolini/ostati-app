@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BookingStatus, Screen, User } from "../types";
-import { categoryGroups, georgiaCities, getAllProfessionValue, getServiceSelectionLabel, makeServiceSelection, sanitizeWorkerProfessions, SUPERVISOR_CAPABILITIES } from "../data/workers";
+import { categoryGroups, formatServiceLabels, georgiaCities, getAllProfessionValue, getServiceSelectionLabel, makeServiceSelection, sanitizeWorkerProfessions, SUPERVISOR_CAPABILITIES } from "../data/workers";
 import { dataService, isDemoDataMode } from "../services/dataService";
 import {
   isAbortError,
@@ -974,7 +974,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       if (isDemoDataMode) {
         dataService.prependClientNotification({
           id: `${id}-confirmed-${Date.now()}`,
-          text: `ხელოსანმა დაადასტურა ჯავშანი: ${target.service}`,
+          text: `ხელოსანმა დაადასტურა ჯავშანი: ${formatServiceLabels(target.service)}`,
           type: "confirmed",
           bookingId: id,
         });
@@ -983,10 +983,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     if (target && ["en_route", "started", "worker_completed"].includes(status)) {
       const text =
         status === "en_route"
-          ? `ხელოსანი გზაშია: ${target.service}`
+          ? `ხელოსანი გზაშია: ${formatServiceLabels(target.service)}`
           : status === "started"
-            ? `სამუშაო დაიწყო: ${target.service}`
-            : `დაადასტურეთ შესრულება და შეაფასეთ: ${target.service}`;
+            ? `სამუშაო დაიწყო: ${formatServiceLabels(target.service)}`
+            : `დაადასტურეთ შესრულება და შეაფასეთ: ${formatServiceLabels(target.service)}`;
       if (isDemoDataMode) {
         dataService.prependClientNotification({
           id: `${id}-${status}-${Date.now()}`,
@@ -998,7 +998,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
     }
     if (target && status === "declined") {
       if (isDemoDataMode) {
-        const text = `ხელოსანმა ჯავშანი უარყო: ${target.service}.${
+        const text = `ხელოსანმა ჯავშანი უარყო: ${formatServiceLabels(target.service)}.${
           cancellationReason ? ` მიზეზი: ${cancellationReason}` : ""
         }`;
         dataService.prependClientNotification({
@@ -1179,7 +1179,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       }));
       dataService.prependClientNotification({
         id: `${target.id}-review-${Date.now()}`,
-        text: `საქმე დასრულდა. შეაფასე ${target.service} და მიიღე ქულები.`,
+        text: `საქმე დასრულდა. შეაფასე ${formatServiceLabels(target.service)} და მიიღე ქულები.`,
         type: "review",
         bookingId: target.id,
       });
@@ -3492,7 +3492,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               }}
             >
               <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 900 }}>
-                {detailsBooking.service}
+                {formatServiceLabels(detailsBooking.service)}
               </div>
               <div style={{ marginTop: 8, color: "var(--text2)", fontSize: 12, lineHeight: 1.55 }}>
                 {detailsBooking.address}

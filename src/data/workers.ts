@@ -318,6 +318,15 @@ const parseServiceSelection = (value: string) => {
 };
 export const getServiceSelectionLabel = (value: string) => parseServiceSelection(value)?.subcategory || value;
 
+// Canonical selections are persisted as "categoryId::subcategory". Keep that
+// representation for data operations, but never expose the category ID in UI.
+export const formatServiceLabels = (values: string | readonly string[]) => {
+  const selections = typeof values === "string"
+    ? values.split(/\s*·\s*/)
+    : values;
+  return selections.map(getServiceSelectionLabel).join(" · ");
+};
+
 const isCanonicalServiceSelection = (value: string) => {
   const parsed = parseServiceSelection(value);
   return Boolean(

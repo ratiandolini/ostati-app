@@ -1,6 +1,7 @@
 import {
   categoryGroups,
   getSearchSuggestions,
+  formatServiceLabels,
   makeServiceSelection,
   sanitizeWorkerProfessions,
   workerMatchesService,
@@ -26,6 +27,19 @@ describe("service catalogue", () => {
 
   it("keeps legacy broad professions compatible with new requests", () => {
     expect(workerMatchesService(["სანტექნიკოსი"], makeServiceSelection("plumbing", "ონკანი"))).toBe(true);
+  });
+
+  it("formats canonical selections for display without changing their stored form", () => {
+    const values = [
+      makeServiceSelection("electric", "ელექტრო ფარი"),
+      makeServiceSelection("electric", "როზეტი და ჩამრთველი"),
+    ];
+    expect(formatServiceLabels(values)).toBe("ელექტრო ფარი · როზეტი და ჩამრთველი");
+    expect(formatServiceLabels(values.join(" · "))).toBe("ელექტრო ფარი · როზეტი და ჩამრთველი");
+    expect(JSON.stringify(values)).toBe(JSON.stringify([
+      "electric::ელექტრო ფარი",
+      "electric::როზეტი და ჩამრთველი",
+    ]));
   });
 
   it("removes stale legacy professions when current selections exist", () => {

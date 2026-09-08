@@ -1,6 +1,7 @@
 import React from "react";
 import { Worker } from "../types";
 import { Stars } from "./Stars";
+import { formatServiceLabels } from "../data/workers";
 
 interface WorkerCardProps {
   worker: Worker;
@@ -13,9 +14,9 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
   onClick,
   delay = 0,
 }) => {
-  const professionText = worker.skills?.length
-    ? worker.skills.join(" · ")
-    : worker.role;
+  const professionText = formatServiceLabels(
+    worker.skills?.length ? worker.skills : worker.role
+  );
 
   return (
     <div
@@ -169,7 +170,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
               fontWeight: 500,
             }}
           >
-            {s}
+            {formatServiceLabels(s)}
           </span>
         ))}
       </div>

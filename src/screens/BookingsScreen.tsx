@@ -28,6 +28,7 @@ import {
 } from "../services/validation";
 import { usePlatformSettings } from "../hooks/usePlatformSettings";
 import { useWorkerCatalog } from "../hooks/useWorkerCatalog";
+import { formatServiceLabels } from "../data/workers";
 import {
   Booking,
   keepEqualSnapshot,
@@ -1139,7 +1140,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                         {b.worker.name}
                       </div>
                       <div style={{ fontSize: 12, color: "var(--text2)" }}>
-                        {b.worker.skills?.length ? b.worker.skills.join(" · ") : b.worker.role}
+                        {formatServiceLabels(b.worker.skills?.length ? b.worker.skills : b.worker.role)}
                       </div>
                       <div
                         style={{
@@ -1690,7 +1691,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                     lineHeight: 1.45,
                   }}
                 >
-                  აირჩიეთ სხვა {workerChangeBooking.worker.role}. თარიღი, დრო,
+                  აირჩიეთ სხვა {formatServiceLabels(workerChangeBooking.worker.role)}. თარიღი, დრო,
                   მისამართი და სამუშაოს დეტალები უცვლელი დარჩება.
                 </p>
               </div>
