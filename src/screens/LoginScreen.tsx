@@ -24,9 +24,20 @@ interface LoginScreenProps {
 
 type LoginStep = "role" | "phone" | "code";
 type LoginRole = "client" | "craftsman" | "admin";
+type AuthMethod = "email" | "mobile";
 
 const heroImage =
   "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1200&auto=format&fit=crop";
+
+const formatGeorgianMobile = (value: string) => {
+  const groups = [
+    value.slice(0, 3),
+    value.slice(3, 5),
+    value.slice(5, 7),
+    value.slice(7, 9),
+  ];
+  return groups.filter(Boolean).join(" ");
+};
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   onLogin,
@@ -38,12 +49,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [role, setRole] = useState<LoginRole>(adminOnly ? "admin" : "client");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
+  const [authMethod, setAuthMethod] = useState<AuthMethod>("email");
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [phoneNotice, setPhoneNotice] = useState("");
   const [generatedCode] = useState("1234");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const { legalSettings } = usePlatformSettings();
   const emailAuth = !isDemoDataMode && usesEmailPasswordAuth();
+  const isPhonePreparation = emailAuth && authMethod === "mobile";
 
   const rememberedPhone = isDemoDataMode
     ? role === "admin"
@@ -60,7 +75,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setRole(nextRole);
     setPhone(nextRememberedPhone || "");
     setError("");
+    setPhoneNotice("");
     setStep("phone");
+  };
+
+  const selectAuthMethod = (nextMethod: AuthMethod) => {
+    setAuthMethod(nextMethod);
+    setError("");
+    setPhoneNotice("");
+  };
+
+  const handlePhonePreparation = () => {
+    if (!/^5\d{8}$/.test(mobileNumber)) {
+      setPhoneNotice("");
+      setError("შეიყვანე 9-ნიშნა ქართული მობილურის ნომერი");
+      return;
+    }
+
+    setError("");
+    setPhoneNotice("მობილურის ნომრით შესვლა მალე გააქტიურდება");
   };
 
   const handleSendCode = async () => {
@@ -237,60 +270,128 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               {isDemoDataMode
                 ? "ნაცნობი ნომრით პირდაპირ შეხვალ, ახალ ნომერზე კი კოდი გაიგზავნება"
                 : emailAuth
-                  ? "შეიყვანე ელ.ფოსტა და პაროლი"
+                  ? isPhonePreparation
+                    ? "შეიყვანე ქართული მობილურის ნომერი"
+                    : "შეიყვანე ელ.ფოსტა და პაროლი"
                   : "სატესტოდ გამოიყენე კოდი 1234"}
             </p>
 
-            <label className="auth-label">
-              {emailAuth ? "ელ.ფოსტა" : "მობილურის ნომერი"}
-            </label>
-            <div className={`auth-input-row ${error ? "auth-input-error" : ""}`}>
-              {!emailAuth && <span>+995</span>}
-              <input
-                type={emailAuth ? "email" : "tel"}
-                placeholder={emailAuth ? "name@example.com" : "555 12 34 56"}
-                value={phone}
-                onChange={(e) =>
-                  setPhone(
-                    emailAuth
-                      ? e.target.value
-                      : e.target.value.replace(/\D/g, "").slice(0, 9)
-                  )
-                }
-              />
-            </div>
             {emailAuth && (
+              <div
+                className="auth-method-switch"
+                role="group"
+                aria-label="შესვლის მეთოდი"
+              >
+                <button
+                  type="button"
+                  className={authMethod === "mobile" ? "auth-method-active" : ""}
+                  onClick={() => selectAuthMethod("mobile")}
+                >
+                  მობილურის ნომრით
+                </button>
+                <button
+                  type="button"
+                  className={authMethod === "email" ? "auth-method-active" : ""}
+                  onClick={() => selectAuthMethod("email")}
+                >
+                  ელფოსტით
+                </button>
+              </div>
+            )}
+
+            {isPhonePreparation ? (
               <>
-                <label className="auth-label" style={{ marginTop: 12 }}>
-                  პაროლი
-                </label>
-                <input
-                  className={`auth-password-input ${
+                <label className="auth-label">მობილურის ნომერი</label>
+                <div
+                  className={`auth-input-row ${
                     error ? "auth-input-error" : ""
                   }`}
-                  type="password"
-                  placeholder="მინ. 6 სიმბოლო"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                >
+                  <span>+995</span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    placeholder="5XX XX XX XX"
+                    value={formatGeorgianMobile(mobileNumber)}
+                    onChange={(event) => {
+                      setMobileNumber(
+                        event.target.value.replace(/\D/g, "").slice(0, 9)
+                      );
+                      setError("");
+                      setPhoneNotice("");
+                    }}
+                  />
+                </div>
+                {error && <div className="auth-error">{error}</div>}
+                {phoneNotice && <div className="auth-notice">{phoneNotice}</div>}
+                <button
+                  className="auth-submit"
+                  type="button"
+                  onClick={handlePhonePreparation}
+                >
+                  კოდის მიღება
+                  <span>›</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <label className="auth-label">
+                  {emailAuth ? "ელ.ფოსტა" : "მობილურის ნომერი"}
+                </label>
+                <div
+                  className={`auth-input-row ${
+                    error ? "auth-input-error" : ""
+                  }`}
+                >
+                  {!emailAuth && <span>+995</span>}
+                  <input
+                    type={emailAuth ? "email" : "tel"}
+                    placeholder={emailAuth ? "name@example.com" : "555 12 34 56"}
+                    value={phone}
+                    onChange={(e) =>
+                      setPhone(
+                        emailAuth
+                          ? e.target.value
+                          : e.target.value.replace(/\D/g, "").slice(0, 9)
+                      )
+                    }
+                  />
+                </div>
+                {emailAuth && (
+                  <>
+                    <label className="auth-label" style={{ marginTop: 12 }}>
+                      პაროლი
+                    </label>
+                    <input
+                      className={`auth-password-input ${
+                        error ? "auth-input-error" : ""
+                      }`}
+                      type="password"
+                      placeholder="მინ. 6 სიმბოლო"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </>
+                )}
+                {error && <div className="auth-error">{error}</div>}
+
+                <button
+                  className="auth-submit"
+                  onClick={handleSendCode}
+                  disabled={loading}
+                >
+                  {loading
+                    ? "მოწმდება..."
+                    : emailAuth
+                      ? "შესვლა / რეგისტრაცია"
+                      : isDemoDataMode && rememberedPhone === phone
+                      ? "შესვლა"
+                      : "კოდის გაგზავნა"}
+                  <span>›</span>
+                </button>
               </>
             )}
-            {error && <div className="auth-error">{error}</div>}
-
-            <button
-              className="auth-submit"
-              onClick={handleSendCode}
-              disabled={loading}
-            >
-              {loading
-                ? "მოწმდება..."
-                : emailAuth
-                  ? "შესვლა / რეგისტრაცია"
-                  : isDemoDataMode && rememberedPhone === phone
-                  ? "შესვლა"
-                  : "კოდის გაგზავნა"}
-              <span>›</span>
-            </button>
             <button
               className="auth-link-button"
               onClick={() => {
