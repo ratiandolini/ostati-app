@@ -104,6 +104,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       ? (dataService.pruneDemoCraftsmanRequests() as Booking[])
       : [];
   });
+  const [workerBookingsLoading, setWorkerBookingsLoading] = useState(
+    !isDemoDataMode
+  );
+  const workerBookingsLoadedRef = useRef(isDemoDataMode);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(() => {
     if (!isDemoDataMode) return null;
     const profile = readCraftsmanProfile();
@@ -796,10 +800,16 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             setBookings((current) =>
               keepEqualSnapshot(current, nextBookings as Booking[])
             );
+            workerBookingsLoadedRef.current = true;
+            setWorkerBookingsLoading(false);
           }
         })
         .catch((error) => {
           if (isAbortError(error)) return;
+          if (!cancelled) {
+            workerBookingsLoadedRef.current = true;
+            setWorkerBookingsLoading(false);
+          }
           reportApiError(error, { silentTransient: true });
         });
     };
@@ -823,10 +833,19 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
   const reloadWorkerBookings = async () => {
     if (isDemoDataMode) return;
-    const nextBookings = await loadWorkerBookings();
-    setBookings((current) =>
-      keepEqualSnapshot(current, nextBookings as Booking[])
-    );
+    const isInitialLoad = !workerBookingsLoadedRef.current;
+    if (isInitialLoad) setWorkerBookingsLoading(true);
+    try {
+      const nextBookings = await loadWorkerBookings();
+      setBookings((current) =>
+        keepEqualSnapshot(current, nextBookings as Booking[])
+      );
+    } finally {
+      if (isInitialLoad) {
+        workerBookingsLoadedRef.current = true;
+        setWorkerBookingsLoading(false);
+      }
+    }
   };
 
   const displayedBookings = isDemoDataMode && demoMode
@@ -1922,18 +1941,39 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             )}
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: 8,
-              margin: "18px 0 12px",
-              padding: 4,
-              borderRadius: 14,
-              background: "#f1f5f9",
-              border: "1px solid var(--border)",
-            }}
-          >
+          {workerBookingsLoading ? (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                marginTop: 18,
+                padding: 34,
+                borderRadius: 16,
+                background: "white",
+                border: "1px solid var(--border)",
+                textAlign: "center",
+                color: "var(--text3)",
+                fontSize: 13,
+                fontWeight: 800,
+                lineHeight: 1.5,
+              }}
+            >
+              საქმეები იტვირთება...
+            </div>
+          ) : (
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: 8,
+                  margin: "18px 0 12px",
+                  padding: 4,
+                  borderRadius: 14,
+                  background: "#f1f5f9",
+                  border: "1px solid var(--border)",
+                }}
+              >
             {[
               { id: "active" as const, label: "აქტიური", count: activeWorks.length },
               { id: "archive" as const, label: "არქივი", count: archivedWorks.length },
@@ -1959,9 +1999,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 </button>
               );
             })}
-          </div>
+              </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "0 0 16px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "0 0 16px" }}>
             {[
               { id: "all", label: "ყველა" },
               { id: "today", label: "დღეს" },
@@ -1987,9 +2027,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 {filter.label}
               </button>
             ))}
-          </div>
+              </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {visibleWorks.length ? (
               visibleWorks.map((booking) => (
                 <JobCard key={booking.id} booking={booking} presentation="work-list" {...jobCardProps} />
@@ -2013,7 +2053,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                   : "ამ ფილტრით არქივში საქმე არ მოიძებნა"}
               </div>
             )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

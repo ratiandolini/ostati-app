@@ -26,6 +26,17 @@ const messageFrom = (error: unknown) => {
   if (/scheduled date\/time|address/i.test(message)) return "მიუთითე ზუსტი თარიღი, დრო და მისამართი.";
   return message || "მოთხოვნის შესრულება ვერ მოხერხდა.";
 };
+const bookingMessageFrom = (error: unknown) => {
+  const message = error instanceof Error ? error.message : "";
+  if (/ამ ხელოსანთან უკვე გაქვთ აქტიური ჯავშანი|active booking/i.test(message)) {
+    return "ამ ხელოსანთან უკვე გაქვთ აქტიური ჯავშანი.";
+  }
+
+  const mappedMessage = messageFrom(error);
+  return mappedMessage === message
+    ? "ჯავშნის შექმნა ვერ მოხერხდა. სცადე ხელახლა."
+    : mappedMessage;
+};
 const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader();
   reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("ფოტოს წაკითხვა ვერ მოხერხდა."));
@@ -186,7 +197,7 @@ export const ClientJobPostsPanel: React.FC = () => {
       await loadPostsAndInterests();
       setMessage("ჯავშანი შეიქმნა. ხელოსანთან მიმოწერა უკვე ხელმისაწვდომია მესიჯებში.");
     } catch (error) {
-      setMessage(messageFrom(error));
+      setMessage(bookingMessageFrom(error));
       void loadPostsAndInterests().catch(() => undefined);
     } finally {
       setSaving(false);
