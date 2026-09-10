@@ -257,10 +257,9 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
 
   return (
     <div
+      className="client-profile-scroll"
       style={{
-        height: "100%",
-        overflowY: "auto",
-        padding: "34px 28px calc(var(--screen-bottom-space) + 16px)",
+        padding: "34px 28px var(--content-end-gap)",
         background: "var(--bg)",
       }}
     >

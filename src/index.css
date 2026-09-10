@@ -26,6 +26,7 @@
   --safe-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
   --safe-top: env(safe-area-inset-top, 0px);
   --content-end-gap: 24px;
+  --bottom-nav-total-h: calc(var(--nav-h) + var(--safe-bottom) + 1px);
   --screen-bottom-space: calc(var(--nav-h) + var(--safe-bottom) + var(--content-end-gap));
   --booking-bottom-space: calc(var(--booking-action-h) + var(--safe-bottom) + var(--content-end-gap) + 12px);
   --auth-bottom-space: calc(var(--safe-bottom) + var(--content-end-gap) + 16px);
@@ -838,6 +839,13 @@ body {
 
 .auth-content {
   padding: 22px 24px var(--auth-bottom-space);
+}
+
+.client-profile-scroll {
+  height: calc(100dvh - var(--bottom-nav-total-h));
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: var(--content-end-gap) !important;
 }
 
 .auth-brand {
