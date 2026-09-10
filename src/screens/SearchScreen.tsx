@@ -59,7 +59,7 @@ const searchScreenStyles = `
   .search-screen-filter--wide { grid-column: 1 / -1; }
   .search-screen-filter select { display: block; width: 100%; height: 52px; margin-top: 6px; padding: 0 42px 0 13px; border: 1px solid var(--border); border-radius: 12px; background-color: white; color: var(--text); font-size: 14px; line-height: 1.3; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
   .search-screen-filter select:disabled { color: var(--text3); opacity: 1; background-color: var(--bg); }
-  .search-screen { height: calc(100dvh - var(--bottom-nav-total-h)); min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+  .search-screen { height: var(--bottom-nav-top, calc(100dvh - var(--bottom-nav-total-h))); min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
   .search-screen-results { padding: 4px 20px var(--content-end-gap); }
   @media (max-width: 374px) {
     .search-screen-header { padding-left: 16px; padding-right: 16px; }

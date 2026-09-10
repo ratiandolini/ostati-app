@@ -77,12 +77,54 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   showProfile = true,
   searchLabel = "ძიება",
 }) => {
+  const navRef = React.useRef<HTMLDivElement>(null);
   const visibleItems = showProfile
     ? navItems
     : navItems.filter((item) => item.id !== "user-profile");
 
+  React.useLayoutEffect(() => {
+    const nav = navRef.current;
+    const root = document.getElementById("root");
+    if (!nav || !root) return;
+
+    let frameId: number | undefined;
+    const updateBottomBoundary = () => {
+      frameId = undefined;
+      const navTop = Math.max(0, nav.getBoundingClientRect().top);
+      root.style.setProperty("--bottom-nav-top", `${navTop}px`);
+    };
+    const scheduleUpdate = () => {
+      if (frameId === undefined) {
+        frameId = window.requestAnimationFrame(updateBottomBoundary);
+      }
+    };
+
+    updateBottomBoundary();
+
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(scheduleUpdate);
+    observer?.observe(nav);
+
+    const visualViewport = window.visualViewport;
+    visualViewport?.addEventListener("resize", scheduleUpdate);
+    visualViewport?.addEventListener("scroll", scheduleUpdate);
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      if (frameId !== undefined) window.cancelAnimationFrame(frameId);
+      observer?.disconnect();
+      visualViewport?.removeEventListener("resize", scheduleUpdate);
+      visualViewport?.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+      root.style.removeProperty("--bottom-nav-top");
+    };
+  }, []);
+
   return (
     <div
+      ref={navRef}
       style={{
         position: "fixed",
         bottom: 0,

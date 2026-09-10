@@ -842,7 +842,7 @@ body {
 }
 
 .client-profile-scroll {
-  height: calc(100dvh - var(--bottom-nav-total-h));
+  height: var(--bottom-nav-top, calc(100dvh - var(--bottom-nav-total-h)));
   min-height: 0;
   overflow-y: auto;
   padding-bottom: var(--content-end-gap) !important;
