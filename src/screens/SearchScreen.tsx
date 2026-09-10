@@ -59,7 +59,7 @@ const searchScreenStyles = `
   .search-screen-filter--wide { grid-column: 1 / -1; }
   .search-screen-filter select { display: block; width: 100%; height: 52px; margin-top: 6px; padding: 0 42px 0 13px; border: 1px solid var(--border); border-radius: 12px; background-color: white; color: var(--text); font-size: 14px; line-height: 1.3; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
   .search-screen-filter select:disabled { color: var(--text3); opacity: 1; background-color: var(--bg); }
-  .search-screen-results { flex: 1; overflow-y: auto; padding: 4px 20px calc(90px + var(--safe-bottom)); }
+  .search-screen-results { flex: 1; overflow-y: auto; padding: 4px 20px calc(96px + var(--safe-bottom)); }
   @media (max-width: 374px) {
     .search-screen-header { padding-left: 16px; padding-right: 16px; }
     .search-screen-results { padding-left: 16px; padding-right: 16px; }

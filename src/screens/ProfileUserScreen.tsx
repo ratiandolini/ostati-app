@@ -260,7 +260,7 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
       style={{
         height: "100%",
         overflowY: "auto",
-        padding: "34px 28px 100px",
+        padding: "34px 28px calc(100px + var(--safe-bottom))",
         background: "var(--bg)",
       }}
     >

@@ -84,10 +84,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   return (
     <div
       style={{
-        position: "absolute",
+        position: "fixed",
         bottom: 0,
-        left: 0,
-        right: 0,
+        left: "50%",
+        right: "auto",
+        width: "min(100%, var(--app-max-width))",
+        transform: "translateX(-50%)",
         background: "rgba(255,255,255,0.98)",
         backdropFilter: "blur(16px)",
         borderTop: "1px solid var(--border)",

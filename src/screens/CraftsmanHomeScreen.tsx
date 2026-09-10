@@ -1629,7 +1629,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       style={{
         height: "100%",
         overflowY: "auto",
-        padding: "30px 24px 96px",
+        padding: "30px 24px calc(96px + var(--safe-bottom))",
         background: "var(--bg)",
       }}
     >
