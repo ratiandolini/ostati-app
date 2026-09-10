@@ -61,6 +61,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                objectPosition: "center",
                 borderRadius: "50%",
               }}
             />

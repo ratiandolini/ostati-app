@@ -1598,7 +1598,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         <img
           src={profilePhoto}
           alt="ხელოსნის ფოტო"
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
         />
       ) : (
         "ხ"
@@ -1629,7 +1629,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       style={{
         height: "100%",
         overflowY: "auto",
-        padding: "30px 24px calc(96px + var(--safe-bottom))",
+        padding: "30px 24px calc(var(--screen-bottom-space) + 16px)",
         background: "var(--bg)",
       }}
     >

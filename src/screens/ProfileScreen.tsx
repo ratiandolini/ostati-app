@@ -396,14 +396,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <img
                 src={worker.avatar}
                 alt={worker.name}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
               />
             ) : (
               worker.avatar
             )}
           </div>
-          <div>
-            <h1 className="screen-title">{worker.name}</h1>
+          <div className="profile-head-copy">
+            <h1 className="screen-title profile-worker-name">{worker.name}</h1>
             <p className="screen-subtitle">{workerProfessionText}</p>
           </div>
         </section>

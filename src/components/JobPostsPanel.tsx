@@ -7,7 +7,7 @@ import { loadWorkerCatalog } from "../services/workerCatalogService";
 import type { Worker } from "../types";
 
 const panelStyle: React.CSSProperties = { marginTop: 22, padding: 16, borderRadius: 16, border: "1px solid var(--border)", background: "white", overflow: "hidden" };
-const inputStyle: React.CSSProperties = { width: "100%", minHeight: 44, marginTop: 6, padding: "0 12px", border: "1px solid var(--border)", borderRadius: 10, background: "#fff", color: "var(--text)", font: "inherit", fontWeight: 700 };
+const inputStyle: React.CSSProperties = { width: "100%", minHeight: 44, marginTop: 6, padding: "0 12px", border: "1px solid var(--border)", borderRadius: 10, background: "#fff", color: "var(--text)", fontFamily: "inherit", fontSize: 14, lineHeight: 1.3, fontWeight: 700 };
 const buttonStyle: React.CSSProperties = { minHeight: 42, padding: "0 14px", borderRadius: 10, background: "var(--primary)", color: "white", fontWeight: 900, whiteSpace: "nowrap" };
 const formatJobPostCreatedAt = (value: string) => {
   const date = new Date(value);

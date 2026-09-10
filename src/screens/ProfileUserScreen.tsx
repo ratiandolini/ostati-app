@@ -260,7 +260,7 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
       style={{
         height: "100%",
         overflowY: "auto",
-        padding: "34px 28px calc(100px + var(--safe-bottom))",
+        padding: "34px 28px calc(var(--screen-bottom-space) + 16px)",
         background: "var(--bg)",
       }}
     >
@@ -289,7 +289,7 @@ export const ProfileUserScreen: React.FC<ProfileUserScreenProps> = ({
             <img
               src={photo}
               alt="კლიენტის ფოტო"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
             />
           ) : (
             firstName.charAt(0).toUpperCase()
