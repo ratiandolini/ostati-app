@@ -89,6 +89,8 @@ interface CraftsmanHomeScreenProps {
   onOpenMessagesForBooking?: (bookingId: string) => void;
 }
 
+type ProfileCompletionItemId = "profession" | "price" | "schedule" | "verification";
+
 export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   user,
   activeScreen,
@@ -275,6 +277,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   >(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const portfolioInputRef = useRef<HTMLInputElement | null>(null);
+  const professionSectionRef = useRef<HTMLElement | null>(null);
+  const priceSectionRef = useRef<HTMLDivElement | null>(null);
+  const scheduleSectionRef = useRef<HTMLElement | null>(null);
+  const verificationSectionRef = useRef<HTMLElement | null>(null);
   const portfolioFileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("ფოტოს წაკითხვა ვერ მოხერხდა."));
@@ -397,7 +403,46 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           "Admin-მა დოკუმენტები უარყო. ატვირთე განახლებული დოკუმენტები და დაელოდე შემოწმებას."
       : hasAllVerificationDocuments
         ? "დოკუმენტები ატვირთულია და Admin-ის შემოწმებას ელოდება."
-        : `აკლია: ${missingVerificationDocuments.join(", ")}`;
+      : `აკლია: ${missingVerificationDocuments.join(", ")}`;
+  const profileCompletionItems = [
+    {
+      id: "profession" as const,
+      label: "პროფესია",
+      complete: canonicalProfessions.length > 0,
+    },
+    {
+      id: "price" as const,
+      label: "მომსახურების ფასი",
+      complete: !priceValidationError,
+    },
+    {
+      id: "schedule" as const,
+      label: "სამუშაო საათები",
+      complete: workDays.length > 0 && Boolean(workStart) && Boolean(workEnd) && workStart < workEnd,
+    },
+    {
+      id: "verification" as const,
+      label: "ვერიფიკაცია",
+      complete: isVerified,
+    },
+  ];
+  const incompleteProfileCompletionItems = profileCompletionItems.filter((item) => !item.complete);
+  const openProfileCompletionSection = (itemId: ProfileCompletionItemId) => {
+    const section = itemId === "profession" || itemId === "price"
+      ? "professions"
+      : itemId;
+    setProfileSection(section);
+    window.requestAnimationFrame(() => {
+      const target = itemId === "profession"
+        ? professionSectionRef.current
+        : itemId === "price"
+          ? priceSectionRef.current
+          : itemId === "schedule"
+            ? scheduleSectionRef.current
+            : verificationSectionRef.current;
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   useEffect(() => {
     if (!isDemoDataMode) return;
@@ -1301,6 +1346,18 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const handleSave = async () => {
     setProfileSaveError("");
 
+    // Verification has its own upload/review flow; the profile form can still
+    // be saved while the craftsman is completing that separate requirement.
+    const firstMissingProfileField = incompleteProfileCompletionItems.find(
+      (item) => item.id !== "verification"
+    );
+    if (firstMissingProfileField) {
+      if (firstMissingProfileField.id === "price") setPriceTouched(true);
+      setProfileSaveError(`შესავსებია: ${firstMissingProfileField.label}`);
+      openProfileCompletionSection(firstMissingProfileField.id);
+      return;
+    }
+
     const validation = craftsmanProfileSchema.safeParse({
       firstName,
       lastName,
@@ -2122,6 +2179,66 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           <h1 className="screen-title">პროფილი</h1>
           <p className="screen-subtitle">მართე შენი ფოტო, განრიგი და საკონტაქტო ინფორმაცია</p>
 
+          {incompleteProfileCompletionItems.length > 0 && (
+            <section
+              style={{
+                marginTop: 16,
+                padding: 14,
+                borderRadius: 14,
+                border: "1px solid var(--border)",
+                background: "white",
+                boxShadow: "var(--shadow-sm)",
+              }}
+            >
+              <strong style={{ display: "block", color: "var(--text)", fontSize: 14, lineHeight: 1.35 }}>
+                პროფილის დასრულება — {profileCompletionItems.filter((item) => item.complete).length} / 4
+              </strong>
+              <div style={{ display: "grid", gap: 4, marginTop: 10 }}>
+                {profileCompletionItems.map((item) => item.complete ? (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      minHeight: 36,
+                      padding: "6px 0",
+                      color: "var(--text2)",
+                      fontSize: 13,
+                      fontWeight: 800,
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    <span aria-label="დასრულებულია" style={{ color: "#059669", fontSize: 16, fontWeight: 950 }}>✓</span>
+                  </div>
+                ) : (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => openProfileCompletionSection(item.id)}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1fr) auto",
+                      alignItems: "center",
+                      gap: 10,
+                      minHeight: 42,
+                      padding: "7px 0",
+                      background: "transparent",
+                      color: "var(--text)",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span style={{ minWidth: 0 }}>
+                      <strong style={{ display: "block", fontSize: 13, lineHeight: 1.35 }}>{item.label}</strong>
+                      <span style={{ display: "block", marginTop: 1, color: "var(--text3)", fontSize: 12, lineHeight: 1.3, fontWeight: 750 }}>შესავსებია</span>
+                    </span>
+                    <span aria-hidden="true" style={{ color: "var(--primary)", fontSize: 18, lineHeight: 1 }}>›</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           <div
             style={{
               display: "grid",
@@ -2160,6 +2277,12 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
               </button>
             ))}
           </div>
+
+          {profileSaveError && (
+            <div style={{ marginTop: 9, color: "#dc2626", fontSize: 12, fontWeight: 800, lineHeight: 1.45 }}>
+              {profileSaveError}
+            </div>
+          )}
 
           {profileSection === "edit" && (
             <>
@@ -2407,7 +2530,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           {profileSection === "edit" && <ReferralPanel roleLabel="ხელოსანი" />}
 
           {profileSection === "professions" && (
-          <section style={{ marginTop: 24 }}>
+          <section ref={professionSectionRef} style={{ marginTop: 24 }}>
             <h2 style={{ margin: "0 0 12px", fontSize: 19, fontWeight: 900, color: "var(--text)" }}>
               პროფესიის არჩევა
             </h2>
@@ -2506,7 +2629,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 }}
               />
             </section>
-            <div style={{ marginTop: 16 }}>
+            <div ref={priceSectionRef} style={{ marginTop: 16 }}>
               <h3
                 style={{
                   margin: "0 0 10px",
@@ -2659,7 +2782,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           )}
 
           {profileSection === "verification" && (
-            <section style={{ marginTop: 24 }}>
+            <section ref={verificationSectionRef} style={{ marginTop: 24 }}>
               <h2 style={{ margin: "0 0 12px", fontSize: 19, fontWeight: 900, color: "var(--text)" }}>
                 ვერიფიკაცია
               </h2>
@@ -2833,7 +2956,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
           {profileSection === "schedule" && (
             <>
-          <section style={{ marginTop: 24 }}>
+          <section ref={scheduleSectionRef} style={{ marginTop: 24 }}>
             <h2 style={{ margin: "0 0 12px", fontSize: 19, fontWeight: 900, color: "var(--text)" }}>
               სამუშაო დღეები
             </h2>
@@ -2906,11 +3029,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             >
               {profileSaveLabel}
             </button>
-            {profileSaveError && (
-              <div style={{ marginTop: 9, color: "#dc2626", fontSize: 12, fontWeight: 800 }}>
-                {profileSaveError}
-              </div>
-            )}
           </section>
 
           <section style={{ marginTop: 24 }}>
