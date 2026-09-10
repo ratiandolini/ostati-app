@@ -668,7 +668,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
       style={{
         height: "100%",
         overflowY: "auto",
-        paddingBottom: "calc(96px + var(--safe-bottom))",
+        paddingBottom: "var(--screen-bottom-space)",
         background: "var(--bg)",
       }}
     >

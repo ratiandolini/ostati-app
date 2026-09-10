@@ -95,6 +95,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         borderTop: "1px solid var(--border)",
         paddingBottom: "var(--safe-bottom)",
         display: "flex",
+        minHeight: 64,
         zIndex: 50,
         boxShadow: "none",
       }}
