@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { categoryGroups, georgiaCities, getCategoryById, getServiceSelectionLabel, makeServiceSelection, workerMatchesService } from "../data/workers";
-import { cancelMyJobPost, createBookingFromJobPost, createJobPost, expressInterest, JobPost, JobPostBookingLink, JobPostInterest, loadCurrentWorkerJobPostInterests, loadMyJobPostBookingLinks, loadMyJobPostInterests, loadMyJobPosts, loadOpenJobPosts, selectJobPostWorker, withdrawInterestInJobPost } from "../services/marketplaceApiService";
+import { archiveMyJobPost, createBookingFromJobPost, createJobPost, expressInterest, JobPost, JobPostBookingLink, JobPostInterest, loadCurrentWorkerJobPostInterests, loadMyJobPostBookingLinks, loadMyJobPostInterests, loadMyJobPosts, loadOpenJobPosts, selectJobPostWorker, withdrawInterestInJobPost } from "../services/marketplaceApiService";
 import { createStoragePath, uploadStorageFile } from "../services/supabaseStorageService";
 import { isDemoDataMode } from "../services/dataService";
 import { loadWorkerCatalog } from "../services/workerCatalogService";
@@ -19,6 +19,7 @@ const messageFrom = (error: unknown) => {
   const message = error instanceof Error ? error.message : "";
   if (/This request is no longer open/i.test(message)) return "ეს მოთხოვნა უკვე დაიხურა ან კლიენტმა გააუქმა. სია განახლდა.";
   if (/Only an open request created by you can be cancelled/i.test(message)) return "ეს მოთხოვნა უკვე დახურულია ან შენი ანგარიშით არ არის შექმნილი. სია განახლდა.";
+  if (/Only your own non-archived job post can be archived/i.test(message)) return "ამ განცხადების წაშლა ვერ მოხერხდა. სია განახლდა.";
   if (/already has enough responses/i.test(message)) return "ამ მოთხოვნაზე უკვე საკმარისი ხელოსანი დაინტერესდა. სია განახლდა.";
   if (/Only verified active craftspeople/i.test(message)) return "ინტერესის გამოსახატად საჭიროა აქტიური და ვერიფიცირებული ხელოსნის პროფილი.";
   if (/A booking already exists for this job post|duplicate key value/i.test(message)) return "ამ მოთხოვნაზე ჯავშანი უკვე შექმნილია.";
@@ -74,6 +75,7 @@ export const ClientJobPostsPanel: React.FC = () => {
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
   const [bookingAddress, setBookingAddress] = useState("");
+  const [postToArchive, setPostToArchive] = useState<JobPost | null>(null);
 
   const loadPostsAndInterests = useCallback(async (signal?: AbortSignal) => {
     setLoadingPosts(true);
@@ -143,17 +145,22 @@ export const ClientJobPostsPanel: React.FC = () => {
     } catch (error) { setMessage(photos.length ? uploadErrorMessage(error) : messageFrom(error)); } finally { setSaving(false); }
   };
 
-  const cancel = async (postId: string) => {
-    if (!window.confirm("ნამდვილად გსურს ამ მოთხოვნის გაუქმება? ხელოსნებს ის აღარ გამოუჩნდებათ.")) return;
+  const archive = async () => {
+    const post = postToArchive;
+    if (!post) return;
     setSaving(true); setMessage("");
     try {
-      await cancelMyJobPost(postId);
+      await archiveMyJobPost(post.id);
+      setPostToArchive(null);
       await loadPostsAndInterests();
-      setMessage("მოთხოვნა გაუქმდა. ხელოსნებს ის აღარ გამოუჩნდებათ.");
+      setMessage("განცხადება წაიშალა.");
     } catch (error) {
       setMessage(messageFrom(error));
       void loadPostsAndInterests().catch(() => undefined);
-    } finally { setSaving(false); }
+    } finally {
+      setPostToArchive(null);
+      setSaving(false);
+    }
   };
 
   const chooseWorker = async (postId: string, workerId: string) => {
@@ -291,9 +298,18 @@ export const ClientJobPostsPanel: React.FC = () => {
         </div>}
         <div style={{ marginTop: 7, fontSize: 12, fontWeight: 800, color: post.status === "open" ? "#047857" : "var(--text2)" }}>{post.status === "open" ? "მიღება ღიაა" : post.status === "cancelled" ? "გაუქმებულია" : "ხელოსანი არჩეულია"}</div>
         <div style={{ marginTop: 4, fontSize: 11, color: "var(--text3)", fontWeight: 750 }}>გამოქვეყნდა: {formatJobPostCreatedAt(post.created_at)}</div>
-        {post.status === "open" && <button type="button" disabled={saving} onClick={() => void cancel(post.id)} style={{ marginTop: 8, minHeight: 34, padding: "0 10px", borderRadius: 8, background: "white", color: "#b91c1c", border: "1px solid #fecaca", fontWeight: 900 }}>მოთხოვნის გაუქმება</button>}
+        <button type="button" disabled={saving} onClick={() => setPostToArchive(post)} style={{ marginTop: 8, minHeight: 34, padding: "0 10px", borderRadius: 8, background: "white", color: "#b91c1c", border: "1px solid #fecaca", fontWeight: 900 }}>წაშლა</button>
       </div>;
     })}
+    {postToArchive && <div role="dialog" aria-modal="true" aria-labelledby="archive-job-post-title" style={{ position: "fixed", inset: 0, zIndex: 90, display: "grid", placeItems: "center", padding: 20, background: "rgba(15, 23, 42, 0.42)" }}>
+      <div style={{ width: "min(100%, 360px)", padding: 20, borderRadius: 14, background: "white", boxShadow: "var(--shadow)" }}>
+        <strong id="archive-job-post-title" style={{ display: "block", fontSize: 17, lineHeight: 1.35, color: "var(--text)" }}>დარწმუნებული ხარ, რომ გინდა განცხადების წაშლა?</strong>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, marginTop: 18 }}>
+          <button type="button" disabled={saving} onClick={() => setPostToArchive(null)} style={{ minHeight: 44, borderRadius: 10, border: "1px solid var(--border)", background: "white", color: "var(--text2)", fontWeight: 900 }}>გაუქმება</button>
+          <button type="button" disabled={saving} onClick={() => void archive()} style={{ minHeight: 44, borderRadius: 10, background: "#b91c1c", color: "white", fontWeight: 900, opacity: saving ? .55 : 1 }}>{saving ? "იტვირთება..." : "წაშლა"}</button>
+        </div>
+      </div>
+    </div>}
   </section>;
 };
 

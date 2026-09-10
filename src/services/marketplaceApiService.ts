@@ -17,6 +17,7 @@ export interface JobPost {
   preferred_date?: string | null;
   status: "open" | "selected" | "closed" | "cancelled";
   selected_worker_id?: string | null;
+  archived_at?: string | null;
   interest_limit: number;
   created_at: string;
 }
@@ -58,6 +59,7 @@ export const loadOpenJobPosts = async (signal?: AbortSignal) => {
   return createSupabaseRestClient().select<JobPost>("job_posts", {
     select: "*",
     status: "eq.open",
+    archived_at: "is.null",
     order: "created_at.desc",
     limit: 20,
   }, { signal });
@@ -73,6 +75,7 @@ export const loadMyJobPosts = async (signal?: AbortSignal) => {
   return createSupabaseRestClient().select<JobPost>("job_posts", {
     select: "*",
     client_id: `eq.${profile.id}`,
+    archived_at: "is.null",
     order: "created_at.desc",
   }, { signal });
 };
@@ -124,6 +127,13 @@ export const createJobPost = async (input: {
 export const cancelMyJobPost = async (jobPostId: string) => {
   if (isDemoDataMode) return marketplaceDemo.cancelJobPost(jobPostId) as JobPost;
   return createSupabaseRestClient().rpc<JobPost>("cancel_my_job_post", { p_job_post_id: jobPostId });
+};
+
+export const archiveMyJobPost = async (jobPostId: string) => {
+  if (isDemoDataMode) return marketplaceDemo.archiveJobPost(jobPostId) as JobPost;
+  return createSupabaseRestClient().rpc<JobPost>("archive_my_job_post", {
+    p_job_post_id: jobPostId,
+  });
 };
 
 export const expressInterest = async (jobPostId: string, message: string, estimateMin?: number) => {

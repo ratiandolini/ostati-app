@@ -31,4 +31,21 @@ describe("marketplace demo storage", () => {
     }
     expect(message).toContain("საკუთარი მოწვევის კოდის");
   });
+
+  it("soft-archives a request without changing its selection status", () => {
+    const post = marketplaceDemo.createJobPost({
+      title: "ტესტური ელექტრო სამუშაო",
+      profession_name: "electric::ელექტრო ფარი",
+      city: "თბილისი",
+      description: "ტესტური ელექტრო სამუშაოს აღწერა.",
+      photo_urls: [],
+    });
+
+    marketplaceDemo.selectJobPostWorker(post.id, "demo-worker");
+    const archived = marketplaceDemo.archiveJobPost(post.id);
+
+    expect(archived.status).toBe("selected");
+    expect(archived.archived_at || "").toContain("T");
+    expect(marketplaceDemo.loadMyJobPosts()).toHaveLength(0);
+  });
 });

@@ -12,6 +12,7 @@ type DemoJobPost = {
   preferred_date?: string | null;
   status: "open" | "selected" | "closed" | "cancelled";
   selected_worker_id?: string | null;
+  archived_at?: string | null;
   interest_limit: number;
   created_at: string;
   interested_worker_ids?: string[];
@@ -61,10 +62,13 @@ export const marketplaceDemo = {
   loadOpenJobPosts: (): DemoJobPost[] =>
     read<DemoJobPost[]>(JOB_POSTS_KEY, [])
       .filter((post) => post.status === "open")
+      .filter((post) => !post.archived_at)
       .sort((a, b) => b.created_at.localeCompare(a.created_at)),
 
   loadMyJobPosts: (): DemoJobPost[] =>
-    read<DemoJobPost[]>(JOB_POSTS_KEY, []).sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    read<DemoJobPost[]>(JOB_POSTS_KEY, [])
+      .filter((post) => !post.archived_at)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at)),
 
   createJobPost(input: Omit<DemoJobPost, "id" | "status" | "interest_limit" | "created_at">): DemoJobPost {
     const post: DemoJobPost = {
@@ -87,6 +91,18 @@ export const marketplaceDemo = {
       return updated;
     });
     if (!updated) throw new Error("მოთხოვნა ვერ მოიძებნა.");
+    write(JOB_POSTS_KEY, next);
+    return updated;
+  },
+
+  archiveJobPost(jobPostId: string): DemoJobPost {
+    let updated: DemoJobPost | undefined;
+    const next = read<DemoJobPost[]>(JOB_POSTS_KEY, []).map((post) => {
+      if (post.id !== jobPostId || post.archived_at) return post;
+      updated = { ...post, archived_at: new Date().toISOString() };
+      return updated;
+    });
+    if (!updated) throw new Error("განცხადების წაშლა ვერ მოხერხდა.");
     write(JOB_POSTS_KEY, next);
     return updated;
   },
