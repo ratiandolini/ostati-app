@@ -26,11 +26,12 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
     <div
       style={{
         height: "100%",
+        overflowY: "auto",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "32px 24px",
+        padding: "32px 24px calc(32px + var(--safe-bottom))",
         textAlign: "center",
         background: "var(--bg)",
       }}
