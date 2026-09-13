@@ -665,10 +665,9 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
 
   return (
     <div
+      className="bottom-nav-scroll-owner"
       style={{
-        height: "100%",
-        overflowY: "auto",
-        paddingBottom: "var(--screen-bottom-space)",
+        paddingBottom: "var(--content-end-gap)",
         background: "var(--bg)",
       }}
     >

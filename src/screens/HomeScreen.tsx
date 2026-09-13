@@ -31,7 +31,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const visibleCategories = categoryGroups;
 
   return (
-    <div className="home-page">
+    <div className="home-page bottom-nav-scroll-owner">
       <div className="home-hero">
         <img src={heroImage} alt="" />
         <div />

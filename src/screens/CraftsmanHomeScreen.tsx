@@ -1683,10 +1683,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
   return (
     <div
+      className="bottom-nav-scroll-owner"
       style={{
-        height: "100%",
-        overflowY: "auto",
-        padding: "30px 24px calc(var(--screen-bottom-space) + 16px)",
+        padding: "30px 24px calc(var(--content-end-gap) + 16px)",
         background: "var(--bg)",
       }}
     >
