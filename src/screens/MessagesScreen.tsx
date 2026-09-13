@@ -757,7 +757,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   return (
     <div
       style={{
-        height: "100%",
+        height: "var(--bottom-nav-top, calc(100dvh - var(--bottom-nav-total-h)))",
+        minHeight: 0,
+        position: "relative",
         display: "flex",
         flexDirection: "column",
         background: "var(--bg)",
@@ -949,8 +951,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
               flex: 1,
               overflowY: "auto",
               padding: isCraftsman
-                ? "12px 24px calc(176px + var(--safe-bottom))"
-                : "10px 24px calc(168px + var(--safe-bottom))",
+                ? "12px 24px calc(70px + var(--content-end-gap))"
+                : "10px 24px calc(70px + var(--content-end-gap))",
             }}
           >
             {activeThread && role === "client" && !isThreadArchived && (
@@ -1202,7 +1204,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
               position: "absolute",
               left: 0,
               right: 0,
-              bottom: "calc(76px + var(--safe-bottom))",
+              bottom: 0,
               display: "flex",
               alignItems: "center",
               gap: 8,

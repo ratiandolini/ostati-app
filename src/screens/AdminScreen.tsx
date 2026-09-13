@@ -1746,8 +1746,9 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     <div
       style={{
         height: "100%",
+        minHeight: 0,
         overflowY: "auto",
-        paddingBottom: 28,
+        paddingBottom: "calc(var(--safe-bottom) + var(--content-end-gap))",
         background: "var(--bg)",
       }}
     >
