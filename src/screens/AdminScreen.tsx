@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BookingStatus, User } from "../types";
 import { actionButton, adminCard } from "../components/admin/adminUi";
 import {
@@ -194,9 +194,13 @@ interface AdminScreenProps {
 }
 
 export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
+  const adminRootRef = useRef<HTMLDivElement | null>(null);
   const cachedPreflightState = useMemo(loadCachedPreflightState, []);
   const preflightScope = useMemo(getPreflightCacheScope, []);
   const [tab, setTab] = useState<AdminTab>("overview");
+  const [adminVisibleHeight, setAdminVisibleHeight] = useState<number | null>(
+    null
+  );
   const [showLaunchTools, setShowLaunchTools] = useState(false);
   const [adminQuery, setAdminQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AdminStatusFilter>("all");
@@ -252,6 +256,42 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     [preflightChecks]
   );
   const preflightFresh = isAdminPreflightFresh(preflightCheckedAt);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const root = adminRootRef.current;
+    if (!viewport || !root) return;
+
+    let frameId: number | undefined;
+    const updateVisibleHeight = () => {
+      frameId = undefined;
+      const rootTop = root.getBoundingClientRect().top;
+      const visibleTop = viewport.offsetTop;
+      const nextHeight = Math.max(
+        0,
+        Math.round(viewport.height - Math.max(0, rootTop - visibleTop))
+      );
+
+      setAdminVisibleHeight((current) =>
+        current === nextHeight ? current : nextHeight
+      );
+    };
+    const scheduleUpdate = () => {
+      if (frameId === undefined) {
+        frameId = window.requestAnimationFrame(updateVisibleHeight);
+      }
+    };
+
+    updateVisibleHeight();
+    viewport.addEventListener("resize", scheduleUpdate);
+    viewport.addEventListener("scroll", scheduleUpdate);
+
+    return () => {
+      if (frameId !== undefined) window.cancelAnimationFrame(frameId);
+      viewport.removeEventListener("resize", scheduleUpdate);
+      viewport.removeEventListener("scroll", scheduleUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     if (isDemoDataMode) return;
@@ -1744,8 +1784,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
 
   return (
     <div
+      ref={adminRootRef}
       style={{
         height: "100%",
+        maxHeight: adminVisibleHeight ? `${adminVisibleHeight}px` : undefined,
         minHeight: 0,
         overflowY: "auto",
         paddingBottom: "calc(var(--safe-bottom) + var(--content-end-gap))",

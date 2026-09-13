@@ -257,6 +257,10 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   const [threadLoadError, setThreadLoadError] = useState("");
   const [messageError, setMessageError] = useState("");
   const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<{
+    url: string;
+    alt: string;
+  } | null>(null);
   const [problemOpen, setProblemOpen] = useState(false);
   const [problemReason, setProblemReason] = useState("");
   const [problemDetails, setProblemDetails] = useState("");
@@ -819,8 +823,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
               flexDirection: "column",
               gap: isCraftsman ? 8 : 10,
               padding: isCraftsman ? "0 24px 12px" : "0 24px 14px",
-              // Two complete craftsman cards fit before the conversation area begins.
-              maxHeight: isCraftsman ? 184 : 246,
+              // Keep the thread switcher compact so the active conversation stays primary.
+              maxHeight: isCraftsman ? 132 : 144,
               overflowY: "auto",
             }}
           >
@@ -1153,18 +1157,35 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                       }}
                     >
                       {message.attachmentUrl && message.attachmentType === "image" && (
-                        <img
-                          src={message.attachmentUrl}
-                          alt={message.attachmentName || "ჩატის ფოტო"}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setImagePreview({
+                              url: message.attachmentUrl || "",
+                              alt: message.attachmentName || "ჩატის ფოტო",
+                            })
+                          }
+                          aria-label="ფოტოს გადიდება"
                           style={{
                             width: "100%",
-                            maxHeight: 220,
-                            objectFit: "cover",
-                            borderRadius: 12,
-                            display: "block",
                             marginBottom: message.text ? 7 : 0,
+                            borderRadius: 12,
+                            background: "transparent",
+                            cursor: "zoom-in",
                           }}
-                        />
+                        >
+                          <img
+                            src={message.attachmentUrl}
+                            alt={message.attachmentName || "ჩატის ფოტო"}
+                            style={{
+                              width: "100%",
+                              maxHeight: 220,
+                              objectFit: "cover",
+                              borderRadius: 12,
+                              display: "block",
+                            }}
+                          />
+                        </button>
                       )}
                       {isSystem && (
                         <div
@@ -1334,6 +1355,67 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
             )}
           </div>
         </>
+      )}
+      {imagePreview && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="ფოტოს გადიდებული ნახვა"
+          onClick={() => setImagePreview(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 170,
+            display: "grid",
+            placeItems: "center",
+            padding: "20px",
+            background: "rgba(15,23,42,0.88)",
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: 430,
+              maxHeight: "100%",
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            <img
+              src={imagePreview.url}
+              alt={imagePreview.alt}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "calc(100dvh - 96px)",
+                objectFit: "contain",
+                borderRadius: 12,
+                display: "block",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setImagePreview(null)}
+              aria-label="ფოტოს დახურვა"
+              style={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                width: 42,
+                height: 42,
+                borderRadius: "50%",
+                background: "rgba(15,23,42,0.8)",
+                border: "1px solid rgba(255,255,255,0.36)",
+                color: "white",
+                fontSize: 24,
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
       )}
       {problemOpen && activeThread && (
         <div
