@@ -1005,9 +1005,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
               const hoursLeft = hoursUntilBooking(b);
               const isLateCancellationWindow =
                 hoursLeft < platformSettings.freeCancellationHours;
-              const possiblePenalty = Math.round(
-                (bookingFee * platformSettings.lateCancellationFeePercent) / 100
-              );
+              const possiblePenalty = platformSettings.lateCancellationPenalty;
               const paymentCurrency =
                 paymentSummary?.currency || b.paymentCurrency || "GEL";
               const currentPaymentStep = paymentStepIndex(
@@ -1360,7 +1358,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                         }}
                       >
                         {isLateCancellationWindow
-                          ? `უფასო გაუქმების პერიოდი გასულია. გაუქმების შემთხვევაში Admin გადაამოწმებს მიზეზს. სავარაუდო თანხის დაკავება: ${money(possiblePenalty, paymentCurrency)}.`
+                          ? `უფასო გაუქმების პერიოდი გასულია. გაუქმების შემთხვევაში სისტემაში დაფიქსირდება ${money(possiblePenalty, paymentCurrency)}-ის გაუქმების სანქცია.`
                           : `უფასო გაუქმება შესაძლებელია ვიზიტამდე ${platformSettings.freeCancellationHours} საათზე ადრე.`}
                         <details style={{ marginTop: 7 }}>
                           <summary
@@ -1492,8 +1490,9 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                       {b.cancellationPolicy && (
                         <div style={{ marginTop: 6, color: "#7f1d1d", fontWeight: 800 }}>
                           {b.cancellationPolicy === "late_review"
-                            ? `გადამოწმდება Admin-ის მიერ. სავარაუდო თანხის დაკავება: ${
-                                b.cancellationPenaltyAmount || 0
+                            ? `სისტემაში დაფიქსირებული დაგვიანებული გაუქმების სანქცია: ${
+                                b.cancellationPenaltyAmount ||
+                                platformSettings.lateCancellationPenalty
                               } ლარი.`
                             : "გაუქმება უფასო პერიოდის ფარგლებშია."}
                         </div>
@@ -1912,12 +1911,8 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
               const hoursLeft = hoursUntilBooking(cancelBooking);
               const lateCancellation =
                 hoursLeft < platformSettings.freeCancellationHours;
-              const bookingFee =
-                cancelBooking.bookingFee || platformSettings.bookingFee;
               const penaltyAmount = lateCancellation
-                ? Math.round(
-                    (bookingFee * platformSettings.lateCancellationFeePercent) / 100
-                  )
+                ? platformSettings.lateCancellationPenalty
                 : 0;
               return (
                 <>
@@ -1941,7 +1936,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
               }}
             >
               {lateCancellation
-                ? `უფასო გაუქმების დრო გასულია. ეს მოქმედება აისახება ანგარიშზე და Admin გადაამოწმებს. სავარაუდო თანხის დაკავება: ${penaltyAmount} ლარი.`
+                ? `უფასო გაუქმების დრო გასულია. სისტემაში დაფიქსირდება ${penaltyAmount} ლარის გაუქმების სანქცია.`
                 : `${legalSettings.cancellationRules} დაჯავშნის საფასური დაბრუნდება.`}
             </div>
             {cancelError && (

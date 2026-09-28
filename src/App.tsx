@@ -340,6 +340,7 @@ const App: React.FC = () => {
     day: number;
     time: string;
     dateLabel: string;
+    bookingFee: number;
   } | null>(null);
   const [prevScreen, setPrevScreen] = useState<Screen>("home");
   const [searchCategory, setSearchCategory] = useState<string>("all");
@@ -935,7 +936,13 @@ const App: React.FC = () => {
         });
         const nextBookings = await loadClientBookings();
         setBookings(nextBookings);
-        setSuccessData({ worker, day, time, dateLabel });
+        setSuccessData({
+          worker,
+          day,
+          time,
+          dateLabel,
+          bookingFee: platformSettings.bookingFee,
+        });
         setScreen("booking-confirm");
       } catch (error) {
         reportApiError(error, { silentTransient: true });
@@ -1004,7 +1011,13 @@ const App: React.FC = () => {
       readAt: null,
       createdAt: new Date().toISOString(),
     });
-    setSuccessData({ worker, day, time, dateLabel });
+    setSuccessData({
+      worker,
+      day,
+      time,
+      dateLabel,
+      bookingFee: platformSettings.bookingFee,
+    });
     setScreen("booking-confirm");
   };
 
@@ -1027,9 +1040,8 @@ const App: React.FC = () => {
       : Number.POSITIVE_INFINITY;
     const isLateCancellation =
       hoursUntilVisit < platformSettings.freeCancellationHours;
-    const bookingFee = targetBooking?.bookingFee || platformSettings.bookingFee;
     const penaltyAmount = isLateCancellation
-      ? Math.round((bookingFee * platformSettings.lateCancellationFeePercent) / 100)
+      ? platformSettings.lateCancellationPenalty
       : 0;
     const finalReason = isLateCancellation
       ? `${cancellationReason} · დაგვიანებული გაუქმება, გადასამოწმებელია`
@@ -1045,7 +1057,7 @@ const App: React.FC = () => {
             await openBookingDispute(
               id,
               "დაგვიანებული გაუქმება",
-              `სავარაუდო თანხის დაკავება: ${penaltyAmount} ლარი. მიზეზი: ${cancellationReason}`
+              `სისტემაში დაფიქსირებული გაუქმების სანქცია: ${penaltyAmount} ლარი. მიზეზი: ${cancellationReason}`
             );
           }
         } catch (followUpError) {
@@ -1091,7 +1103,7 @@ const App: React.FC = () => {
             ? "დაგვიანებული გაუქმება"
             : request.disputeReason,
           disputeDetails: isLateCancellation
-            ? `სავარაუდო თანხის დაკავება: ${penaltyAmount} ლარი`
+            ? `სისტემაში დაფიქსირებული გაუქმების სანქცია: ${penaltyAmount} ლარი`
             : request.disputeDetails,
         }));
         dataService.prependCraftsmanNotification({
@@ -1102,7 +1114,7 @@ const App: React.FC = () => {
             ? "ჯავშანი გაუქმდა და განხილვაში გადავიდა"
             : "ჯავშანი გაუქმდა",
           text: isLateCancellation
-            ? `კლიენტმა გააუქმა უფასო პერიოდის შემდეგ. სავარაუდო თანხის დაკავება: ${penaltyAmount} ლარი.`
+            ? `კლიენტმა გააუქმა უფასო პერიოდის შემდეგ. სისტემაში დაფიქსირებული გაუქმების სანქცია: ${penaltyAmount} ლარი.`
             : `კლიენტმა გააუქმა ჯავშანი. მიზეზი: ${cancellationReason}`,
           readAt: null,
           createdAt: new Date().toISOString(),
@@ -1112,7 +1124,7 @@ const App: React.FC = () => {
             id: `${id}-late-cancel-${Date.now()}`,
             bookingId: id,
             reason: "დაგვიანებული გაუქმება",
-            details: `კლიენტმა გააუქმა უფასო პერიოდის შემდეგ. სავარაუდო თანხის დაკავება: ${penaltyAmount} ლარი.`,
+            details: `კლიენტმა გააუქმა უფასო პერიოდის შემდეგ. სისტემაში დაფიქსირებული გაუქმების სანქცია: ${penaltyAmount} ლარი.`,
             createdAt: new Date().toISOString(),
             status: "open",
           });
@@ -1621,6 +1633,7 @@ const App: React.FC = () => {
           day={successData.day}
           time={successData.time}
           dateLabel={successData.dateLabel}
+          bookingFee={successData.bookingFee}
           onDone={handleSuccessDone}
         />
       )}

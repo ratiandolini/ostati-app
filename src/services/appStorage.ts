@@ -86,6 +86,7 @@ export interface CraftsmanBookingRequest {
   service: string;
   comment?: string;
   cancellationReason?: string;
+  cancellationPenaltyAmount?: number;
   bookingFee?: number;
   paymentStatus?: "held" | "released" | "refunded" | "disputed";
   paymentProvider?: string;
@@ -160,6 +161,7 @@ export interface PlatformSettings {
   craftsmanMonthlyFee: number;
   freeTrialDays: number;
   freeCancellationHours: number;
+  lateCancellationPenalty: number;
   lateCancellationFeePercent: number;
   authProvider: "demo" | "email_password" | "sms_otp";
   paymentProvider: "demo" | "manual_mvp_hold" | "bog" | "tbc" | "stripe";
@@ -302,6 +304,8 @@ const defaultPlatformSettings: PlatformSettings = {
   craftsmanMonthlyFee: 29,
   freeTrialDays: 14,
   freeCancellationHours: 12,
+  lateCancellationPenalty: 29,
+  // Retained only to read legacy settings; late cancellation is now fixed below.
   lateCancellationFeePercent: 30,
   authProvider: "email_password",
   paymentProvider: "manual_mvp_hold",
@@ -313,9 +317,9 @@ const defaultLegalSettings: LegalSettings = {
   bookingRules:
     "ჯავშნისას კლიენტის ჯავშნის საფასური დროებით იყინება. ხელოსანს თანხა არ ერიცხება, სანამ სამუშაო არ დასრულდება და კლიენტი შესრულებას არ დაადასტურებს.",
   cancellationRules:
-    "უფასო გაუქმება შესაძლებელია ვიზიტამდე მითითებული დროით ადრე. ამ დროის შემდეგ გაუქმებას Admin გადაამოწმებს და თანხის შესაძლო დაკავება/დაბრუნება გადაწყდება მიზეზისა და ჯავშნის ისტორიის მიხედვით. დაგვიანება ან შეთანხმების დარღვევა აისახება რეიტინგსა და ანგარიშზე.",
+    "უფასო გაუქმება შესაძლებელია ვიზიტამდე მითითებული დროით ადრე. ამ დროის შემდეგ კლიენტის გაუქმებაზე სისტემაში ფიქსირდება 29 ლარის გაუქმების სანქცია.",
   privacyRules:
-    "პირადი დეტალები არ ჩანს, სანამ სისტემა უსაფრთხო ეტაპს არ დაადასტურებს. ძირითადი კომუნიკაცია ჩატში რჩება, რათა შეთანხმებები, დაგვიანებები და საჭირო მტკიცებულებები ერთ ადგილზე იყოს.",
+    "FIXART ამუშავებს მხოლოდ სერვისის გასაწევად აუცილებელ პირად მონაცემებს. ჯავშნისა და მხარდაჭერის პროცესში საჭირო ინფორმაცია ხელმისაწვდომია მხოლოდ შესაბამისი პროცესის მონაწილეებისთვის და პლატფორმის ფუნქციონირების ფარგლებში. ძირითადი კომუნიკაცია ჩატში რჩება.",
   supportRules:
     "დავა იხსნება ჯავშნიდან ან ჩატიდან პრობლემის აღწერით. Admin ამოწმებს ჯავშნის დეტალებს, მიმოწერას, სტატუსების ისტორიას, ატვირთულ მტკიცებულებებს და თანხის მდგომარეობას, შემდეგ იღებს გადაწყვეტილებას დაბრუნებაზე, ხელოსანზე თანხის გაშვებაზე ან გაფრთხილებაზე.",
 };

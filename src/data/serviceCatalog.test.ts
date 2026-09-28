@@ -42,6 +42,28 @@ describe("service catalogue", () => {
     ]));
   });
 
+  it("keeps the legacy metal stair selection compatible after stairs move to construction", () => {
+    const legacyStairSelection = "metal::კიბე";
+    expect(
+      categoryGroups
+        .find((category) => category.id === "construction")
+        ?.subcategories.map((item) => item.label)
+    ).toContain("კიბე");
+    expect(
+      categoryGroups
+        .find((category) => category.id === "metal")
+        ?.subcategories.map((item) => item.label)
+        .includes("კიბე")
+    ).toBe(false);
+    expect(JSON.stringify(sanitizeWorkerProfessions([legacyStairSelection]))).toBe(
+      JSON.stringify([legacyStairSelection])
+    );
+    expect(workerMatchesService(
+      [legacyStairSelection],
+      makeServiceSelection("construction", "კიბე")
+    )).toBe(true);
+  });
+
   it("removes stale legacy professions when current selections exist", () => {
     const electricalServices = [
       makeServiceSelection("electric", "ელექტრო გაყვანილობა"),

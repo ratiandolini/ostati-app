@@ -421,7 +421,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
           <div className="stat-card">
             <span>₾</span>
-            <strong>{worker.price}</strong>
+            <strong
+              style={
+                worker.price === "ფასი შეთანხმებით"
+                  ? { fontSize: 13, lineHeight: 1.25 }
+                  : undefined
+              }
+            >
+              {worker.price}
+            </strong>
             <small>საფასური</small>
           </div>
         </div>

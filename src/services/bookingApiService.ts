@@ -54,6 +54,7 @@ interface ApiClientBooking {
   address_text?: string | null;
   client_comment?: string | null;
   cancellation_reason?: string | null;
+  cancellation_penalty_amount?: number | string | null;
   booking_fee_amount?: number | string | null;
   payment_status?: "not_required" | "authorized" | "captured" | "refunded" | "failed";
   payment_provider?: string | null;
@@ -92,6 +93,7 @@ interface ApiWorkerBooking {
   address_text?: string | null;
   client_comment?: string | null;
   cancellation_reason?: string | null;
+  cancellation_penalty_amount?: number | string | null;
   booking_fee_amount?: number | string | null;
   payment_status?: string | null;
   payment_provider?: string | null;
@@ -273,6 +275,7 @@ const mapClientBooking = (booking: ApiClientBooking): Booking => {
     disputeResolution: booking.active_dispute?.resolution || undefined,
     disputeEvidence: booking.active_dispute?.evidence || undefined,
     cancellationReason: booking.cancellation_reason || undefined,
+    cancellationPenaltyAmount: Number(booking.cancellation_penalty_amount || 0) || undefined,
     cancellationPolicy: isLateCancellationReason(booking.cancellation_reason)
       ? "late_review"
       : booking.cancellation_reason
@@ -295,6 +298,7 @@ const mapWorkerBooking = (
   address: booking.address_text || booking.city || "მისამართი დასაზუსტებელია",
   status: booking.status,
   cancellationReason: booking.cancellation_reason || undefined,
+  cancellationPenaltyAmount: Number(booking.cancellation_penalty_amount || 0) || undefined,
   bookingFee: Number(booking.booking_fee_amount || 0),
   paymentStatus: mapPaymentStatus(booking.payment_status as ApiClientBooking["payment_status"]),
   disputeReason: booking.active_dispute?.reason || undefined,

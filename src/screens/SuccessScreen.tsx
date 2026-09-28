@@ -8,6 +8,7 @@ interface SuccessScreenProps {
   day: number;
   time: string;
   dateLabel: string;
+  bookingFee: number;
   onDone: () => void;
 }
 
@@ -15,6 +16,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
   worker,
   time,
   dateLabel,
+  bookingFee,
   onDone,
 }) => {
   const [show, setShow] = useState(false);
@@ -198,7 +200,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
                   fontWeight: 800,
                 }}
               >
-                15 ლარი დროებით გაყინულია
+                დაჯავშნის საფასური {bookingFee} ლარი დროებით შეჩერებულია; ხელოსანს არ ერიცხება.
               </div>
             </div>
           </div>

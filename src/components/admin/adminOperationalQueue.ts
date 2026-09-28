@@ -79,7 +79,7 @@ export const getAdminOperationalQueue = ({
       label: "ფინანსური განხილვა",
       count: financeReviewCount + financeRefundCount + financeReleaseCount,
       detail: financeReviewCount
-        ? `დაგვიანებული გაუქმება/დავა. სავარაუდო თანხის დაკავება ${money(
+        ? `დაგვიანებული გაუქმება/დავა. დაფიქსირებული სანქციები ${money(
             lateCancellationPenaltyTotal
           )}`
         : financeRefundCount

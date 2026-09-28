@@ -95,7 +95,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                   ["ჯავშანი", `${settingsDraft.bookingFee} ლარი`],
                   ["საკომისიო", `${settingsDraft.commissionPercent}%`],
                   ["გაუქმება", `${settingsDraft.freeCancellationHours} სთ.`],
-                  ["დაკავება", `${settingsDraft.lateCancellationFeePercent}%`],
+                  ["სანქცია", `${settingsDraft.lateCancellationPenalty} ლარი`],
                 ].map(([label, value]) => (
                   <div
                     key={label}

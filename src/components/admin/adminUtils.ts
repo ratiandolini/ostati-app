@@ -34,11 +34,7 @@ export const penaltyAmountForBooking = (
   settings: PlatformSettings
 ) =>
   booking.cancellationPenaltyAmount ||
-  Math.round(
-    ((booking.bookingFee || settings.bookingFee) *
-      settings.lateCancellationFeePercent) /
-      100
-  );
+  settings.lateCancellationPenalty;
 
 export const matchesQuery = (
   query: string,

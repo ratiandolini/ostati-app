@@ -95,8 +95,8 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                   },
                   {
                     label: "დაგვიანებული გაუქმება",
-                    value: `${platformSettings.lateCancellationFeePercent}%`,
-                    hint: "სავარაუდო თანხის დაკავება",
+                    value: money(platformSettings.lateCancellationPenalty),
+                    hint: "ფიქსირებული სანქცია სისტემის ჩანაწერში",
                   },
                 ].map((item) => (
                   <div
@@ -143,7 +143,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                   {
                     label: "გადამოწმება",
                     value: financeReviewBookings.length,
-                    hint: `სავარაუდო თანხის დაკავება ${money(lateCancellationPenaltyTotal)}`,
+                    hint: `დაფიქსირებული სანქციები ${money(lateCancellationPenaltyTotal)}`,
                     bg: "#fff7ed",
                     color: "#c2410c",
                   },
@@ -325,7 +325,8 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                         }}
                       >
                         დაგვიანებული გაუქმება. Admin-მა უნდა გადაამოწმოს მიზეზი და
-                        გადაწყვიტოს დაბრუნება თუ დაკავება. სავარაუდო თანხის დაკავება:{" "}
+                        ნახოს სანქციის ჩანაწერი და საჭიროების შემთხვევაში მიიღოს გადაწყვეტილება.
+                        დაფიქსირებული სანქცია:{" "}
                         {money(penaltyAmountForBooking(booking, platformSettings))}.
                       </div>
                     )}

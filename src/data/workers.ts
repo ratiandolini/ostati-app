@@ -234,7 +234,7 @@ export const categoryGroups: readonly CategoryGroup[] = [
     { label: "ბინის სრული რემონტი", searchTerms: ["ბინის რემონტი", "სრული რემონტი"] }, { label: "სახლის სრული რემონტი", searchTerms: ["სახლის რემონტი"] }, { label: "ნაწილობრივი რემონტი" }, { label: "აბაზანის რემონტი" }, { label: "სამზარეულოს რემონტი" }, { label: "სარემონტო ბრიგადა", searchTerms: ["ბრიგადა", "ხელოსნების ბრიგადა"] }, { label: "სხვა" },
   ] },
   { id: "construction", label: "მშენებლობა", icon: "⌂", image: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=480&auto=format&fit=crop", legacyProfessions: ["ბეტონის სამუშაოები", "დემონტაჟი", "სამუშაოთა ხელმძღვანელი"], subcategories: [
-    { label: "სახლის აშენება", searchTerms: ["სახლი მინდა ავაშენო", "მშენებლობა"] }, { label: "მიშენება/დაშენება", searchTerms: ["მიშენება", "დაშენება"] }, { label: "საძირკველი" }, { label: "ბეტონის სამუშაოები", searchTerms: ["ბეტონი"] }, { label: "აგურისა და ბლოკის წყობა", searchTerms: ["აგური", "ბლოკი", "წყობა"] }, { label: "დემონტაჟი" }, { label: "სამუშაოთა ხელმძღვანელი (პრარაბი / ბრიგადირი)", searchTerms: ["პრარაბი", "ბრიგადირი", "სამუშაოთა ხელმძღვანელი", "რემონტის ხელმძღვანელი", "ბრიგადა", "ხელოსნების ბრიგადა"] }, { label: "სხვა" },
+    { label: "სახლის აშენება", searchTerms: ["სახლი მინდა ავაშენო", "მშენებლობა"] }, { label: "მიშენება/დაშენება", searchTerms: ["მიშენება", "დაშენება"] }, { label: "საძირკველი" }, { label: "ბეტონის სამუშაოები", searchTerms: ["ბეტონი"] }, { label: "აგურისა და ბლოკის წყობა", searchTerms: ["აგური", "ბლოკი", "წყობა"] }, { label: "დემონტაჟი" }, { label: "კიბე" }, { label: "სამუშაოთა ხელმძღვანელი (პრარაბი / ბრიგადირი)", searchTerms: ["პრარაბი", "ბრიგადირი", "სამუშაოთა ხელმძღვანელი", "რემონტის ხელმძღვანელი", "ბრიგადა", "ხელოსნების ბრიგადა"] }, { label: "სხვა" },
   ] },
   { id: "roof-insulation", label: "სახურავი და იზოლაცია", icon: "⌂", image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=480&auto=format&fit=crop", legacyProfessions: ["სახურავი", "იზოლაცია"], subcategories: [
     { label: "სახურავის მოწყობა" }, { label: "სახურავის შეკეთება" }, { label: "გადახურვის შეცვლა" }, { label: "სახურავის გაჟონვა", searchTerms: ["გაჟონვა", "სახურავი ჟონავს"] }, { label: "ღარები" }, { label: "ჰიდროიზოლაცია" }, { label: "თბო/ხმის იზოლაცია", searchTerms: ["თბოიზოლაცია", "ხმის იზოლაცია", "იზოლაცია"] }, { label: "სხვა" },
@@ -252,7 +252,7 @@ export const categoryGroups: readonly CategoryGroup[] = [
     { label: "ალუმინის კარ-ფანჯარა" }, { label: "PVC კარ-ფანჯარა", searchTerms: ["პვც", "პლასტმასის კარ ფანჯარა"] }, { label: "კარის მონტაჟი/შეკეთება" }, { label: "მინის შეცვლა" }, { label: "ჟალუზი" }, { label: "მწერების ბადე" }, { label: "სხვა" },
   ] },
   { id: "metal", label: "ლითონის სამუშაოები", icon: "△", image: "https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?w=480&auto=format&fit=crop", legacyProfessions: ["მეტალის კონსტრუქციები"], subcategories: [
-    { label: "შედუღება" }, { label: "მეტალის კონსტრუქცია" }, { label: "კიბე" }, { label: "მოაჯირი" }, { label: "ჭიშკარი" }, { label: "ღობე" }, { label: "სხვა" },
+    { label: "შედუღება" }, { label: "მეტალის კონსტრუქცია" }, { label: "მოაჯირი" }, { label: "ჭიშკარი" }, { label: "ღობე" }, { label: "სხვა" },
   ] },
   { id: "furniture-wood", label: "ავეჯი და ხის სამუშაოები", icon: "▤", image: "https://images.unsplash.com/photo-1581539250439-c96689b516dd?w=480&auto=format&fit=crop", legacyProfessions: ["ავეჯის ხელოსანი", "დურგალი"], subcategories: [
     { label: "ავეჯის დამზადება" }, { label: "ავეჯის აწყობა/შეკეთება" }, { label: "სამზარეულოს ავეჯი" }, { label: "კარადა" }, { label: "დურგლის სამუშაო" }, { label: "ხის დეკორი" }, { label: "სხვა" },
@@ -313,8 +313,11 @@ export const getAllProfessionValue = (category: CategoryGroup) => allForCategory
 export const makeServiceSelection = (categoryId: string, subcategory: string) => `${categoryId}::${subcategory}`;
 const parseServiceSelection = (value: string) => {
   const [categoryId, ...parts] = value.split("::");
-  const category = getCategoryById(categoryId);
-  return category && parts.length ? { category, subcategory: parts.join("::") } : null;
+  const subcategory = parts.join("::");
+  const category = categoryId === "metal" && subcategory === "კიბე"
+    ? getCategoryById("construction")
+    : getCategoryById(categoryId);
+  return category && parts.length ? { category, subcategory } : null;
 };
 export const getServiceSelectionLabel = (value: string) => parseServiceSelection(value)?.subcategory || value;
 

@@ -45,8 +45,7 @@ export const platformSettingNumberFields: Array<{
   key:
     | "bookingFee"
     | "commissionPercent"
-    | "freeCancellationHours"
-    | "lateCancellationFeePercent";
+    | "freeCancellationHours";
   label: string;
   suffix: string;
   hint: string;
@@ -68,12 +67,6 @@ export const platformSettingNumberFields: Array<{
     label: "უფასო გაუქმება",
     suffix: "საათი",
     hint: "ამ დრომდე გაუქმება დამატებითი დაკავების გარეშეა.",
-  },
-  {
-    key: "lateCancellationFeePercent",
-    label: "დაგვიანებული გაუქმების დაკავება",
-    suffix: "%",
-    hint: "უფასო პერიოდის შემდეგ Admin გადაამოწმებს ამ სავარაუდო თანხის დაკავებას.",
   },
 ];
 

@@ -106,7 +106,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                 {professionText} · {worker.city}
               </div>
             </div>
-            <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ textAlign: "right", flex: "0 1 136px", minWidth: 0 }}>
               <div
                 style={{
                   display: "inline-flex",
@@ -119,11 +119,11 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                   fontSize: 10,
                   fontWeight: 900,
                   color: "var(--text)",
-                  lineHeight: 1,
-                  whiteSpace: "nowrap",
-                  maxWidth: 92,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
+                  lineHeight: 1.25,
+                  whiteSpace: "normal",
+                  textAlign: "center",
+                  maxWidth: "100%",
+                  overflowWrap: "anywhere",
                 }}
               >
                 {worker.price}

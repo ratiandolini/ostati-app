@@ -1366,7 +1366,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     recordAudit(
       "platform_settings_updated",
       "platform",
-      `ჯავშანი ${settingsDraft.bookingFee} ლარი · საკომისიო ${settingsDraft.commissionPercent}% · დაგვიანებული გაუქმების დაკავება ${settingsDraft.lateCancellationFeePercent}%`
+      `ჯავშანი ${settingsDraft.bookingFee} ლარი · საკომისიო ${settingsDraft.commissionPercent}% · დაგვიანებული გაუქმების სანქცია ${settingsDraft.lateCancellationPenalty} ლარი`
     );
     refresh();
   };
