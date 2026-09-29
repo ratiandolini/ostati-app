@@ -145,6 +145,7 @@ import {
   getApiMigrationSummary,
 } from "../services/apiMigrationService";
 import {
+  loadAdminWorkerContactPhone,
   markAdminDisputeReviewing,
   reviewAdminWorkerVerification,
   resolveAdminDisputeAction,
@@ -238,6 +239,9 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
   const [signedVerificationUrls, setSignedVerificationUrls] = useState<
     Record<string, string>
   >({});
+  const [verificationContactPhone, setVerificationContactPhone] = useState<
+    string | null
+  >(null);
   const [signedDisputeEvidenceUrls, setSignedDisputeEvidenceUrls] = useState<
     Record<string, string>
   >({});
@@ -542,6 +546,31 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     verificationDocuments.idBack,
     verificationTarget,
   ]);
+
+  useEffect(() => {
+    if (!verificationTarget) {
+      setVerificationContactPhone(null);
+      return;
+    }
+
+    if (isDemoDataMode) {
+      setVerificationContactPhone(profile.phone || null);
+      return;
+    }
+
+    let cancelled = false;
+    loadAdminWorkerContactPhone(verificationTarget.workerId)
+      .then((phone) => {
+        if (!cancelled) setVerificationContactPhone(phone || null);
+      })
+      .catch(() => {
+        if (!cancelled) setVerificationContactPhone(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.phone, verificationTarget]);
 
   useEffect(() => {
     const hasEvidence = disputes.some((dispute) => dispute.evidence?.length);
@@ -2218,6 +2247,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             verificationDocuments={verificationDocuments}
             isDemoDataMode={isDemoDataMode}
             signedVerificationUrls={signedVerificationUrls}
+            verificationContactPhone={verificationContactPhone}
             adminApiLoading={adminApiLoading}
             setVerificationStatus={setVerificationStatus}
           />

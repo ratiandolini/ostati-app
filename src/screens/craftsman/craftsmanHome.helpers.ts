@@ -69,18 +69,13 @@ export const uploadErrorMessage = (
   if (/Unauthorized|RLS|permission|session/i.test(message)) {
     return `${label} ატვირთვა დროებით ვერ მოხერხდა. გადაამოწმე კავშირი და სცადე თავიდან; თუ განმეორდა, მხარდაჭერას მიმართე.`;
   }
-  if (/JPG, PNG, WebP|PDF/i.test(message)) return message;
+  if (/JPG, PNG, WebP|PDF/i.test(message)) {
+    return `${label} ატვირთე მხოლოდ JPG, PNG, WebP ან PDF ფორმატით.`;
+  }
   if (/Failed to fetch|NetworkError/i.test(message)) {
     return `${label} სერვერთან ვერ გადაიგზავნა. გადაამოწმე ინტერნეტი და ანგარიშიდან გამოსვლის შემდეგ თავიდან შედი.`;
   }
-  const storageResponse = message.match(/Supabase storage upload failed with \d+:\s*(.+)/i);
-  if (storageResponse?.[1]) {
-    return `${label} ატვირთვა Storage-მა უარყო: ${storageResponse[1].slice(0, 180)}`;
-  }
-  if (message) {
-    return `${label} ატვირთვა ვერ მოხერხდა: ${message.slice(0, 180)}`;
-  }
-  return `${label} ატვირთვა ვერ მოხერხდა. სცადე სხვა JPG, PNG, WebP ან PDF ფაილი.`;
+  return `${label} ატვირთვა ვერ მოხერხდა. სცადე თავიდან.`;
 };
 
 // Polling responses are new arrays even when the server data is unchanged.

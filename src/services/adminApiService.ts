@@ -483,6 +483,13 @@ export const loadAdminLaunchState = async () => {
   return mapLaunchState(state);
 };
 
+export const loadAdminWorkerContactPhone = async (workerId: string) => {
+  const client = createSupabaseRestClient();
+  return client.rpc<string | null>("get_admin_worker_contact_phone", {
+    p_worker_id: workerId,
+  });
+};
+
 export const loadCurrentAdminContext = async () => {
   const client = createSupabaseRestClient();
   return client.rpc<CurrentAdminContext>("get_current_admin_context", {});

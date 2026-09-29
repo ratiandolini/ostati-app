@@ -15,7 +15,7 @@ const formatJobPostCreatedAt = (value: string) => {
   return date.toLocaleString("ka-GE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 };
 
-const messageFrom = (error: unknown) => {
+export const getJobPostErrorMessage = (error: unknown) => {
   const message = error instanceof Error ? error.message : "";
   if (/This request is no longer open/i.test(message)) return "ეს მოთხოვნა უკვე დაიხურა ან კლიენტმა გააუქმა. სია განახლდა.";
   if (/Only an open request created by you can be cancelled/i.test(message)) return "ეს მოთხოვნა უკვე დახურულია ან შენი ანგარიშით არ არის შექმნილი. სია განახლდა.";
@@ -25,18 +25,16 @@ const messageFrom = (error: unknown) => {
   if (/A booking already exists for this job post|duplicate key value/i.test(message)) return "ამ მოთხოვნაზე ჯავშანი უკვე შექმნილია.";
   if (/selected worker.*receive bookings|Selected worker is no longer available/i.test(message)) return "არჩეული ხელოსანი ამჟამად ჯავშნებს ვერ იღებს. აირჩიე სხვა ხელოსანი.";
   if (/scheduled date\/time|address/i.test(message)) return "მიუთითე ზუსტი თარიღი, დრო და მისამართი.";
-  return message || "მოთხოვნის შესრულება ვერ მოხერხდა.";
+  return "მოთხოვნის შესრულება ვერ მოხერხდა. სცადე ხელახლა.";
 };
+const messageFrom = getJobPostErrorMessage;
 const bookingMessageFrom = (error: unknown) => {
   const message = error instanceof Error ? error.message : "";
   if (/ამ ხელოსანთან უკვე გაქვთ აქტიური ჯავშანი|active booking/i.test(message)) {
     return "ამ ხელოსანთან უკვე გაქვთ აქტიური ჯავშანი.";
   }
 
-  const mappedMessage = messageFrom(error);
-  return mappedMessage === message
-    ? "ჯავშნის შექმნა ვერ მოხერხდა. სცადე ხელახლა."
-    : mappedMessage;
+  return messageFrom(error);
 };
 const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader();
@@ -45,10 +43,10 @@ const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 const uploadErrorMessage = (error: unknown) => {
-  const message = messageFrom(error);
+  const message = error instanceof Error ? error.message : "";
   if (/EntityTooLarge|size/i.test(message)) return "ფოტო ძალიან დიდია. აირჩიე 5 მბ-მდე JPG, PNG ან WebP ფაილი.";
   if (/Unauthorized|RLS|permission/i.test(message)) return "ფოტოს ატვირთვა დროებით ვერ მოხერხდა. გადაამოწმე კავშირი და თავიდან სცადე; თუ განმეორდა, მხარდაჭერას მიმართე.";
-  return message;
+  return messageFrom(error);
 };
 
 export const ClientJobPostsPanel: React.FC = () => {

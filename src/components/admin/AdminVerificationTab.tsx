@@ -30,6 +30,7 @@ interface AdminVerificationTabProps {
   verificationDocuments: VerificationDocuments;
   isDemoDataMode: boolean;
   signedVerificationUrls: Record<string, string>;
+  verificationContactPhone: string | null;
   adminApiLoading: boolean;
   setVerificationStatus: (status: AdminVerificationStatus, note: string) => void;
 }
@@ -48,6 +49,7 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
   verificationDocuments,
   isDemoDataMode,
   signedVerificationUrls,
+  verificationContactPhone,
   adminApiLoading,
   setVerificationStatus,
 }) => {
@@ -238,9 +240,11 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
                   არჩეული ხელოსნის ვერიფიკაცია
                 </h2>
                 <p style={{ margin: "5px 0 0", color: "var(--text2)", fontSize: 12 }}>
-                  {verificationTarget?.name || profile.name || "ხელოსანი"} ·{" "}
-                  {verificationTarget?.phone || profile.phone || "ნომერი არ არის"}
+                  {verificationTarget?.name || profile.name || "ხელოსანი"}
                 </p>
+                <div style={{ marginTop: 5, color: "var(--text2)", fontSize: 12, fontWeight: 800 }}>
+                  მობილური: {verificationContactPhone || "—"}
+                </div>
               </div>
               <span
                 style={{

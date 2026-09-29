@@ -211,7 +211,9 @@ const BlockedAccountScreen: React.FC<{
 const VerificationRequiredScreen: React.FC<{
   onOpenProfile: () => void;
   onLogout: () => void;
-}> = ({ onOpenProfile, onLogout }) => (
+  onRefreshStatus: () => void;
+  isRefreshingStatus: boolean;
+}> = ({ onOpenProfile, onLogout, onRefreshStatus, isRefreshingStatus }) => (
   <div
     style={{
       height: "100%",
@@ -268,6 +270,25 @@ const VerificationRequiredScreen: React.FC<{
           გასვლა
         </button>
       </div>
+      <button
+        type="button"
+        onClick={onRefreshStatus}
+        disabled={isRefreshingStatus}
+        style={{
+          width: "100%",
+          minHeight: 44,
+          marginTop: 8,
+          borderRadius: 12,
+          border: "1px solid var(--border)",
+          background: "white",
+          color: "var(--primary)",
+          fontSize: 13,
+          fontWeight: 900,
+          opacity: isRefreshingStatus ? 0.65 : 1,
+        }}
+      >
+        {isRefreshingStatus ? "სტატუსი ახლდება..." : "სტატუსის განახლება"}
+      </button>
     </div>
   </div>
 );
@@ -349,12 +370,17 @@ const App: React.FC = () => {
   const [bookingActionError, setBookingActionError] = useState("");
   const [apiWorkerVerificationStatus, setApiWorkerVerificationStatus] =
     useState<string | null>(null);
+  const [isRefreshingWorkerVerification, setIsRefreshingWorkerVerification] =
+    useState(false);
   const [apiAccountStatus, setApiAccountStatus] =
     useState<AccountStatus>("active");
   const [restoringSession, setRestoringSession] = useState(
     () => !isDemoDataMode && Boolean(getSupabaseSession()?.access_token)
   );
   const pendingRouteScreenRef = React.useRef<Screen | null>(null);
+  const workerVerificationRequestRef = React.useRef<AbortController | null>(
+    null
+  );
 
   const setBrowserPath = (path: string, replace = false) => {
     if (window.location.pathname === path) return;
@@ -380,6 +406,43 @@ const App: React.FC = () => {
       if (!signal?.aborted) setClientBookingsHydrated(true);
     }
   }, []);
+
+  const refreshWorkerVerificationStatus = useCallback(async () => {
+    if (
+      isDemoDataMode ||
+      user?.role !== "craftsman" ||
+      workerVerificationRequestRef.current
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    workerVerificationRequestRef.current = controller;
+    setIsRefreshingWorkerVerification(true);
+
+    try {
+      const profile = await loadCurrentWorkerProfile(controller.signal);
+      if (!controller.signal.aborted) {
+        setApiWorkerVerificationStatus(
+          profile?.verification_status === "not_started"
+            ? "not_submitted"
+            : profile?.verification_status || "not_submitted"
+        );
+      }
+    } catch (error) {
+      if (!isAbortError(error) && !controller.signal.aborted) {
+        reportApiError(error, { silentTransient: true });
+        setApiWorkerVerificationStatus("not_submitted");
+      }
+    } finally {
+      if (workerVerificationRequestRef.current === controller) {
+        workerVerificationRequestRef.current = null;
+        if (!controller.signal.aborted) {
+          setIsRefreshingWorkerVerification(false);
+        }
+      }
+    }
+  }, [user?.role]);
 
   const loadApiUserIntoApp = async (
     fallbackPhone = "",
@@ -423,21 +486,6 @@ const App: React.FC = () => {
       setBookings([]);
       setCraftsmanBookings([]);
       setClientBookingsHydrated(false);
-    }
-
-    if (nextRole === "craftsman") {
-      loadCurrentWorkerProfile()
-        .then((workerProfile) => {
-          setApiWorkerVerificationStatus(
-            workerProfile?.verification_status === "not_started"
-              ? "not_submitted"
-              : workerProfile?.verification_status || "not_submitted"
-          );
-        })
-        .catch((error) => {
-          reportApiError(error, { silentTransient: true });
-          setApiWorkerVerificationStatus("not_submitted");
-        });
     }
 
     return nextRole;
@@ -809,29 +857,46 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isDemoDataMode || user?.role !== "craftsman") return;
 
-    let cancelled = false;
-    const controller = new AbortController();
-    loadCurrentWorkerProfile(controller.signal)
-      .then((profile) => {
-        if (!cancelled) {
-          setApiWorkerVerificationStatus(
-            profile?.verification_status === "not_started"
-              ? "not_submitted"
-              : profile?.verification_status || "not_submitted"
-          );
-        }
-      })
-      .catch((error) => {
-        if (isAbortError(error)) return;
-        reportApiError(error, { silentTransient: true });
-        if (!cancelled) setApiWorkerVerificationStatus("not_submitted");
-      });
-
+    void refreshWorkerVerificationStatus();
     return () => {
-      cancelled = true;
-      controller.abort();
+      workerVerificationRequestRef.current?.abort();
+      workerVerificationRequestRef.current = null;
+      setIsRefreshingWorkerVerification(false);
     };
-  }, [user?.phone, user?.role]);
+  }, [refreshWorkerVerificationStatus, user?.phone, user?.role]);
+
+  useEffect(() => {
+    if (isDemoDataMode || user?.role !== "craftsman") return;
+
+    const refreshOnFocus = () => void refreshWorkerVerificationStatus();
+    const refreshOnVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refreshWorkerVerificationStatus();
+      }
+    };
+
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnVisibility);
+    return () => {
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnVisibility);
+    };
+  }, [refreshWorkerVerificationStatus, user?.role]);
+
+  const verificationGateActive =
+    !isDemoDataMode &&
+    user?.role === "craftsman" &&
+    apiWorkerVerificationStatus !== "verified" &&
+    screen !== "user-profile";
+
+  useEffect(() => {
+    if (!verificationGateActive) return;
+
+    const intervalId = window.setInterval(() => {
+      void refreshWorkerVerificationStatus();
+    }, 15_000);
+    return () => window.clearInterval(intervalId);
+  }, [refreshWorkerVerificationStatus, verificationGateActive]);
 
   const showScreen = (nextScreen: Screen, replace = false) => {
     const nextPath = screenPathMap[nextScreen];
@@ -946,7 +1011,7 @@ const App: React.FC = () => {
         setScreen("booking-confirm");
       } catch (error) {
         reportApiError(error, { silentTransient: true });
-        const message = getValidationMessage(error, "ჯავშნის შექმნა ვერ მოხერხდა");
+        const message = "ჯავშნის შექმნა ვერ მოხერხდა. სცადე ხელახლა.";
         setBookingActionError(message);
         throw new Error(message);
       }
@@ -1061,16 +1126,13 @@ const App: React.FC = () => {
             );
           }
         } catch (followUpError) {
-          const followUpMessage = getValidationMessage(followUpError, "");
-          setBookingActionError(
-            followUpMessage
-              ? `ჯავშანი გაუქმდა, მაგრამ თანხის/დავის ჩანაწერის განახლება ვერ მოხერხდა: ${followUpMessage}`
-              : "ჯავშანი გაუქმდა, მაგრამ თანხის/დავის ჩანაწერის განახლება ვერ მოხერხდა"
-          );
+          reportApiError(followUpError, { silentTransient: true });
+          setBookingActionError("ჯავშანი გაუქმდა, მაგრამ ჩანაწერის განახლება ვერ მოხერხდა. სცადე მოგვიანებით.");
         }
         setBookings(await loadClientBookings());
       } catch (error) {
-        const message = getValidationMessage(error, "ჯავშნის გაუქმება ვერ მოხერხდა");
+        reportApiError(error, { silentTransient: true });
+        const message = "ჯავშნის გაუქმება ვერ მოხერხდა. სცადე ხელახლა.";
         setBookingActionError(message);
         throw new Error(message);
       }
@@ -1164,7 +1226,8 @@ const App: React.FC = () => {
         );
         return;
       } catch (error) {
-        const message = getValidationMessage(error, "ხელოსნის შეცვლა ვერ მოხერხდა");
+        reportApiError(error, { silentTransient: true });
+        const message = "ხელოსნის შეცვლა ვერ მოხერხდა. სცადე ხელახლა.";
         setBookingActionError(message);
         throw new Error(message);
       }
@@ -1286,12 +1349,8 @@ const App: React.FC = () => {
       try {
         await captureBookingPayment(id);
       } catch (error) {
-        const captureMessage = getValidationMessage(error, "");
-        setBookingActionError(
-          captureMessage
-            ? `სამუშაო დადასტურდა, მაგრამ თანხის დადასტურება ვერ მოხერხდა: ${captureMessage}`
-            : "სამუშაო დადასტურდა, მაგრამ თანხის დადასტურება ვერ მოხერხდა"
-        );
+        reportApiError(error, { silentTransient: true });
+        setBookingActionError("სამუშაო დადასტურდა, მაგრამ ჩანაწერის განახლება ვერ მოხერხდა. სცადე მოგვიანებით.");
       }
       if (user?.phone) {
         rememberClientReviewPoints(user.phone, id);
@@ -1346,7 +1405,8 @@ const App: React.FC = () => {
       try {
         setBookings(await loadClientBookings());
       } catch (error) {
-        const message = getValidationMessage(error, "ჯავშნების განახლება ვერ მოხერხდა");
+        reportApiError(error, { silentTransient: true });
+        const message = "ჯავშნების განახლება ვერ მოხერხდა. სცადე ხელახლა.";
         setBookingActionError(message);
         throw new Error(message);
       }
@@ -1501,6 +1561,8 @@ const App: React.FC = () => {
           <VerificationRequiredScreen
             onOpenProfile={() => navigate("user-profile")}
             onLogout={handleLogout}
+            onRefreshStatus={() => void refreshWorkerVerificationStatus()}
+            isRefreshingStatus={isRefreshingWorkerVerification}
           />
           <BottomNav
             active={screen}

@@ -260,6 +260,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   });
   const [profileUploadError, setProfileUploadError] = useState("");
   const [profileSaveError, setProfileSaveError] = useState("");
+  const [profileActionSuccess, setProfileActionSuccess] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [profileUploading, setProfileUploading] = useState(false);
@@ -281,6 +282,22 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
   const priceSectionRef = useRef<HTMLDivElement | null>(null);
   const scheduleSectionRef = useRef<HTMLElement | null>(null);
   const verificationSectionRef = useRef<HTMLElement | null>(null);
+  const profileActionSuccessTimerRef = useRef<number | null>(null);
+  const showProfileActionSuccess = (message: string) => {
+    setProfileActionSuccess(message);
+    if (profileActionSuccessTimerRef.current !== null) {
+      window.clearTimeout(profileActionSuccessTimerRef.current);
+    }
+    profileActionSuccessTimerRef.current = window.setTimeout(() => {
+      setProfileActionSuccess("");
+      profileActionSuccessTimerRef.current = null;
+    }, 2400);
+  };
+  useEffect(() => () => {
+    if (profileActionSuccessTimerRef.current !== null) {
+      window.clearTimeout(profileActionSuccessTimerRef.current);
+    }
+  }, []);
   const portfolioFileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("ფოტოს წაკითხვა ვერ მოხერხდა."));
@@ -1007,12 +1024,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         if (status === "confirmed" || status === "declined") {
           setDetailsBooking(null);
         }
-      } catch (error) {
-        setBookingActionError(
-          error instanceof Error
-            ? error.message
-            : "ჯავშნის სტატუსის შეცვლა ვერ მოხერხდა"
-        );
+      } catch {
+        setBookingActionError("ჯავშნის სტატუსის შეცვლა ვერ მოხერხდა. სცადე თავიდან.");
       } finally {
         setBookingActionId(null);
       }
@@ -1157,10 +1170,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         setDetailsBooking(null);
       }
       setBookingReasonAction(null);
-    } catch (error) {
-      setBookingReasonError(
-        error instanceof Error ? error.message : "მოქმედება ვერ შესრულდა"
-      );
+    } catch {
+      setBookingReasonError("მოქმედება ვერ შესრულდა. სცადე თავიდან.");
     } finally {
       setBookingActionId(null);
     }
@@ -1203,12 +1214,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           setReviewedClientBookingIds((prev) => [...prev, target.id]);
         }
         await reloadWorkerBookings();
-      } catch (error) {
-        setReviewError(
-          error instanceof Error
-            ? error.message
-            : "შეფასების შენახვა ვერ მოხერხდა"
-        );
+      } catch {
+        setReviewError("შეფასების შენახვა ვერ მოხერხდა. სცადე თავიდან.");
         return;
       } finally {
         setBookingActionId(null);
@@ -1309,8 +1316,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       } else {
         setPortfolioItems((current) => [...created, ...current]);
       }
-    } catch (error) {
-      setPortfolioError(error instanceof Error ? error.message : "ფოტოს ატვირთვა ვერ მოხერხდა.");
+      showProfileActionSuccess("პორტფოლიო შენახულია");
+    } catch {
+      setPortfolioError("პორტფოლიოს ფოტოს შენახვა ვერ მოხერხდა. სცადე თავიდან.");
     } finally {
       setPortfolioReplaceId("");
       setPortfolioBusy(false);
@@ -1323,8 +1331,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       await removePortfolioItem(item.id);
       if (!isDemoDataMode) await removeStorageFile("worker-portfolio", item.image_url).catch(() => undefined);
       setPortfolioItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
-    } catch (error) {
-      setPortfolioError(error instanceof Error ? error.message : "ფოტოს წაშლა ვერ მოხერხდა.");
+      showProfileActionSuccess("პორტფოლიო განახლდა");
+    } catch {
+      setPortfolioError("ნამუშევრის წაშლა ვერ მოხერხდა. სცადე თავიდან.");
     } finally { setPortfolioBusy(false); }
   };
 
@@ -1338,8 +1347,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         if (!isDemoDataMode) await removeStorageFile("worker-portfolio", item.image_url).catch(() => undefined);
       }));
       setPortfolioItems([]);
-    } catch (error) {
-      setPortfolioError(error instanceof Error ? error.message : "პორტფოლიოს სრულად წაშლა ვერ მოხერხდა.");
+      showProfileActionSuccess("პორტფოლიო განახლდა");
+    } catch {
+      setPortfolioError("პორტფოლიოს გასუფთავება ვერ მოხერხდა. სცადე თავიდან.");
     } finally { setPortfolioBusy(false); }
   };
 
@@ -1422,12 +1432,8 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         onProfileUpdated?.({ firstName, lastName, photoUrl: profilePhoto });
         setSavedProfileSnapshot(profileSnapshot);
         setSaved(true);
-      } catch (error) {
-        setProfileSaveError(
-          error instanceof Error
-            ? `შენახვა ვერ მოხერხდა: ${error.message}`
-            : "პროფილის შენახვა ვერ მოხერხდა. გადაამოწმე მონიშნული ველები."
-        );
+      } catch {
+        setProfileSaveError("პროფილის შენახვა ვერ მოხერხდა. გადაამოწმე მონიშნული ველები.");
       } finally {
         setProfileSaving(false);
         window.setTimeout(() => setSaved(false), 1800);
@@ -1495,6 +1501,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
             profilePhoto: uploaded.publicUrl,
           })
         );
+        showProfileActionSuccess("ფოტო შენახულია");
       } catch (error) {
         setProfileUploadError(uploadErrorMessage(error));
       } finally {
@@ -1505,7 +1512,10 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
 
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === "string") setProfilePhoto(reader.result);
+      if (typeof reader.result === "string") {
+        setProfilePhoto(reader.result);
+        showProfileActionSuccess("ფოტო შენახულია");
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -1552,6 +1562,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           }
           return next;
         });
+        showProfileActionSuccess("დოკუმენტი შენახულია");
       } catch (error) {
         setVerificationUploadError(uploadErrorMessage(error, "დოკუმენტის"));
       } finally {
@@ -1574,6 +1585,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
         }
         return next;
       });
+      showProfileActionSuccess("დოკუმენტი შენახულია");
     };
     reader.onerror = () => {
       setVerificationUploadError("დოკუმენტის წაკითხვა ვერ მოხერხდა.");
@@ -1601,12 +1613,9 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           }
           return next;
         });
-      } catch (error) {
-        setVerificationUploadError(
-          error instanceof Error
-            ? error.message
-            : "ანგარიშის შენახვა ვერ მოხერხდა"
-        );
+        showProfileActionSuccess("შენახულია");
+      } catch {
+        setVerificationUploadError("ანგარიშის შენახვა ვერ მოხერხდა. სცადე თავიდან.");
       } finally {
         setUploadingVerification(null);
       }
@@ -1621,6 +1630,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
       }
       return next;
     });
+    showProfileActionSuccess("შენახულია");
   };
 
   const persistBookingStatus = (id: string, status: BookingStatus) => {
@@ -2280,6 +2290,15 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           {profileSaveError && (
             <div style={{ marginTop: 9, color: "#dc2626", fontSize: 12, fontWeight: 800, lineHeight: 1.45 }}>
               {profileSaveError}
+            </div>
+          )}
+
+          {profileActionSuccess && (
+            <div
+              role="status"
+              style={{ marginTop: 9, color: "#047857", fontSize: 12, fontWeight: 800, lineHeight: 1.45 }}
+            >
+              {profileActionSuccess}
             </div>
           )}
 

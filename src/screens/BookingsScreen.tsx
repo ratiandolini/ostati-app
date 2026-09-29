@@ -48,6 +48,17 @@ import {
 
 export type { Booking } from "./bookings/bookings.helpers";
 
+const workerChangeErrorMessage = (error: unknown) => {
+  const message = error instanceof Error ? error.message : "";
+  if (
+    message === "აირჩიეთ სხვა ხელოსანი" ||
+    message === "ხელოსნის შეცვლა შესაძლებელია მხოლოდ მოლოდინში ან უარყოფილ ჯავშანზე"
+  ) {
+    return message;
+  }
+  return "ხელოსნის შეცვლა ვერ მოხერხდა. სცადე ხელახლა.";
+};
+
 interface BookingsScreenProps {
   bookings: Booking[];
   isLoading?: boolean;
@@ -416,10 +427,8 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
       await onCancelBooking(cancelBooking.id, cancelReason);
       setCancelBooking(null);
       setCancelReason("");
-    } catch (error) {
-      setCancelError(
-        error instanceof Error ? error.message : "გაუქმება ვერ მოხერხდა"
-      );
+    } catch {
+      setCancelError("გაუქმება ვერ მოხერხდა. სცადე ხელახლა.");
     }
   };
 
@@ -433,9 +442,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
       setWorkerChangeBooking(null);
       setWorkerChangeQuery("");
     } catch (error) {
-      setWorkerChangeError(
-        error instanceof Error ? error.message : "ხელოსნის შეცვლა ვერ მოხერხდა"
-      );
+      setWorkerChangeError(workerChangeErrorMessage(error));
     } finally {
       setWorkerChangeSubmittingId(null);
     }
@@ -503,10 +510,8 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
           problemDetails,
           evidence
         );
-      } catch (error) {
-        setProblemError(
-          error instanceof Error ? error.message : "პრობლემის გაგზავნა ვერ მოხერხდა"
-        );
+      } catch {
+        setProblemError("პრობლემის გაგზავნა ვერ მოხერხდა. სცადე ხელახლა.");
         return;
       }
     } else {
@@ -561,12 +566,8 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
           criteria: reviewScores,
           comment: reviewComment,
         });
-      } catch (error) {
-        setReviewError(
-          error instanceof Error
-            ? error.message
-            : "შეფასების შენახვა ვერ მოხერხდა"
-        );
+      } catch {
+        setReviewError("შეფასების შენახვა ვერ მოხერხდა. სცადე ხელახლა.");
         setReviewSubmitting(false);
         return;
       }
@@ -598,12 +599,8 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
     }
     try {
       await onReviewBooking(reviewBooking.id);
-    } catch (error) {
-      setReviewError(
-        error instanceof Error
-          ? error.message
-          : "ჯავშნის დახურვა ვერ მოხერხდა"
-      );
+    } catch {
+      setReviewError("ჯავშნის დახურვა ვერ მოხერხდა. სცადე ხელახლა.");
       setReviewSubmitting(false);
       return;
     }
