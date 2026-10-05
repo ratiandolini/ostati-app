@@ -16,6 +16,7 @@ set search_path = public
 as $$
 declare
   current_user_id uuid;
+  current_actor_role public.user_role;
   created_dispute_id uuid;
   target_client_id uuid;
   target_worker_user_id uuid;
@@ -30,6 +31,10 @@ begin
   if not public.user_can_access_booking(p_booking_id) then
     raise exception 'You do not have access to this booking';
   end if;
+
+  select role into current_actor_role
+  from public.users
+  where id = current_user_id;
 
   if nullif(trim(p_reason), '') is null then
     raise exception 'Dispute reason is required';
@@ -88,7 +93,11 @@ begin
       p_booking_id,
       'admin_dispute',
       'ახალი დავა გაიხსნა',
-      'კლიენტმა დავა გახსნა. მიზეზი და კომენტარი იხილეთ Admin პანელში.'
+      case current_actor_role
+        when 'client'::public.user_role then 'კლიენტმა დავა გახსნა. მიზეზი და კომენტარი იხილეთ Admin პანელში.'
+        when 'craftsman'::public.user_role then 'ხელოსანმა დავა გახსნა. მიზეზი და კომენტარი იხილეთ Admin პანელში.'
+        else 'დავა გაიხსნა. მიზეზი და კომენტარი იხილეთ Admin პანელში.'
+      end
     );
   end loop;
 

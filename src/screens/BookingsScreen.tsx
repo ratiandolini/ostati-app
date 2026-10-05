@@ -117,20 +117,12 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
       Record<
         string,
         {
-          reason: string;
-          details: string;
-          evidence?: NonNullable<Booking["disputeEvidence"]>;
           status?: NonNullable<Booking["disputeStatus"]>;
-          resolution?: Booking["disputeResolution"];
         }
       >
     >((next, dispute) => {
       next[dispute.bookingId] = {
-        reason: dispute.reason,
-        details: dispute.details,
-        evidence: dispute.evidence,
         status: dispute.status,
-        resolution: dispute.resolution,
       };
       return next;
     }, {});
@@ -534,9 +526,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
         ...booking,
         status: "disputed",
         paymentStatus: "disputed",
-        disputeReason: problemReason,
-        disputeDetails: problemDetails,
-        disputeEvidence: evidence,
+        disputeStatus: "open",
       }));
     }
 
@@ -983,12 +973,8 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                 paymentStatusKey === "disputed" ||
                 disputedIds.includes(b.id);
               const disputeInfo = disputesByBooking[b.id];
-              const disputeReason = b.disputeReason || disputeInfo?.reason;
-              const disputeDetails = b.disputeDetails || disputeInfo?.details;
-              const disputeStatus = b.disputeStatus || disputeInfo?.status || "open";
-              const disputeResolution = b.disputeResolution || disputeInfo?.resolution;
-              const disputeUi = disputeMeta(disputeStatus, disputeResolution);
-              const disputeEvidence = b.disputeEvidence || disputeInfo?.evidence || [];
+              const disputeStatus = b.disputeStatus || disputeInfo?.status;
+              const disputeUi = disputeMeta(disputeStatus);
               const isCompleted =
                 b.status === "client_confirmed" ||
                 b.status === "closed" ||
@@ -1376,7 +1362,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                     )}
                   </div>
 
-                  {isDisputed && disputeReason && (
+                  {disputeStatus && (
                     <div
                       style={{
                         marginBottom: 12,
@@ -1392,80 +1378,6 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
                     >
                       <div style={{ fontSize: 13, fontWeight: 950 }}>{disputeUi.label}</div>
                       <div style={{ marginTop: 4 }}>{disputeUi.detail}</div>
-                      <div style={{ marginTop: 7, fontWeight: 900 }}>
-                        მიზეზი: {disputeReason}
-                      </div>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(3, 1fr)",
-                          gap: 6,
-                          marginTop: 9,
-                          color: "inherit",
-                        }}
-                      >
-                        {[
-                          { key: "open", label: "გაიხსნა" },
-                          { key: "reviewing", label: "განხილვაშია" },
-                          { key: "resolved", label: "გადაწყდა" },
-                        ].map((step, index) => {
-                          const active = index <= disputeUi.step;
-                          return (
-                            <div key={step.key}>
-                              <div
-                                style={{
-                                  height: 5,
-                                  borderRadius: 999,
-                                  background: active ? disputeUi.color : "rgba(148,163,184,0.35)",
-                                  marginBottom: 5,
-                                }}
-                              />
-                              <div
-                                style={{
-                                  color: active ? "inherit" : "#cbd5e1",
-                                  fontSize: 9,
-                                  fontWeight: 950,
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}
-                              >
-                                {step.label}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {disputeDetails && (
-                        <div style={{ marginTop: 7, color: "inherit", fontWeight: 750 }}>
-                          {disputeDetails}
-                        </div>
-                      )}
-                      {disputeEvidence.length > 0 && (
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(4, 1fr)",
-                            gap: 7,
-                            marginTop: 9,
-                          }}
-                        >
-                          {disputeEvidence.map((item, index) => (
-                            <img
-                              key={`${item.url}-${index}`}
-                              src={item.url}
-                              alt=""
-                              style={{
-                                width: "100%",
-                                aspectRatio: "1 / 1",
-                                borderRadius: 8,
-                                objectFit: "cover",
-                                border: "1px solid #fed7aa",
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
 

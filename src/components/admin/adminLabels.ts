@@ -86,6 +86,15 @@ export const paymentStatusShortLabel: Record<
   disputed: "დავაშია",
 };
 
+export const disputeInitiatorLabel = (
+  role?: "client" | "craftsman" | "admin"
+) => {
+  if (role === "client") return "კლიენტი";
+  if (role === "craftsman") return "ხელოსანი";
+  if (role === "admin") return "Admin";
+  return "უცნობია";
+};
+
 export const paymentStatusHelp: Record<
   NonNullable<Booking["paymentStatus"]>,
   string

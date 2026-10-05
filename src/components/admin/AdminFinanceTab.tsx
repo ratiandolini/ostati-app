@@ -1,5 +1,5 @@
 import React from "react";
-import { actionButton, adminCard } from "./adminUi";
+import { actionButton, adminCard, adminMetricGrid } from "./adminUi";
 import { paymentStatusHelp, statusLabel } from "./adminLabels";
 import { money, parseFirstAmount, penaltyAmountForBooking } from "./adminUtils";
 import type { PlatformSettings } from "../../services/dataService";
@@ -81,7 +81,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                 და კლიენტის დადასტურების შემდეგ საფასური იხურება. Admin ერევა
                 მხოლოდ დავის, დაბრუნების ან გაჭედილი სტატუსის შემთხვევაში.
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginTop: 12 }}>
+              <div style={{ ...adminMetricGrid(8), marginTop: 12 }}>
                 {[
                   {
                     label: "ჯავშნის საფასური",
@@ -335,7 +335,7 @@ export const AdminFinanceTab: React.FC<AdminFinanceTabProps> = ({
                       {booking.paymentCurrency || platformSettings.paymentCurrency} ·{" "}
                       {booking.paymentTransactionId || "transaction pending"}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7, marginTop: 10 }}>
+                    <div style={{ ...adminMetricGrid(7), marginTop: 10 }}>
                       {[
                         ["დაჯავშნა", money(amount)],
                         ["საწყისი ფასი", money(parseFirstAmount(booking.worker.price))],

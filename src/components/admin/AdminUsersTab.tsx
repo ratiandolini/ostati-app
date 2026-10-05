@@ -1,5 +1,5 @@
 import React from "react";
-import { actionButton, adminCard } from "./adminUi";
+import { actionButton, adminCard, adminMetricGrid } from "./adminUi";
 import {
   accountLabel,
   adminAccountLabel,
@@ -154,7 +154,7 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                           ★ {craftsman.ratingAvg.toFixed(1)} ({craftsman.ratingCount}) · გაფრთხილება{" "}
                           {craftsman.warningCount || 0}
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7, marginTop: 12 }}>
+                        <div style={{ ...adminMetricGrid(7), marginTop: 12 }}>
                           {[
                             ["ჯავშნები", craftsman.stats.total],
                             ["აქტიური", craftsman.stats.active],
@@ -223,7 +223,7 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                         <div style={{ marginTop: 4, color: "var(--text2)", fontSize: 12 }}>
                           +995 {client.phone} · {adminAccountLabel(client.status)}
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7, marginTop: 12 }}>
+                        <div style={{ ...adminMetricGrid(7), marginTop: 12 }}>
                           {[
                             ["ჯავშნები", client.stats.total],
                             ["აქტიური", client.stats.active],
@@ -282,7 +282,7 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
               <div style={{ color: "var(--text2)", fontSize: 12 }}>
                 {profile.name || "ხელოსანი"} · {accountLabel[profile.accountStatus || "active"]}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7, marginTop: 12 }}>
+              <div style={{ ...adminMetricGrid(7), marginTop: 12 }}>
                 {[
                   ["ჯავშნები", craftsmanUserStats.total],
                   ["აქტიური", craftsmanUserStats.active],
@@ -333,7 +333,7 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                     <div style={{ marginTop: 4, color: "var(--text2)", fontSize: 12 }}>
                       +995 {phone} · {accountLabel[client.accountStatus || "active"]}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7, marginTop: 12 }}>
+                    <div style={{ ...adminMetricGrid(7), marginTop: 12 }}>
                       {[
                         ["ჯავშნები", stats.total],
                         ["აქტიური", stats.active],

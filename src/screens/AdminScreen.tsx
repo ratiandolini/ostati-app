@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BookingStatus, User } from "../types";
-import { actionButton, adminCard } from "../components/admin/adminUi";
+import { actionButton, adminCard, adminMetricGrid } from "../components/admin/adminUi";
 import {
   accountLabel,
   adminAccountLabel,
@@ -1927,7 +1927,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
       <div style={{ padding: "0 24px" }}>
         {showDashboard && (
           <>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+        <div style={adminMetricGrid(8)}>
           {adminSummaryCards.filter((item) => can(item.permission)).map((item) => (
             <button
               key={item.label}

@@ -1,6 +1,7 @@
 import React from "react";
-import { actionButton, adminCard } from "./adminUi";
+import { actionButton, adminCard, adminMetricGrid } from "./adminUi";
 import {
+  disputeInitiatorLabel,
   paymentStatusShortLabel,
 } from "./adminLabels";
 import {
@@ -64,7 +65,7 @@ export const AdminDisputesTab: React.FC<AdminDisputesTabProps> = ({
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
+            <div style={adminMetricGrid(8)}>
               {[
                 ["აქტიური", disputeViewCounts.active, "#1d4ed8", "#eff6ff"],
                 ["სასწრაფო", disputeViewCounts.urgent, "#b91c1c", "#fef2f2"],
@@ -257,6 +258,10 @@ export const AdminDisputesTab: React.FC<AdminDisputesTabProps> = ({
                           </div>
                         </div>
                       ))}
+                    </div>
+
+                    <div style={{ marginTop: 10, color: "var(--text2)", fontSize: 12, fontWeight: 850 }}>
+                      დავის ინიციატორი: {disputeInitiatorLabel(dispute.openedByRole)}
                     </div>
 
                     <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#fff7ed", border: "1px solid #fed7aa" }}>

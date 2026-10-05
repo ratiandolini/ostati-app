@@ -19,3 +19,9 @@ export const actionButton = (
   fontSize: 12,
   fontWeight: 900,
 });
+
+export const adminMetricGrid = (gap = 8): CSSProperties => ({
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))",
+  gap,
+});

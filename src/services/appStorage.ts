@@ -124,6 +124,8 @@ export interface BookingDispute {
   }>;
   createdAt: string;
   status: "open" | "reviewing" | "resolved";
+  openedBy?: string;
+  openedByRole?: "client" | "craftsman" | "admin";
   resolution?: "refund_client" | "release_worker" | "warning" | "none";
   adminNote?: string;
   resolvedAt?: string;

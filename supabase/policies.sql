@@ -236,12 +236,10 @@ using (
   or public.current_app_user_is_admin()
 );
 
-create policy "booking parties can read disputes"
+create policy "admins can read disputes"
 on public.disputes for select
 using (
-  opened_by = public.current_app_user_id()
-  or public.user_can_access_booking(booking_id)
-  or public.current_app_user_is_admin()
+  public.current_app_user_is_admin()
 );
 
 create policy "booking parties can create disputes"

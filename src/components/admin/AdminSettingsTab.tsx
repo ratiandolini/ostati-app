@@ -1,5 +1,5 @@
 import React from "react";
-import { actionButton, adminCard } from "./adminUi";
+import { actionButton, adminCard, adminMetricGrid } from "./adminUi";
 import { preflightStatusUi } from "./adminQaConfig";
 import { formatDate } from "./adminUtils";
 import {
@@ -388,9 +388,7 @@ export const AdminSettingsTab: React.FC<AdminSettingsTabProps> = ({
                 <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
                   <div
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                      gap: 8,
+                      ...adminMetricGrid(8),
                     }}
                   >
                     {[

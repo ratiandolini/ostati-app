@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { actionButton, adminCard } from "./adminUi";
+import { actionButton, adminCard, adminMetricGrid } from "./adminUi";
 import { paymentStatusShortLabel, statusLabel } from "./adminLabels";
 import type { AdminPermission } from "./adminPermissions";
 import type { CraftsmanBookingRequest } from "../../services/dataService";
@@ -86,7 +86,7 @@ export const AdminBookingsTab: React.FC<AdminBookingsTabProps> = ({
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+            <div style={adminMetricGrid(8)}>
               {[
                 ["ჩარევა", interventionRequests.length],
                 ["აქტიური", activeBookings.length],

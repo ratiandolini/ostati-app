@@ -33,12 +33,7 @@ begin
       'payment_transaction_id', pay.provider_payment_id,
       'active_dispute', (
         select jsonb_build_object(
-          'reason', d.reason,
-          'details', d.details,
-          'evidence', coalesce(d.evidence, '[]'::jsonb),
-          'status', d.status,
-          'admin_note', d.admin_note,
-          'resolved_at', d.resolved_at
+          'status', d.status
         )
         from public.disputes d
         where d.booking_id = b.id
@@ -153,12 +148,7 @@ begin
       'profession_name', coalesce(p.name, 'ხელოსანი'),
       'active_dispute', (
         select jsonb_build_object(
-          'reason', d.reason,
-          'details', d.details,
-          'evidence', coalesce(d.evidence, '[]'::jsonb),
-          'status', d.status,
-          'admin_note', d.admin_note,
-          'resolved_at', d.resolved_at
+          'status', d.status
         )
         from public.disputes d
         where d.booking_id = b.id

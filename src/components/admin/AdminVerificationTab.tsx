@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { actionButton, adminCard } from "./adminUi";
+import { actionButton, adminCard, adminMetricGrid } from "./adminUi";
 import { verificationLabel } from "./adminLabels";
 import type { VerificationFilter } from "./adminTypes";
 import type { CraftsmanProfile } from "../../services/dataService";
@@ -301,7 +301,7 @@ export const AdminVerificationTab: React.FC<AdminVerificationTabProps> = ({
               )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 14 }}>
+            <div style={{ ...adminMetricGrid(8), marginTop: 14 }}>
               {[
                 { label: "პირადობა 1", uploaded: verification.idFront },
                 { label: "პირადობა 2", uploaded: verification.idBack },

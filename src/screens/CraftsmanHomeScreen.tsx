@@ -1133,8 +1133,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                   ...item,
                   status: "disputed",
                   paymentStatus: "disputed",
-                  disputeReason: "ხელოსანმა სამუშაო ვერ შეასრულა",
-                  disputeDetails: fullReason,
+                  disputeStatus: "open",
                 }
               : item
           )
@@ -1143,15 +1142,13 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           ...item,
           status: "disputed",
           paymentStatus: "disputed",
-          disputeReason: "ხელოსანმა სამუშაო ვერ შეასრულა",
-          disputeDetails: fullReason,
+          disputeStatus: "open",
         }));
         dataService.updateClientBooking(booking.id, (item) => ({
           ...item,
           status: "disputed",
           paymentStatus: "disputed",
-          disputeReason: "ხელოსანმა სამუშაო ვერ შეასრულა",
-          disputeDetails: fullReason,
+          disputeStatus: "open",
         }));
         dataService.prependBookingDispute({
           id: `${booking.id}-worker-cannot-complete-${Date.now()}`,
@@ -1165,7 +1162,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
           id: `${booking.id}-worker-cannot-complete-${Date.now()}`,
           bookingId: booking.id,
           type: "confirmed",
-          text: `ხელოსანმა დააფიქსირა, რომ სამუშაო ვერ სრულდება. Admin გადაამოწმებს. მიზეზი: ${fullReason}`,
+          text: "ხელოსანმა საკითხი Admin-ს გადასცა. გადაწყვეტილებას შეტყობინებით მიიღებთ.",
         });
         setDetailsBooking(null);
       }
@@ -3628,7 +3625,7 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                 </div>
               );
             })()}
-            {detailsBooking.disputeReason &&
+            {detailsBooking.disputeStatus &&
               (() => {
                 const disputeMeta = getWorkerDisputeMeta(detailsBooking);
                 return (
@@ -3649,14 +3646,6 @@ export const CraftsmanHomeScreen: React.FC<CraftsmanHomeScreenProps> = ({
                       {disputeMeta.label}
                     </div>
                     <div style={{ marginTop: 4 }}>{disputeMeta.detail}</div>
-                    <div style={{ marginTop: 7, fontWeight: 900 }}>
-                      მიზეზი: {detailsBooking.disputeReason}
-                    </div>
-                    {detailsBooking.disputeDetails && (
-                      <div style={{ marginTop: 5, fontWeight: 750 }}>
-                        {detailsBooking.disputeDetails}
-                      </div>
-                    )}
                   </div>
                 );
               })()}

@@ -1544,6 +1544,8 @@ begin
     select jsonb_build_object(
       'id', d.id,
       'booking_id', d.booking_id,
+      'opened_by', d.opened_by,
+      'opened_by_role', opened_user.role,
       'reason', d.reason,
       'details', d.details,
       'evidence', coalesce(d.evidence, '[]'::jsonb),
@@ -1587,6 +1589,7 @@ begin
     ) as item
     from public.disputes d
     join public.bookings b on b.id = d.booking_id
+    join public.users opened_user on opened_user.id = d.opened_by
     join public.users cu on cu.id = b.client_id
     join public.workers w on w.id = b.worker_id
     join public.users wu on wu.id = w.user_id

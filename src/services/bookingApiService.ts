@@ -61,11 +61,7 @@ interface ApiClientBooking {
   payment_currency?: string | null;
   payment_transaction_id?: string | null;
   active_dispute?: {
-    reason?: string | null;
-    details?: string | null;
-    evidence?: Booking["disputeEvidence"] | null;
     status?: Booking["disputeStatus"] | null;
-    resolution?: Booking["disputeResolution"] | null;
   } | null;
   worker: {
     id: string;
@@ -100,11 +96,7 @@ interface ApiWorkerBooking {
   payment_currency?: string | null;
   payment_transaction_id?: string | null;
   active_dispute?: {
-    reason?: string | null;
-    details?: string | null;
-    evidence?: CraftsmanBookingRequest["disputeEvidence"] | null;
     status?: CraftsmanBookingRequest["disputeStatus"] | null;
-    resolution?: CraftsmanBookingRequest["disputeResolution"] | null;
   } | null;
   profession_name?: string | null;
   client: {
@@ -113,6 +105,12 @@ interface ApiWorkerBooking {
   };
   details?: ApiBookingDetails | null;
 }
+
+export const partyDisputeState = (
+  dispute?: { status?: Booking["disputeStatus"] | null } | null
+) => ({
+  disputeStatus: dispute?.status || undefined,
+});
 
 const optionalNumber = (value: string) => {
   const parsed = Number(value);
@@ -269,11 +267,7 @@ const mapClientBooking = (booking: ApiClientBooking): Booking => {
     paymentProvider: booking.payment_provider || undefined,
     paymentCurrency: booking.payment_currency || "GEL",
     paymentTransactionId: booking.payment_transaction_id || undefined,
-    disputeReason: booking.active_dispute?.reason || undefined,
-    disputeDetails: booking.active_dispute?.details || undefined,
-    disputeStatus: booking.active_dispute?.status || undefined,
-    disputeResolution: booking.active_dispute?.resolution || undefined,
-    disputeEvidence: booking.active_dispute?.evidence || undefined,
+    ...partyDisputeState(booking.active_dispute),
     cancellationReason: booking.cancellation_reason || undefined,
     cancellationPenaltyAmount: Number(booking.cancellation_penalty_amount || 0) || undefined,
     cancellationPolicy: isLateCancellationReason(booking.cancellation_reason)
@@ -301,11 +295,7 @@ const mapWorkerBooking = (
   cancellationPenaltyAmount: Number(booking.cancellation_penalty_amount || 0) || undefined,
   bookingFee: Number(booking.booking_fee_amount || 0),
   paymentStatus: mapPaymentStatus(booking.payment_status as ApiClientBooking["payment_status"]),
-  disputeReason: booking.active_dispute?.reason || undefined,
-  disputeDetails: booking.active_dispute?.details || undefined,
-  disputeStatus: booking.active_dispute?.status || undefined,
-  disputeResolution: booking.active_dispute?.resolution || undefined,
-  disputeEvidence: booking.active_dispute?.evidence || undefined,
+  ...partyDisputeState(booking.active_dispute),
   paymentProvider: booking.payment_provider || undefined,
   paymentCurrency: booking.payment_currency || "GEL",
   paymentTransactionId: booking.payment_transaction_id || undefined,
@@ -369,32 +359,6 @@ const withSignedBookingPhoto = async (
       sitePhoto: await signBookingPhoto(sitePhoto),
     },
   };
-};
-
-const withSignedDisputeEvidence = async <
-  T extends {
-    disputeEvidence?: Array<{ name: string; url: string; type?: "image" | "file" }>;
-  },
->(
-  booking: T
-): Promise<T> => {
-  if (!booking.disputeEvidence?.length) return booking;
-  const disputeEvidence = await Promise.all(
-    booking.disputeEvidence.map(async (item) => {
-      if (!item.url || item.url.startsWith("data:") || item.url.startsWith("http")) {
-        return item;
-      }
-      try {
-        return {
-          ...item,
-          url: await createSignedStorageUrl("booking-photos", item.url),
-        };
-      } catch {
-        return item;
-      }
-    })
-  );
-  return { ...booking, disputeEvidence };
 };
 
 export const createBookingRequest = async ({
@@ -469,7 +433,7 @@ export const loadClientBookings = async (
     {},
     { signal }
   );
-  return Promise.all(rows.map((row) => withSignedDisputeEvidence(mapClientBooking(row))));
+  return rows.map(mapClientBooking);
 };
 
 export const loadWorkerBookings = async (
@@ -481,11 +445,7 @@ export const loadWorkerBookings = async (
     {},
     { signal }
   );
-  return Promise.all(
-    rows.map((row) =>
-      withSignedBookingPhoto(mapWorkerBooking(row)).then(withSignedDisputeEvidence)
-    )
-  );
+  return Promise.all(rows.map((row) => withSignedBookingPhoto(mapWorkerBooking(row))));
 };
 
 type ApiBookingStatus = Exclude<BookingStatus, "completed"> | "cancelled" | "disputed";

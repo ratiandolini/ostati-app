@@ -1,28 +1,15 @@
--- Prevent more than one unresolved dispute for the same booking.
--- Older duplicate rows are left intact for audit history; the newest one stays active.
+-- Apply the updated booking_list.sql first so party booking RPCs return only
+-- the neutral active_dispute.status value. This hotfix removes the direct
+-- table-read path and keeps complete dispute data in Admin-only RPCs.
 
-with ranked_open_disputes as (
-  select
-    id,
-    row_number() over (partition by booking_id order by created_at desc, id desc) as row_number
-  from public.disputes
-  where status <> 'resolved'
-)
-update public.disputes disputes
-set
-  status = 'resolved',
-  resolved_at = coalesce(disputes.resolved_at, now()),
-  admin_note = coalesce(
-    nullif(disputes.admin_note, ''),
-    'დუბლირებული ღია დავა ავტომატურად დაიხურა. აქტიური დარჩა ყველაზე ახალი დავა.'
-  )
-from ranked_open_disputes ranked
-where disputes.id = ranked.id
-  and ranked.row_number > 1;
+revoke select on table public.disputes from public, anon, authenticated;
 
-create unique index if not exists disputes_one_open_case_per_booking
-on public.disputes (booking_id)
-where status <> 'resolved';
+drop policy if exists "booking parties can read disputes" on public.disputes;
+drop policy if exists "admins can read disputes" on public.disputes;
+
+create policy "admins can read disputes"
+on public.disputes for select
+using (public.current_app_user_is_admin());
 
 create or replace function public.open_booking_dispute(
   p_booking_id uuid,
@@ -53,13 +40,13 @@ begin
     raise exception 'You do not have access to this booking';
   end if;
 
-  select role into current_actor_role
-  from public.users
-  where id = current_user_id;
-
   if nullif(trim(p_reason), '') is null then
     raise exception 'Dispute reason is required';
   end if;
+
+  select role into current_actor_role
+  from public.users
+  where id = current_user_id;
 
   select b.client_id, w.user_id
   into target_client_id, target_worker_user_id
@@ -140,5 +127,88 @@ begin
 end;
 $$;
 
+revoke all on function public.open_booking_dispute(uuid, text, text, jsonb)
+from public, anon;
 grant execute on function public.open_booking_dispute(uuid, text, text, jsonb)
 to authenticated;
+
+create or replace function public.list_admin_disputes()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result jsonb;
+begin
+  if not (
+    public.current_admin_has_permission('disputes')
+    or public.current_admin_has_permission('finance')
+  ) then
+    raise exception 'Only admins can list all disputes';
+  end if;
+
+  select coalesce(jsonb_agg(item order by (item ->> 'created_at') desc), '[]'::jsonb)
+  into result
+  from (
+    select jsonb_build_object(
+      'id', d.id,
+      'booking_id', d.booking_id,
+      'opened_by', d.opened_by,
+      'opened_by_role', opened_user.role,
+      'reason', d.reason,
+      'details', d.details,
+      'evidence', coalesce(d.evidence, '[]'::jsonb),
+      'status', d.status,
+      'resolution', (
+        select nullif(a.metadata_json ->> 'resolution', '')
+        from public.audit_logs a
+        where a.entity_type = 'dispute'
+          and a.entity_id = d.id
+          and a.action in ('dispute_refunded', 'dispute_released', 'dispute_warning')
+        order by a.created_at desc
+        limit 1
+      ),
+      'admin_note', d.admin_note,
+      'resolved_at', d.resolved_at,
+      'created_at', d.created_at,
+      'booking', jsonb_build_object(
+        'id', b.id,
+        'scheduled_at', b.scheduled_at,
+        'status', b.status,
+        'city', b.city,
+        'address_text', b.address_text,
+        'payment_status', b.payment_status,
+        'booking_fee_amount', b.booking_fee_amount,
+        'profession_name', coalesce(p.name, 'ხელოსანი')
+      ),
+      'client', jsonb_build_object(
+        'id', cu.id,
+        'name', nullif(trim(coalesce(cu.first_name, '') || ' ' || coalesce(cu.last_name, '')), ''),
+        'phone', cu.phone
+      ),
+      'worker', jsonb_build_object(
+        'id', w.id,
+        'name', coalesce(
+          nullif(w.display_name, ''),
+          nullif(trim(coalesce(wu.first_name, '') || ' ' || coalesce(wu.last_name, '')), ''),
+          'ხელოსანი'
+        ),
+        'phone', wu.phone
+      )
+    ) as item
+    from public.disputes d
+    join public.bookings b on b.id = d.booking_id
+    join public.users opened_user on opened_user.id = d.opened_by
+    join public.users cu on cu.id = b.client_id
+    join public.workers w on w.id = b.worker_id
+    join public.users wu on wu.id = w.user_id
+    left join public.professions p on p.id = b.profession_id
+  ) rows;
+
+  return result;
+end;
+$$;
+
+revoke all on function public.list_admin_disputes() from public, anon;
+grant execute on function public.list_admin_disputes() to authenticated;

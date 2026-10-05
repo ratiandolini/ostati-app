@@ -1,5 +1,5 @@
 import React from "react";
-import { adminCard } from "./adminUi";
+import { adminCard, adminMetricGrid } from "./adminUi";
 import type { AdminTab } from "./adminPermissions";
 import {
   apiMigrationStatusUi,
@@ -746,7 +746,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                   {apiMigrationSummary.connected}/{apiMigrationSummary.total}
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7, marginTop: 12 }}>
+              <div style={{ ...adminMetricGrid(7), marginTop: 12 }}>
                 {[
                   {
                     label: "მიერთ.",

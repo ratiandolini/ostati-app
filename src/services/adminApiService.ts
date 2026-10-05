@@ -180,6 +180,8 @@ interface ApiAdminBookingDetails {
 interface ApiAdminDisputeRow {
   id: string;
   booking_id: string;
+  opened_by?: string | null;
+  opened_by_role?: "client" | "craftsman" | "admin" | null;
   reason?: string | null;
   details?: string | null;
   evidence?: BookingDispute["evidence"] | null;
@@ -443,6 +445,8 @@ const mapAdminDispute = (dispute: ApiAdminDisputeRow): BookingDispute => ({
   evidence: dispute.evidence || undefined,
   createdAt: dispute.created_at,
   status: dispute.status,
+  openedBy: dispute.opened_by || undefined,
+  openedByRole: dispute.opened_by_role || undefined,
   resolution: dispute.resolution || undefined,
   adminNote: dispute.admin_note || undefined,
   resolvedAt: dispute.resolved_at || undefined,
