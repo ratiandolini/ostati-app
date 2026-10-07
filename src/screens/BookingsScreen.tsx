@@ -1938,7 +1938,7 @@ export const BookingsScreen: React.FC<BookingsScreenProps> = ({
           <div
             style={{
               width: "100%",
-              maxHeight: "92vh",
+              maxHeight: "92dvh",
               overflowY: "auto",
               padding: 22,
               borderRadius: "22px 22px 0 0",

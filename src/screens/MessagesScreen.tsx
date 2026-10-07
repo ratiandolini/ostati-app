@@ -1495,7 +1495,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
           <div
             style={{
               width: "100%",
-              maxHeight: "92vh",
+              maxHeight: "92dvh",
               overflowY: "auto",
               padding: 22,
               paddingBottom: "calc(22px + var(--safe-bottom))",

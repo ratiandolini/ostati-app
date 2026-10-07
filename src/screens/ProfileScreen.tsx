@@ -453,8 +453,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </section>}
 
         {activePortfolioItem && <div role="dialog" aria-modal="true" aria-label="ნამუშევრის ფოტო" onClick={() => setActivePortfolioItem(null)} style={{ position: "fixed", inset: 0, zIndex: 50, display: "grid", placeItems: "center", padding: 18, background: "rgba(15, 23, 42, .78)" }}>
-          <div onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 680px)", maxHeight: "calc(100vh - 36px)", position: "relative" }}>
-            <img src={activePortfolioItem.image_url} alt={activePortfolioItem.profession_name || "შესრულებული სამუშაო"} style={{ width: "100%", maxHeight: "calc(100vh - 90px)", objectFit: "contain", borderRadius: 12, background: "#111827", display: "block" }} />
+          <div onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 680px)", maxHeight: "calc(100dvh - 36px)", position: "relative" }}>
+            <img src={activePortfolioItem.image_url} alt={activePortfolioItem.profession_name || "შესრულებული სამუშაო"} style={{ width: "100%", maxHeight: "calc(100dvh - 90px)", objectFit: "contain", borderRadius: 12, background: "#111827", display: "block" }} />
             <button type="button" onClick={() => setActivePortfolioItem(null)} style={{ position: "absolute", top: 8, right: 8, width: 36, height: 36, borderRadius: 10, background: "rgba(15, 23, 42, .88)", color: "white", fontSize: 22, fontWeight: 900 }} aria-label="დახურვა">×</button>
           </div>
         </div>}
