@@ -11,11 +11,14 @@ import {
 import {
   loadBookingMessages,
   loadMessageThreads,
+  loadMyWorkerSupportMessages,
+  markMyWorkerSupportRead,
   markBookingMessagesRead,
+  sendMyWorkerSupportMessage,
   sendBookingAttachment,
   sendBookingMessage,
 } from "../services/messageApiService";
-import type { ApiMessageThread } from "../services/messageApiService";
+import type { ApiMessageThread, SupportMessage } from "../services/messageApiService";
 import {
   uploadBookingSitePhoto,
   loadClientBookings,
@@ -27,10 +30,12 @@ import { disputeSchema, getValidationMessage } from "../services/validation";
 import { formatGeorgianDate, formatGeorgianTime, normalizeGeorgianDateLabel } from "../utils/georgianDate";
 import { formatServiceLabels } from "../data/workers";
 
-type Message = BookingMessage;
+type Message = BookingMessage | SupportMessage;
 type MessageRole = "client" | "craftsman";
+type ThreadKind = "booking" | "support";
 
 interface Thread {
+  kind: ThreadKind;
   id: string;
   title: string;
   subtitle: string;
@@ -72,6 +77,7 @@ const sortThreads = (items: Thread[]) =>
   );
 const statusLabels: Record<string, string> = {
   pending: "მოლოდინში",
+  support: "მხარდაჭერა",
   confirmed: "დადასტურებული",
   en_route: "გზაშია",
   started: "დაწყებულია",
@@ -85,6 +91,7 @@ const statusLabels: Record<string, string> = {
 // Keep the status values intact, but do not put workflow sentences into a small pill.
 const craftsmanStatusLabels: Record<string, string> = {
   pending: "მოლოდინში",
+  support: "მხარდაჭერა",
   confirmed: "დადასტურებული",
   en_route: "გზაშია",
   started: "მიმდინარეობს",
@@ -113,9 +120,14 @@ const formatMessageDate = (value: string) => {
 const isChatMessage = (message: Message) =>
   message.sender !== "system" && !message.text.startsWith("სისტემა:");
 
+const messageThreadId = (message: Message) =>
+  "bookingId" in message ? message.bookingId : message.conversationId;
+const isBookingMessage = (message: Message): message is BookingMessage =>
+  "bookingId" in message;
+
 const chatMessagesForThread = (messages: Message[], threadId: string) =>
   messages.filter(
-    (message) => message.bookingId === threadId && isChatMessage(message)
+    (message) => messageThreadId(message) === threadId && isChatMessage(message)
   );
 
 const maxChatAttachmentBytes = 10 * 1024 * 1024;
@@ -152,7 +164,7 @@ const countUnreadMessages = (
       sum +
       messages.filter(
         (message) =>
-          message.bookingId === thread.id &&
+          messageThreadId(message) === thread.id &&
           isChatMessage(message) &&
           message.sender !== role &&
           (!lastReadAt || message.createdAt > lastReadAt)
@@ -168,7 +180,9 @@ const summarizeMessages = (items: Message[]) => {
   const last = sorted[sorted.length - 1];
   const text =
     last?.text ||
-    (last?.attachmentUrl ? "ფოტო" : "ჯერ მიმოწერა არ არის");
+    (last && isBookingMessage(last) && last.attachmentUrl
+      ? "ფოტო"
+      : "ჯერ მიმოწერა არ არის");
   return {
     lastText: text.replace(/\s+/g, " ").trim().slice(0, 80),
     lastAt: last?.createdAt || "",
@@ -177,6 +191,7 @@ const summarizeMessages = (items: Message[]) => {
 
 const fallbackThreadsFromClientBookings = (clientBookings: Booking[]): Thread[] =>
   clientBookings.map((booking) => ({
+    kind: "booking",
     id: booking.id,
     title: booking.worker.name,
     subtitle: `${formatServiceLabels(booking.worker.role)} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
@@ -193,6 +208,7 @@ const fallbackThreadsFromCraftsmanBookings = (
   workerBookings
     .filter((booking) => isRealThreadName(booking.clientName))
     .map((booking) => ({
+      kind: "booking",
       id: booking.id,
       title: booking.clientName,
       subtitle: `${formatServiceLabels(booking.service)} · ${booking.date} · ${booking.time}`,
@@ -219,7 +235,7 @@ const attachBookingParticipants = (
   const unique = new Map<string, Thread>();
 
   items.forEach((thread) => {
-    const booking = byBookingId.get(thread.id);
+    const booking = thread.kind === "booking" ? byBookingId.get(thread.id) : undefined;
     const normalized = booking
       ? {
           ...thread,
@@ -229,9 +245,10 @@ const attachBookingParticipants = (
           archived: booking.archived,
         }
       : thread;
-    const previous = unique.get(normalized.id);
+    const uniqueKey = `${normalized.kind}:${normalized.id}`;
+    const previous = unique.get(uniqueKey);
     if (!previous || normalized.lastAt.localeCompare(previous.lastAt) >= 0) {
-      unique.set(normalized.id, normalized);
+      unique.set(uniqueKey, normalized);
     }
   });
 
@@ -274,7 +291,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
     const readReceipts = isDemoDataMode ? dataService.getMessageReads(role) : {};
     const enhance = (thread: Omit<Thread, "lastText" | "lastAt" | "unreadCount" | "archived">): Thread => {
       const threadMessages = messages
-        .filter((message) => message.bookingId === thread.id && isChatMessage(message))
+        .filter((message) => messageThreadId(message) === thread.id && isChatMessage(message))
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       const last = threadMessages[threadMessages.length - 1];
       const lastReadAt = readReceipts[thread.id] || "";
@@ -282,7 +299,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
         ...thread,
         lastText:
           last?.text ||
-          (last?.attachmentUrl ? "ფოტო" : "ჯერ მიმოწერა არ არის"),
+          (last && isBookingMessage(last) && last.attachmentUrl
+            ? "ფოტო"
+            : "ჯერ მიმოწერა არ არის"),
         lastAt: last?.createdAt || "",
         unreadCount: threadMessages.filter(
           (message) =>
@@ -297,6 +316,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
       return sortThreads(
         bookings.map((booking) =>
           enhance({
+            kind: "booking",
             id: booking.id,
             title: booking.worker.name,
             subtitle: `${formatServiceLabels(booking.worker.role)} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
@@ -313,6 +333,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
             .filter((request) => isRealThreadName(request.clientName))
             .map((request) =>
               enhance({
+                kind: "booking",
                 id: request.id,
                 title: request.clientName,
                 subtitle: `${formatServiceLabels(request.service)} · ${request.date} · ${request.time}`,
@@ -323,6 +344,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
       : sortThreads(
           bookings.map((booking) =>
             enhance({
+              kind: "booking",
               id: booking.id,
               title: booking.worker.name,
               subtitle: `${formatServiceLabels(booking.worker.role)} · ${normalizeGeorgianDateLabel(booking.dateLabel)} · ${booking.time}`,
@@ -337,7 +359,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   const activeThread =
     threads.find((thread) => thread.id === activeThreadId) || threads[0];
   const isThreadArchived = Boolean(activeThread?.archived);
-  const messagingBlocked = accountStatus !== "active";
+  const messagingBlocked =
+    accountStatus !== "active" && activeThread?.kind === "booking";
   const visibleMessages = activeThread
     ? chatMessagesForThread(messages, activeThread.id)
     : [];
@@ -358,7 +381,10 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
     setActiveThreadId(thread.id);
     if (isDemoDataMode) return;
     clearApiThreadUnread(thread.id);
-    markBookingMessagesRead(thread.id).catch((error) => {
+    const markRead = thread.kind === "support"
+      ? markMyWorkerSupportRead(thread.id)
+      : markBookingMessagesRead(thread.id);
+    markRead.catch((error) => {
       reportApiError(error, { silentTransient: true });
     });
   };
@@ -371,8 +397,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
     try {
       let nextThreads: Thread[] = [];
       try {
-        nextThreads = (await loadMessageThreads(signal)).map(
+        nextThreads = (await loadMessageThreads(signal, role === "craftsman")).map(
           (thread: ApiMessageThread): Thread => ({
+            kind: thread.kind,
             id: thread.id,
             title: thread.title,
             subtitle: formatServiceLabels(thread.subtitle),
@@ -469,7 +496,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
     let cancelled = false;
     setThreadLoadError("");
     setMessageError("");
-    loadBookingMessages(activeThreadId)
+    (activeThread?.kind === "support"
+      ? loadMyWorkerSupportMessages(activeThreadId)
+      : loadBookingMessages(activeThreadId))
       .then((nextMessages) => {
         if (!cancelled) {
           setMessages(nextMessages);
@@ -499,7 +528,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [activeThreadId]);
+  }, [activeThread?.kind, activeThreadId]);
 
   const retryThreadLoad = () => {
     if (isDemoDataMode) return;
@@ -507,7 +536,11 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
     void refreshApiThreads().then(async () => {
       if (!activeThreadId) return;
       try {
-        setMessages(await loadBookingMessages(activeThreadId));
+        setMessages(
+          activeThread?.kind === "support"
+            ? await loadMyWorkerSupportMessages(activeThreadId)
+            : await loadBookingMessages(activeThreadId)
+        );
       } catch {
         setThreadLoadError("მესიჯების ჩატვირთვა ვერ მოხერხდა. შეამოწმე ინტერნეტი და სცადე თავიდან.");
       }
@@ -517,7 +550,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   useEffect(() => {
     if (!activeThreadId) return;
     const last = messages
-      .filter((message) => message.bookingId === activeThreadId && isChatMessage(message))
+      .filter((message) => messageThreadId(message) === activeThreadId && isChatMessage(message))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .slice(-1)[0];
     if (!last) return;
@@ -530,7 +563,10 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
       onUnreadChange?.(countUnreadMessages(messages, threads, role));
       return;
     }
-    markBookingMessagesRead(activeThreadId).catch((error) => {
+    const markRead = activeThread?.kind === "support"
+      ? markMyWorkerSupportRead(activeThreadId)
+      : markBookingMessagesRead(activeThreadId);
+    markRead.catch((error) => {
       reportApiError(error, { silentTransient: true });
     });
     setApiThreads((prev) => {
@@ -553,21 +589,39 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
   const sendMessage = async () => {
     const text = draft.trim();
     if (!text || !activeThread || isThreadArchived || messagingBlocked) return;
+    if (activeThread.kind === "support" && text.length > 4000) {
+      setMessageError("მხარდაჭერის შეტყობინება მაქსიმუმ 4000 სიმბოლო უნდა იყოს.");
+      return;
+    }
     if (!isDemoDataMode) {
       const optimisticId = `${activeThread.id}-pending-${Date.now()}`;
-      const optimisticMessage: Message = {
+      const optimisticMessage: Message = activeThread.kind === "support"
+        ? {
+            id: optimisticId,
+            conversationId: activeThread.id,
+            sender: "craftsman",
+            text,
+            createdAt: new Date().toISOString(),
+          }
+        : {
         id: optimisticId,
         bookingId: activeThread.id,
         sender: role,
         text,
         createdAt: new Date().toISOString(),
-      };
+          };
       setDraft("");
       setMessages((current) => [...current, optimisticMessage]);
       setMessageError("");
       try {
-        await sendBookingMessage(activeThread.id, text);
-        const nextMessages = await loadBookingMessages(activeThread.id);
+        if (activeThread.kind === "support") {
+          await sendMyWorkerSupportMessage(text);
+        } else {
+          await sendBookingMessage(activeThread.id, text);
+        }
+        const nextMessages = activeThread.kind === "support"
+          ? await loadMyWorkerSupportMessages(activeThread.id)
+          : await loadBookingMessages(activeThread.id);
         setMessages(nextMessages);
         await refreshApiThreads();
         return;
@@ -592,13 +646,13 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
     ];
     setMessages(next);
     if (isDemoDataMode) {
-      dataService.saveBookingMessages(next);
+      dataService.saveBookingMessages(next.filter(isBookingMessage));
     }
     setDraft("");
   };
 
   const sendAttachment = async (file: File) => {
-    if (!activeThread || isThreadArchived || messagingBlocked || attachmentUploading) return;
+    if (!activeThread || activeThread.kind === "support" || isThreadArchived || messagingBlocked || attachmentUploading) return;
     if (!file.type.startsWith("image/")) {
       setMessageError("ჩატში ამ ეტაპზე მხოლოდ JPG, PNG ან WEBP ფოტოს გაგზავნაა შესაძლებელი.");
       return;
@@ -641,7 +695,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
         },
       ];
       setMessages(next);
-      dataService.saveBookingMessages(next);
+      dataService.saveBookingMessages(next.filter(isBookingMessage));
       setMessageError("");
     };
     reader.onerror = () => setMessageError("ფოტოს წაკითხვა ვერ მოხერხდა.");
@@ -691,7 +745,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
       },
     ];
     setMessages(next);
-    dataService.saveBookingMessages(next);
+    dataService.saveBookingMessages(next.filter(isBookingMessage));
   };
 
   const submitProblemFromChat = async () => {
@@ -779,7 +833,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
           მესიჯები
         </h1>
         <p className="screen-subtitle">
-          კომუნიკაცია ჯავშანზე, ტელეფონის ნომრის გარეშე
+          {isCraftsman
+            ? "კომუნიკაცია ჯავშნებზე და მხარდაჭერასთან, ტელეფონის ნომრის გარეშე"
+            : "კომუნიკაცია ჯავშანზე, ტელეფონის ნომრის გარეშე"}
         </p>
       </div>
 
@@ -1078,7 +1134,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {activeThread.subtitle.split(" · ")[0]} · {getCraftsmanStatusLabel(activeThread.status)}
+                    {activeThread.kind === "support"
+                      ? "პირადი კომუნიკაცია ადმინისტრაციასთან"
+                      : `${activeThread.subtitle.split(" · ")[0]} · ${getCraftsmanStatusLabel(activeThread.status)}`}
                   </div>
                 </div>
               </div>
@@ -1093,7 +1151,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                   lineHeight: 1.6,
                 }}
               >
-                დაწერეთ პირველი შეტყობინება ამ ჯავშანზე
+                {activeThread?.kind === "support"
+                  ? "დაწერეთ პირველი შეტყობინება მხარდაჭერასთან"
+                  : "დაწერეთ პირველი შეტყობინება ამ ჯავშანზე"}
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: isCraftsman ? 12 : 10 }}>
@@ -1156,7 +1216,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                         overflowWrap: "anywhere",
                       }}
                     >
-                      {message.attachmentUrl && message.attachmentType === "image" && (
+                      {isBookingMessage(message) && message.attachmentUrl && message.attachmentType === "image" && (
                         <button
                           type="button"
                           onClick={() =>
@@ -1275,6 +1335,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
                 ანგარიში შეზღუდულია. ახალი მესიჯის გაგზავნა დროებით შეუძლებელია.
               </div>
             )}
+            {activeThread?.kind === "booking" && (
+              <>
             <input
               ref={fileInputRef}
               type="file"
@@ -1304,6 +1366,8 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({
             >
               +
             </button>
+              </>
+            )}
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}

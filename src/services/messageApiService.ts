@@ -20,6 +20,7 @@ interface ApiMessageRow {
 }
 
 export interface ApiMessageThread {
+  kind: "booking" | "support";
   id: string;
   title: string;
   subtitle: string;
@@ -39,6 +40,33 @@ interface ApiMessageThreadRow {
   last_at: string | null;
   unread_count: number | string | null;
   archived: boolean | null;
+}
+
+interface ApiSupportThreadRow {
+  conversation_id: string;
+  title: string | null;
+  subtitle: string | null;
+  status: string | null;
+  last_text: string | null;
+  last_at: string | null;
+  unread_count: number | string | null;
+  archived: boolean | null;
+}
+
+export interface SupportMessage {
+  id: string;
+  conversationId: string;
+  sender: "craftsman" | "admin";
+  text: string;
+  createdAt: string;
+}
+
+interface ApiSupportMessageRow {
+  id: string;
+  conversation_id: string;
+  sender: "craftsman" | "admin";
+  text: string;
+  created_at: string;
 }
 
 const signChatAttachment = async (value?: string | null) => {
@@ -68,7 +96,8 @@ const mapMessage = async (row: ApiMessageRow): Promise<BookingMessage> => ({
 });
 
 export const loadMessageThreads = async (
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  includeSupport = false
 ): Promise<ApiMessageThread[]> => {
   const client = createSupabaseRestClient();
   const rows = await client.rpc<ApiMessageThreadRow[]>(
@@ -77,7 +106,8 @@ export const loadMessageThreads = async (
     { signal }
   );
 
-  return rows.map((row) => ({
+  const bookingThreads = rows.map((row) => ({
+    kind: "booking" as const,
     id: row.booking_id,
     title: row.title || "ჯავშანი",
     subtitle: row.subtitle || "",
@@ -87,6 +117,71 @@ export const loadMessageThreads = async (
     unreadCount: Number(row.unread_count || 0),
     archived: Boolean(row.archived),
   }));
+
+  if (!includeSupport) return bookingThreads;
+  return [...bookingThreads, ...(await loadMyWorkerSupportThreads(signal))];
+};
+
+export const loadMyWorkerSupportThreads = async (
+  signal?: AbortSignal
+): Promise<ApiMessageThread[]> => {
+  const client = createSupabaseRestClient();
+  const rows = await client.rpc<ApiSupportThreadRow[]>(
+    "list_my_worker_support_threads",
+    {},
+    { signal }
+  );
+
+  return rows.map((row) => ({
+    kind: "support" as const,
+    id: row.conversation_id,
+    title: row.title || "Shenage მხარდაჭერა",
+    subtitle: row.subtitle || "კავშირი ადმინისტრაციასთან",
+    status: row.status || "support",
+    lastText: row.last_text || "ჯერ მიმოწერა არ არის",
+    lastAt: row.last_at || "",
+    unreadCount: Number(row.unread_count || 0),
+    archived: Boolean(row.archived),
+  }));
+};
+
+export const loadMyWorkerSupportMessages = async (
+  conversationId: string
+): Promise<SupportMessage[]> => {
+  const client = createSupabaseRestClient();
+  const rows = await client.rpc<ApiSupportMessageRow[]>(
+    "list_my_worker_support_messages",
+    { p_conversation_id: conversationId }
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    conversationId: row.conversation_id,
+    sender: row.sender,
+    text: row.text,
+    createdAt: row.created_at,
+  }));
+};
+
+export const sendMyWorkerSupportMessage = async (text: string) => {
+  const client = createSupabaseRestClient();
+  return client.rpc<{ conversation_id: string; message_id: string }>(
+    "send_my_worker_support_message",
+    { p_text: text }
+  );
+};
+
+export const markMyWorkerSupportRead = async (conversationId: string) => {
+  const client = createSupabaseRestClient();
+  try {
+    return await client.rpc<{ conversation_id: string; updated: boolean }>(
+      "mark_my_worker_support_read",
+      { p_conversation_id: conversationId }
+    );
+  } catch (error) {
+    reportApiError(error, { silentTransient: true });
+    return { conversation_id: conversationId, updated: false };
+  }
 };
 
 export const loadBookingMessages = async (

@@ -43,6 +43,7 @@ interface AdminUsersTabProps {
     phone: string,
     status: NonNullable<ClientProfile["accountStatus"]>
   ) => void;
+  openCraftsmanSupportChat: (craftsman: AdminUserSummary) => void;
   sendAdminNoticeToUser: (role: "client" | "craftsman", phone: string) => void;
   warnUserFromAdmin: (role: "client" | "craftsman", phone: string) => void;
 }
@@ -62,6 +63,7 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
   getClientUserStats,
   setCraftsmanAccountStatus,
   setClientAccountStatus,
+  openCraftsmanSupportChat,
   sendAdminNoticeToUser,
   warnUserFromAdmin,
 }) => (
@@ -180,7 +182,7 @@ export const AdminUsersTab: React.FC<AdminUsersTabProps> = ({
                             : "აქტივობა არ არის"}
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 12 }}>
-                          <button type="button" onClick={() => sendAdminNoticeToUser("craftsman", craftsman.phone)} disabled={adminApiLoading} style={actionButton("#0f172a")}>
+                          <button type="button" onClick={() => openCraftsmanSupportChat(craftsman)} disabled={adminApiLoading || !can("users") || !craftsman.workerId} style={actionButton("#0f172a")}>
                             მიწერა
                           </button>
                           <button type="button" onClick={() => warnUserFromAdmin("craftsman", craftsman.phone)} disabled={adminApiLoading} style={actionButton("#f97316")}>

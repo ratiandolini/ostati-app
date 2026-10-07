@@ -61,6 +61,7 @@ import { AdminFinanceTab } from "../components/admin/AdminFinanceTab";
 import { AdminOverviewTab } from "../components/admin/AdminOverviewTab";
 import { AdminSettingsTab } from "../components/admin/AdminSettingsTab";
 import { AdminUsersTab } from "../components/admin/AdminUsersTab";
+import { AdminCraftsmanSupportPanel } from "../components/admin/AdminCraftsmanSupportPanel";
 import { AdminVerificationTab } from "../components/admin/AdminVerificationTab";
 import { getProductionGuardItems } from "../components/admin/adminProductionGuard";
 import { getAdminLaunchSmokeState } from "../components/admin/adminLaunchSmoke";
@@ -229,6 +230,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
     useState<BookingDispute[] | null>(null);
   const [adminUsersState, setAdminUsersState] =
     useState<AdminUserSummary[] | null>(null);
+  const [supportCraftsman, setSupportCraftsman] =
+    useState<AdminUserSummary | null>(null);
   const [currentAdminContext, setCurrentAdminContext] =
     useState<CurrentAdminContext | null>(null);
   const [adminApiLoading, setAdminApiLoading] = useState(false);
@@ -2323,7 +2326,21 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ user, onLogout }) => {
             setCraftsmanAccountStatus={setCraftsmanAccountStatus}
             setClientAccountStatus={setClientAccountStatus}
             sendAdminNoticeToUser={sendAdminNoticeToUser}
+            openCraftsmanSupportChat={(craftsman) => {
+              if (isDemoDataMode) {
+                void sendAdminNoticeToUser("craftsman", craftsman.phone);
+                return;
+              }
+              setSupportCraftsman(craftsman);
+            }}
             warnUserFromAdmin={warnUserFromAdmin}
+          />
+        )}
+
+        {supportCraftsman && (
+          <AdminCraftsmanSupportPanel
+            craftsman={supportCraftsman}
+            onClose={() => setSupportCraftsman(null)}
           />
         )}
 

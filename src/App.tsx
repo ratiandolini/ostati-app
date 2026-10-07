@@ -835,7 +835,7 @@ const App: React.FC = () => {
 
     let cancelled = false;
     const controller = new AbortController();
-    loadMessageThreads(controller.signal)
+    loadMessageThreads(controller.signal, user.role === "craftsman")
       .then((threads) => {
         if (!cancelled) {
           setApiUnreadMessages(

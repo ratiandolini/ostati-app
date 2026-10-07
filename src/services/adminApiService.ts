@@ -105,6 +105,23 @@ export interface AdminUserSummary {
   };
 }
 
+export interface AdminWorkerSupportMessage {
+  id: string;
+  conversationId: string;
+  sender: "admin" | "craftsman";
+  text: string;
+  createdAt: string;
+}
+
+export interface AdminWorkerSupportConversation {
+  conversationId: string | null;
+  workerId: string;
+  title: string;
+  subtitle: string;
+  lastMessageAt?: string | null;
+  unreadCount: number;
+}
+
 interface AdminLaunchStateRow
   extends Omit<AdminLaunchState, "auditLogs"> {
   auditLogs: ApiAuditLogRow[];
@@ -714,4 +731,68 @@ export const reviewAdminWorkerVerification = async (
     }
   );
   return mapLaunchState(state);
+};
+
+interface AdminWorkerSupportConversationRow {
+  conversation_id: string | null;
+  worker_id: string;
+  title: string | null;
+  subtitle: string | null;
+  last_message_at?: string | null;
+  unread_count: number | string | null;
+}
+
+interface AdminWorkerSupportMessageRow {
+  id: string;
+  conversation_id: string;
+  sender: "admin" | "craftsman";
+  text: string;
+  created_at: string;
+}
+
+export const loadAdminWorkerSupportConversation = async (workerId: string) => {
+  const client = createSupabaseRestClient();
+  const row = await client.rpc<AdminWorkerSupportConversationRow>(
+    "get_admin_worker_support_conversation",
+    { p_worker_id: workerId }
+  );
+  return {
+    conversationId: row.conversation_id,
+    workerId: row.worker_id,
+    title: row.title || "Shenage მხარდაჭერა",
+    subtitle: row.subtitle || "",
+    lastMessageAt: row.last_message_at || null,
+    unreadCount: Number(row.unread_count || 0),
+  } as AdminWorkerSupportConversation;
+};
+
+export const loadAdminWorkerSupportMessages = async (workerId: string) => {
+  const client = createSupabaseRestClient();
+  const rows = await client.rpc<AdminWorkerSupportMessageRow[]>(
+    "list_admin_worker_support_messages",
+    { p_worker_id: workerId }
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    conversationId: row.conversation_id,
+    sender: row.sender,
+    text: row.text,
+    createdAt: row.created_at,
+  })) as AdminWorkerSupportMessage[];
+};
+
+export const sendAdminWorkerSupportMessage = async (workerId: string, text: string) => {
+  const client = createSupabaseRestClient();
+  return client.rpc<{ conversation_id: string; message_id: string }>(
+    "send_admin_worker_support_message",
+    { p_worker_id: workerId, p_text: text }
+  );
+};
+
+export const markAdminWorkerSupportRead = async (workerId: string) => {
+  const client = createSupabaseRestClient();
+  return client.rpc<{ conversation_id: string | null; updated: boolean }>(
+    "mark_admin_worker_support_read",
+    { p_worker_id: workerId }
+  );
 };
