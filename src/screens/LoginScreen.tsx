@@ -288,8 +288,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
       <div className="auth-content fade-up">
         <div className="auth-brand">
-          <div className="auth-logo">🔨</div>
-          <span>Shenage</span>
+          <img
+            src="/shenage-symbol-traced.svg"
+            alt=""
+            className="auth-logo"
+          />
+          <div className="auth-brand-copy">
+            <span>შენაგე</span>
+            <small>შენი სახლი. მარჯვე ხელში.</small>
+          </div>
         </div>
 
         {step === "recovery-request" ? (

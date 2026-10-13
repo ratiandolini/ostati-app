@@ -6,5 +6,18 @@
   "display": "standalone",
   "theme_color": "#17233a",
   "background_color": "#f8fafc",
-  "icons": []
+  "icons": [
+    {
+      "src": "shenage-icon-light-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "shenage-icon-dark-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
