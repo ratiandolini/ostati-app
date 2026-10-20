@@ -28,6 +28,8 @@ export const allAdminTabs: Array<[AdminTab, string]> = [
   ["verification", "ვერიფიკაცია"],
   ["bookings", "ჯავშნები"],
   ["disputes", "დავები"],
+  ["finance", "ფინანსები"],
   ["users", "ხელოსნები"],
   ["settings", "პარამეტრები"],
+  ["audit", "ისტორია"],
 ];

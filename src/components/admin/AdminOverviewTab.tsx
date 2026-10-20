@@ -177,10 +177,10 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                     <div style={{ color: item.ready ? "#047857" : "#c2410c", fontSize: 11, fontWeight: 950 }}>
                       {item.ready ? "მზადაა" : "დასასრულებელია"}
                     </div>
-                    <div style={{ marginTop: 3, color: "var(--text)", fontSize: 12, fontWeight: 950, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ marginTop: 3, color: "var(--text)", fontSize: 12, fontWeight: 950, lineHeight: 1.35, overflowWrap: "anywhere" }}>
                       {item.label}
                     </div>
-                    <div style={{ marginTop: 2, color: "var(--text3)", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ marginTop: 2, color: "var(--text3)", fontSize: 10, fontWeight: 800, lineHeight: 1.35, overflowWrap: "anywhere" }}>
                       {item.detail}
                     </div>
                   </button>
