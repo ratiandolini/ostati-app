@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { apiE2EConfigurationError } from "./environment";
 
 const configurationError = apiE2EConfigurationError();

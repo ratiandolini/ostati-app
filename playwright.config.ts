@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { isVercelPreview } from "./scripts/e2e-vercel-protection.mjs";
 
 const e2eMode = process.env.E2E_MODE === "api" ? "api" : "demo";
 const requestedBaseUrl = process.env.E2E_BASE_URL;
@@ -14,6 +15,8 @@ if (e2eMode === "api" && !requestedBaseUrl) {
   throw new Error("API E2E requires E2E_BASE_URL for an isolated test deployment.");
 }
 
+const protectedPreview = e2eMode === "api" && isVercelPreview(configuredUrl);
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: e2eMode === "demo",
@@ -22,7 +25,8 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: configuredUrl,
-    trace: "retain-on-failure",
+    // A protected Preview request carries a local-only bypass header. Never capture it in a trace.
+    trace: protectedPreview ? "off" : "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },

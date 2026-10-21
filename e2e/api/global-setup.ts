@@ -7,10 +7,14 @@ const activeRunPath = join(process.cwd(), ".e2e", "api-suite-active");
 
 export default async function globalSetup() {
   assertApiE2EEnvironment();
-  const { assertIsolatedFrontendTarget } = await import("../../scripts/e2e-frontend-target.mjs");
+  const [{ assertIsolatedFrontendTarget }, { getVercelBypassHeaders }] = await Promise.all([
+    import("../../scripts/e2e-frontend-target.mjs"),
+    import("../../scripts/e2e-vercel-protection.mjs"),
+  ]);
   await assertIsolatedFrontendTarget({
     appUrl: process.env.E2E_BASE_URL!,
     testSupabaseUrl: process.env.E2E_TEST_SUPABASE_URL!,
+    requestHeaders: getVercelBypassHeaders(process.env.E2E_BASE_URL!),
   });
   execFileSync(process.execPath, ["scripts/e2e-api-fixtures.mjs", "setup"], {
     cwd: process.cwd(),

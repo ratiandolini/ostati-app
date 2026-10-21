@@ -46,3 +46,28 @@ test("rejects a bundle with no isolated Supabase target", async () => {
     /does not reference the configured isolated Supabase project/
   );
 });
+
+test("forwards Preview access headers to the document and JavaScript bundle", async () => {
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({ url, options });
+    return url === `${appUrl}/`
+      ? response('<script src="/static/js/main.js"></script>')
+      : response(`const supabaseUrl = "${testUrl}";`);
+  };
+
+  await assert.doesNotReject(() =>
+    assertIsolatedFrontendTarget({
+      appUrl,
+      testSupabaseUrl: testUrl,
+      fetchImpl,
+      requestHeaders: { "x-vercel-protection-bypass": "test-only" },
+    })
+  );
+
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests.map((request) => request.options.headers), [
+    { "x-vercel-protection-bypass": "test-only" },
+    { "x-vercel-protection-bypass": "test-only" },
+  ]);
+});

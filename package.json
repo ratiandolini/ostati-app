@@ -33,7 +33,7 @@
     "test:e2e": "node scripts/run-e2e.mjs chromium",
     "test:e2e:all": "node scripts/run-e2e.mjs all",
     "test:e2e:api": "node scripts/run-e2e.mjs api",
-    "test:e2e:guards": "node --test scripts/e2e-frontend-target.test.mjs scripts/e2e-api-fixtures.test.mjs",
+    "test:e2e:guards": "node --test scripts/e2e-frontend-target.test.mjs scripts/e2e-api-fixtures.test.mjs scripts/e2e-vercel-protection.test.mjs",
     "test:e2e:install-browsers": "playwright install chromium firefox webkit",
     "eject": "react-scripts eject"
   },

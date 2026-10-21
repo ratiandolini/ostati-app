@@ -14,3 +14,8 @@ the test-only variables listed in `supabase/e2e/README.md`. Store disposable
 account credentials and the test project's service-role key only in the CI secret
 store, never in this repository. The API runner rejects the production project
 reference and production domain.
+
+For a Vercel-protected isolated Preview, set `VERCEL_AUTOMATION_BYPASS_SECRET`
+only in the local or CI process environment. The API runner requires it for a
+`.vercel.app` Preview, forwards it only to that Preview origin, disables traces
+for that run, and never adds it to browser URLs or frontend build variables.
