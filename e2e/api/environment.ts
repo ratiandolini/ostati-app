@@ -1,4 +1,5 @@
 const productionProjectRefs = new Set(["ucyglqpzpszeyejifobh"]);
+const testProjectRef = "ivguranttkxhxsdsppqk";
 
 const required = [
   "E2E_BASE_URL",
@@ -26,6 +27,7 @@ export const apiE2EConfigurationError = () => {
   const supabaseUrl = new URL(process.env.E2E_TEST_SUPABASE_URL!);
   const appUrl = new URL(process.env.E2E_BASE_URL!);
   if (productionProjectRefs.has(projectRef)) return "The production Supabase project is forbidden for E2E";
+  if (projectRef !== testProjectRef) return `E2E must use the dedicated test project ${testProjectRef}`;
   if (appUrl.hostname === "shenage.ge" || appUrl.hostname.endsWith(".shenage.ge")) {
     return "The production Shenage domain is forbidden for API E2E";
   }

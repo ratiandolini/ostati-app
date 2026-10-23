@@ -1,3 +1,5 @@
+import { TEST_PROJECT_REF } from "./e2e-test-db-installer.mjs";
+
 const productionProjectRefs = new Set(["ucyglqpzpszeyejifobh"]);
 const productionDomains = new Set(["shenage.ge"]);
 
@@ -36,6 +38,7 @@ export const assertIsolatedFrontendTarget = async ({ appUrl, testSupabaseUrl, fe
 
   if (isProductionAppHost(app.hostname)) fail("the production Shenage domain is forbidden");
   if (productionProjectRefs.has(testProjectRef)) fail("the production Supabase project is forbidden");
+  if (testProjectRef !== TEST_PROJECT_REF) fail("the configured isolated Supabase project is not the dedicated test project");
   if (new URL(testSupabaseOrigin).hostname !== `${testProjectRef}.supabase.co`) {
     fail("the test Supabase URL does not match its project reference");
   }
@@ -47,6 +50,10 @@ export const assertIsolatedFrontendTarget = async ({ appUrl, testSupabaseUrl, fe
 
   if (productionTargets.some((target) => deployedSource.includes(target))) {
     fail("the frontend bundle references the production Supabase project");
+  }
+  const bundledProjectRefs = [...deployedSource.matchAll(/https:\/\/([a-z0-9]+)\.supabase\.co/gi)].map((match) => match[1]);
+  if (bundledProjectRefs.some((ref) => ref !== TEST_PROJECT_REF)) {
+    fail("the frontend bundle references a different Supabase project");
   }
   if (!deployedSource.includes(testSupabaseOrigin) && !deployedSource.includes(testProjectRef)) {
     fail("the frontend bundle does not reference the configured isolated Supabase project");

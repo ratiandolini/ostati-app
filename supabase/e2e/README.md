@@ -7,7 +7,12 @@ project.
 ## One-time setup
 
 1. Create an empty Supabase project dedicated to Shenage automated tests.
-2. Apply the fresh-install sequence in `supabase/RUNBOOK.md`, steps 1-31.
+2. Apply the fresh-install sequence in `supabase/RUNBOOK.md`, steps 1-31,
+   with these test-only dependency corrections: create `platform_settings`
+   using the table definition from `admin_launch_actions.sql` before
+   `payment_workflow.sql`, and apply `public_catalog.sql` immediately before
+   `free_craftsmen_security_hotfix.sql` (omit its later occurrence). The full
+   `admin_launch_actions.sql` still runs in its original later position.
 3. Apply `supabase/e2e/e2e_admin_owner_access.sql`. Do not run the production
    `admin_owner_access.sql`: it contains a production allow-list identity.
 4. Apply the active post-runbook changes in this order:
@@ -34,6 +39,31 @@ project.
    The API E2E runner reads its JavaScript bundles before fixture creation and
    fails unless they reference this exact isolated Supabase project.
 
+### Automated fresh install
+
+The test-only installer encodes this dependency-corrected order and rejects every project
+except `ivguranttkxhxsdsppqk`. It never accepts the production project reference.
+It is for a fresh database only. The existing TEST database has completed SQL Editor
+Stages 01-09. Do not run the fresh installer, repeat any stage, or replay the
+historical Stage 5 marker repair in `sql-editor-bundle/README.md`.
+
+First validate the plan without connecting to a database:
+
+```text
+E2E_TEST_PROJECT_REF=ivguranttkxhxsdsppqk
+E2E_TEST_SUPABASE_URL=https://ivguranttkxhxsdsppqk.supabase.co
+npm run e2e:db:dry-run
+```
+
+For an actual fresh install, provide a direct or pooler PostgreSQL URL only in
+the local/CI process environment as `E2E_TEST_DATABASE_URL`, then run
+`npm run e2e:db:install`. The installer requires explicit project confirmation,
+checks that `public.users` is absent before it starts, uses a transaction per SQL
+file where compatible, stops on the first error, and writes the E2E opt-in row
+only after the SQL plan succeeds. It uses the Node.js `pg` client and does not
+require `psql`, Docker, or a paid service. Do not use it on an existing or
+production database.
+
 The legacy `hotfix_profile_admin_storage.sql` is deliberately excluded: the
 fresh-install sequence already applies its current capabilities. Historical repair
 scripts are not a migration ledger and must not be replayed blindly.
@@ -44,8 +74,8 @@ Store these only in CI/local secret storage, never in `.env` committed to Git:
 
 ```text
 E2E_BASE_URL=https://isolated-e2e-app.example
-E2E_TEST_PROJECT_REF=your-test-project-ref
-E2E_TEST_SUPABASE_URL=https://your-test-project-ref.supabase.co
+E2E_TEST_PROJECT_REF=ivguranttkxhxsdsppqk
+E2E_TEST_SUPABASE_URL=https://ivguranttkxhxsdsppqk.supabase.co
 E2E_TEST_SUPABASE_ANON_KEY=...
 E2E_TEST_SERVICE_ROLE_KEY=...
 E2E_CLIENT_EMAIL=...

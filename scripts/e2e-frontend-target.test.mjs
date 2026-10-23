@@ -3,7 +3,7 @@ import test from "node:test";
 import { assertIsolatedFrontendTarget } from "./e2e-frontend-target.mjs";
 
 const appUrl = "https://shenage-e2e.example";
-const testUrl = "https://ivquranttkxhxsdspqk.supabase.co";
+const testUrl = "https://ivguranttkxhxsdsppqk.supabase.co";
 
 const response = (body) => ({ ok: true, status: 200, text: async () => body });
 
@@ -44,6 +44,25 @@ test("rejects a bundle with no isolated Supabase target", async () => {
   await assert.rejects(
     () => assertIsolatedFrontendTarget({ appUrl, testSupabaseUrl: testUrl, fetchImpl }),
     /does not reference the configured isolated Supabase project/
+  );
+});
+
+test("rejects the superseded test project as the configured target", async () => {
+  await assert.rejects(
+    () => assertIsolatedFrontendTarget({ appUrl, testSupabaseUrl: "https://ivquranttkxhxsdspqk.supabase.co" }),
+    /not the dedicated test project/
+  );
+});
+
+test("rejects a bundle that contains both the dedicated and a different Supabase project", async () => {
+  const fetchImpl = async (url) =>
+    url === `${appUrl}/`
+      ? response('<script src="/static/js/main.js"></script>')
+      : response(`const current = "${testUrl}"; const stale = "https://ivquranttkxhxsdspqk.supabase.co";`);
+
+  await assert.rejects(
+    () => assertIsolatedFrontendTarget({ appUrl, testSupabaseUrl: testUrl, fetchImpl }),
+    /references a different Supabase project/
   );
 });
 

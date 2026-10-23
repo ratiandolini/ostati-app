@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { assertIsolatedFrontendTarget } from "./e2e-frontend-target.mjs";
+import { TEST_PROJECT_REF } from "./e2e-test-db-installer.mjs";
+import { getVercelBypassHeaders } from "./e2e-vercel-protection.mjs";
 
 const productionProjectRefs = new Set(["ucyglqpzpszeyejifobh"]);
 const stateDirectory = join(process.cwd(), ".e2e");
@@ -19,11 +21,26 @@ export const createAdminMemberPayload = (userId) => ({
   active: true,
 });
 
+export const createFixtureFrontendTargetFetch = (appUrl, fetchImpl = fetch) => {
+  const protectedOrigin = new URL(appUrl).origin;
+  const bypassHeaders = getVercelBypassHeaders(appUrl);
+
+  return (url, options = {}) => {
+    const requestUrl = new URL(url, appUrl);
+    const headers =
+      requestUrl.origin === protectedOrigin
+        ? { ...(options.headers || {}), ...bypassHeaders }
+        : options.headers;
+
+    return fetchImpl(url, { ...options, headers });
+  };
+};
+
 const fail = (message) => {
   throw new Error(`E2E fixture safety check failed: ${message}`);
 };
 
-const requireEnvironment = () => {
+export const validateFixtureEnvironment = (environment) => {
   const names = [
     "E2E_BASE_URL",
     "E2E_TEST_PROJECT_REF",
@@ -36,17 +53,20 @@ const requireEnvironment = () => {
     "E2E_ADMIN_EMAIL",
     "E2E_ADMIN_PASSWORD",
   ];
-  for (const name of names) if (!process.env[name]) fail(`missing ${name}`);
-  if (process.env.E2E_ALLOW_TEST_FIXTURES !== "isolated-project-only") {
+  for (const name of names) if (!environment[name]) fail(`missing ${name}`);
+  if (environment.E2E_ALLOW_TEST_FIXTURES !== "isolated-project-only") {
     fail("E2E_ALLOW_TEST_FIXTURES must be isolated-project-only");
   }
 
-  const projectRef = process.env.E2E_TEST_PROJECT_REF;
-  const url = new URL(process.env.E2E_TEST_SUPABASE_URL);
+  const projectRef = environment.E2E_TEST_PROJECT_REF;
+  const url = new URL(environment.E2E_TEST_SUPABASE_URL);
   if (productionProjectRefs.has(projectRef)) fail("the production project is forbidden");
+  if (projectRef !== TEST_PROJECT_REF) fail(`expected the dedicated test project ${TEST_PROJECT_REF}`);
   if (url.hostname !== `${projectRef}.supabase.co`) fail("URL does not match the declared test project ref");
-  return { projectRef, baseUrl: url.origin, key: process.env.E2E_TEST_SERVICE_ROLE_KEY };
+  return { projectRef, baseUrl: url.origin, key: environment.E2E_TEST_SERVICE_ROLE_KEY };
 };
+
+const requireEnvironment = () => validateFixtureEnvironment(process.env);
 
 const request = async ({ baseUrl, key }, path, options = {}) => {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -151,9 +171,11 @@ const loadFixtureState = () => {
 
 const setup = async () => {
   const config = requireEnvironment();
+  const appUrl = process.env.E2E_BASE_URL;
   await assertIsolatedFrontendTarget({
-    appUrl: process.env.E2E_BASE_URL,
+    appUrl,
     testSupabaseUrl: process.env.E2E_TEST_SUPABASE_URL,
+    fetchImpl: createFixtureFrontendTargetFetch(appUrl),
   });
   await rpc(config, "e2e_assert_isolated_test_environment", { p_project_ref: config.projectRef });
 
